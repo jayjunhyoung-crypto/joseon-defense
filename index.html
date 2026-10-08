@@ -502,6 +502,19 @@ body.in-lobby .gearbtn{display:grid}
 #coCode{text-transform:uppercase;letter-spacing:.3em;text-align:center}
 .co-code{font-family:var(--f-brush);font-size:56px;letter-spacing:.18em;text-align:center;margin:6px 0 0;color:#ffe6a0}
 .co-who{text-align:center;font-size:15px;margin:8px 0}
+.ov-save{z-index:72}
+.ov-save .card{max-width:380px;gap:8px;text-align:left}
+.ov-save .title{text-align:center;margin:0}
+.sv-h{margin:8px 0 0;font-weight:400;font-size:16px;color:var(--dan-gold)}
+.sv-l{line-height:1.45}
+.sv-box{width:100%;box-sizing:border-box;background:var(--panel-3);border:1px solid var(--line);border-radius:10px;color:var(--hanji);padding:8px 10px;font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;resize:none;word-break:break-all;-webkit-user-select:text;user-select:text}
+.sv-in{font-size:16px}
+.sv-btn{width:100%}
+.sv-pend{display:flex;flex-direction:column;gap:2px;background:rgba(47,90,72,.35);border:1px solid rgba(120,200,160,.35);border-radius:10px;padding:8px 10px;font-size:13px}
+.sv-pend b{font-weight:400;color:#bfe9cf}
+.sv-note{margin:0;font-size:13px;color:#ffd98a;text-align:center}
+.sp-sub{display:block;font-size:11px;color:var(--hanji-dim)}
+.linkbtn{background:none;border:0;padding:0;margin:0;color:#ffd98a;text-decoration:underline;font:inherit;cursor:pointer}
 .coopbox{position:fixed;left:8px;top:calc(var(--hud-h,108px) + 4px);z-index:4;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
 .coopbox[hidden]{display:none}
 .coopbox canvas{border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer}
@@ -624,6 +637,7 @@ body.in-lobby .gearbtn{display:grid}
 </section>
 
 <section class="ov ov-end ov-coop" id="coopOv" hidden><div class="card" id="coopCard"></div></section>
+<section class="ov ov-end ov-coop ov-save" id="saveOv" hidden><div class="card" id="saveCard" role="dialog" aria-label="기록 옮기기"></div></section>
 <div class="coopbox" id="coopBox" hidden><canvas id="coopCv" aria-label="친구 마당"></canvas><button class="btn-sm" id="coopGift" type="button">엽전 보내기</button></div>
 <section class="ov ov-end" id="rewardOv" hidden>
   <div class="card">
@@ -5843,6 +5857,7 @@ function mergeSaves(a, b) {
   for (const id in other.lv) m.lv[id] = Math.max(m.lv[id] || 1, other.lv[id] || 1);
   for (const k of ['seen', 'foes', 'ach', 'stageClear', 'clear40', 'road']) { m[k] = m[k] || {}; for (const id in other[k] || {}) if (other[k][id]) m[k][id] = m[k][id] || other[k][id]; }
   m.relics = m.relics || {}; for (const id in other.relics || {}) m.relics[id] = Math.max(m.relics[id] || 0, other.relics[id] || 0);
+  m.rlv = m.rlv || {}; for (const id in other.rlv || {}) m.rlv[id] = Math.max(m.rlv[id] || 0, other.rlv[id] || 0);
   m.bossBest = m.bossBest || {}; for (const id in other.bossBest || {}) m.bossBest[id] = Math.max(m.bossBest[id] || 0, other.bossBest[id] || 0);
   for (const id in other.made) m.made[id] = Math.max(m.made[id] || 0, other.made[id] || 0);
   for (const id in other.stageBest) m.stageBest[id] = Math.max(m.stageBest[id] || 0, other.stageBest[id] || 0);
@@ -5908,6 +5923,31 @@ async function cloudSave() {
   CLOUD.busy = false;
   if (CLOUD.pending) { CLOUD.pending = false; cloudSave(); }
 }
+
+/* 저장 코드: the whole save as one line of text, so progress can move to a phone, another browser or the no-login copy of the game */
+const CODE_Z = 'JD1.', CODE_RAW = 'JD0.';
+function b64u(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function unb64u(t) { const s = atob(t.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((t.length + 3) % 4)); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+async function pipeBytes(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+async function saveCode() {
+  const s = JSON.parse(JSON.stringify(SAVE)); delete s.bkDay;
+  const raw = new TextEncoder().encode(JSON.stringify(s));
+  if (typeof CompressionStream === 'function') { try { return CODE_Z + b64u(await pipeBytes(raw, new CompressionStream('deflate-raw'))); } catch (err) { /* plain code below */ } }
+  return CODE_RAW + b64u(raw);
+}
+/* chat apps wrap long lines, so every space and line break is dropped before reading */
+async function readCode(text) {
+  const t = String(text || '').replace(/\s+/g, '');
+  let bytes;
+  if (t.startsWith(CODE_Z)) { if (typeof DecompressionStream !== 'function') throw new Error('old'); bytes = await pipeBytes(unb64u(t.slice(4)), new DecompressionStream('deflate-raw')); }
+  else if (t.startsWith(CODE_RAW)) bytes = unb64u(t.slice(4));
+  else throw new Error('tag');
+  const s = migrate(JSON.parse(new TextDecoder().decode(bytes)));
+  if (!s || !s.stats || !s.lv) throw new Error('bad');
+  return s;
+}
+/* a code never takes progress away: it is combined like the cloud copy, the side with more games leads */
+function importSave(s) { SAVE = mergeSaves(s, SAVE); persist(); onSaveLoaded(); }
 
 /* levels */
 const lvOf = id => SAVE.lv[id] || 1;
@@ -7217,11 +7257,11 @@ function renderTab() {
   }
 }
 function syncText() {
-  const st = CLOUD.state;
-  if (st === 'ok') return '<span class="sync ok"></span>Claude 계정에 저장됐어요. 다른 기기에서도 이어지고, 게임이 업데이트돼도 그대로예요';
+  const st = CLOUD.state, mv = ' <button class="linkbtn" type="button" data-savecode="1">기록 옮기기</button>';
+  if (st === 'ok') return '<span class="sync ok"></span>Claude 계정에 저장됐어요. 다른 기기에서도 이어지고, 게임이 업데이트돼도 그대로예요.' + mv;
   if (st === 'loading' || st === 'idle') return '<span class="sync wait"></span>Claude 계정에서 기록을 불러오는 중이에요';
-  if (st === 'error') return '<span class="sync bad"></span>지금은 계정 저장이 안 돼서 이 브라우저에만 저장하고 있어요. 화면을 한 번 누르면 다시 시도해요';
-  return '<span class="sync bad"></span>이 브라우저에만 저장하고 있어요';
+  if (st === 'error') return '<span class="sync bad"></span>지금은 계정 저장이 안 돼서 이 브라우저에만 저장하고 있어요. 화면을 한 번 누르면 다시 시도해요.' + mv;
+  return '<span class="sync bad"></span>기록은 이 브라우저에 저장돼요. 폰이나 다른 컴퓨터에서 이어 하려면' + mv;
 }
 onCloudState = () => { const n = document.getElementById('syncLine'); if (n) n.innerHTML = syncText(); };
 function centerOf(node) { const r = node.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
@@ -7463,7 +7503,8 @@ function renderSettings() {
     <div class="sp-row"><span>유닛 이름 보기</span><button class="tog${R.names ? ' on' : ''}" type="button" data-sp="names">${R.names ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>궁극기 연출</span><button class="tog${R.cutin ? ' on' : ''}" type="button" data-sp="cut">${R.cutin ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>화질</span><button class="tog on" type="button" data-sp="q">${QUALITY[R.q].name}</button></div>
-    <div class="sp-row"><span>그림</span><button class="tog on" type="button" data-sp="pix">${PIXEL ? '도트' : '선명'}</button></div>`;
+    <div class="sp-row"><span>그림</span><button class="tog on" type="button" data-sp="pix">${PIXEL ? '도트' : '선명'}</button></div>
+    <div class="sp-row"><span>기록 옮기기<small class="sp-sub">폰, 다른 컴퓨터로</small></span><button class="tog on" type="button" data-sp="code">저장 코드</button></div>`;
 }
 function placeSettings() {
   if (!setAnchor) return;
@@ -7479,6 +7520,7 @@ setPanel.addEventListener('click', e => {
   if (e.target.closest('#spClose')) { closeSettings(); return; }
   const b = e.target.closest('[data-sp]'); if (!b) return;
   const k = b.dataset.sp;
+  if (k === 'code') { openSaveCode(); return; }
   if (k === 'on') { setSound(!AU.on); if (AU.on && R.lobby) musicMode('title'); }
   else if (k === 'mus') setAudio({ mus: !AU.cfg.mus });
   else if (k === 'fx') { setAudio({ fx: !AU.cfg.fx }); if (AU.cfg.fx) sfx('tap'); }
@@ -7492,10 +7534,64 @@ setPanel.addEventListener('input', e => { const v = e.target.dataset && e.target
 setPanel.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.vol === 'fxV') sfx('tap'); });
 document.addEventListener('pointerdown', e => { if (setPanel.hidden) return; if (setPanel.contains(e.target) || (setAnchor && setAnchor.contains(e.target))) return; closeSettings(); }, true);
 window.addEventListener('resize', placeSettings);
+/* ---------- 기록 옮기기: the save as a code to copy out, and a box to paste one in ---------- */
+const saveOv = $('saveOv'), saveCard = $('saveCard');
+const SV = { code: '', pend: null, note: '', busy: false };
+const saveSum = s => `${fmtC(s.stats.games || 0)}판 · 고을 ${(s.stageMax || 0) + 1}곳 · 레벨 올린 동료 ${Object.values(s.lv || {}).filter(v => v > 1).length}명 · 은전 ${fmtC(s.silver || 0)} · 옥 ${fmtC(s.jade || 0)}`;
+async function refreshCode() { try { SV.code = await saveCode(); } catch (err) { SV.code = ''; SV.note = '코드를 만들지 못했어요'; } renderSaveCode(); }
+function openSaveCode() { closeSettings(); auInit(); saveOv.hidden = false; SV.pend = null; SV.note = ''; SV.code = ''; renderSaveCode(); refreshCode(); }
+function closeSaveCode() { saveOv.hidden = true; SV.pend = null; }
+function renderSaveCode() {
+  const inRun = !R.lobby, keep = $('svIn') ? $('svIn').value : '';
+  const inPart = SV.pend
+    ? `<div class="sv-pend"><b>이 코드의 기록</b><span>${esc(saveSum(SV.pend))}</span></div>
+      <p class="meta sv-l">지금 기록과 합쳐요. 더 많이 한 쪽을 기준으로 하고, 레벨과 도감, 고을, 유물 레벨은 높은 쪽이 남아요. 기록이 줄어드는 일은 없어요</p>
+      <div class="two"><button class="btn-main" id="svApply" type="button">가져오기</button><button class="btn-sub" id="svCancel" type="button">취소</button></div>`
+    : `<textarea class="sv-box sv-in" id="svIn" rows="3" placeholder="다른 곳에서 복사한 코드를 여기에 붙여넣어요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+      <button class="btn-sub" id="svRead" type="button" ${inRun || SV.busy ? 'disabled' : ''}>${inRun ? '판이 끝나고 넣을 수 있어요' : SV.busy ? '읽는 중…' : '코드 읽기'}</button>`;
+  saveCard.innerHTML = `<h2 class="title" style="font-size:34px">기록 옮기기</h2>
+    <p class="meta">폰이든 컴퓨터든 이 코드만 있으면 기록이 그대로 옮겨져요. 카톡 나와의 채팅이나 메모에 붙여두면 백업도 돼요</p>
+    <h3 class="sv-h">내 저장 코드</h3>
+    <p class="meta sv-l">${esc(saveSum(SAVE))}</p>
+    <textarea class="sv-box" id="svOut" rows="3" readonly>${esc(SV.code || '만드는 중…')}</textarea>
+    <div class="${navigator.share ? 'two' : ''}"><button class="btn-main sv-btn" id="svCopy" type="button" ${SV.code ? '' : 'disabled'}>복사하기</button>${navigator.share ? `<button class="btn-sub" id="svShare" type="button" ${SV.code ? '' : 'disabled'}>보내기</button>` : ''}</div>
+    <h3 class="sv-h">코드 넣기</h3>
+    ${inPart}
+    ${SV.note ? `<p class="sv-note">${esc(SV.note)}</p>` : ''}
+    <button class="btn-sub" id="svClose" type="button">닫기</button>`;
+  if (keep && $('svIn')) $('svIn').value = keep;
+}
+async function copyText(txt, ta) {
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(txt); return true; } } catch (err) { /* some frames block the clipboard */ }
+  try { ta.removeAttribute('readonly'); ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length); const ok = document.execCommand('copy'); ta.setAttribute('readonly', ''); if (ok) return true; } catch (err) { /* ignore */ }
+  return false;
+}
+saveOv.addEventListener('click', async e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.id === 'svClose') closeSaveCode();
+  else if (t.id === 'svCopy') { const ok = await copyText(SV.code, $('svOut')); if (ok) { toast('저장 코드를 복사했어요'); sfx('tap'); } else { const ta = $('svOut'); ta.focus(); ta.select(); toast('코드를 길게 눌러 전체 선택한 뒤 복사해 주세요'); } }
+  else if (t.id === 'svShare') { try { await navigator.share({ title: '조선 디펜스 저장 코드', text: SV.code }); } catch (err) { if (!err || err.name !== 'AbortError') toast('보내기가 안 돼서 복사로 해 주세요'); } }
+  else if (t.id === 'svRead') {
+    const txt = ($('svIn').value || '').trim(); if (!txt) { toast('코드를 먼저 붙여넣어 주세요'); return; }
+    SV.busy = true; SV.note = ''; renderSaveCode();
+    try { SV.pend = await readCode(txt); }
+    catch (err) { SV.note = err && err.message === 'old' ? '이 브라우저가 오래돼서 코드를 못 읽어요. 브라우저를 업데이트해 주세요' : '코드가 맞지 않아요. 처음부터 끝까지 다 복사됐는지 확인해 주세요'; }
+    SV.busy = false; renderSaveCode();
+  }
+  else if (t.id === 'svCancel') { SV.pend = null; renderSaveCode(); }
+  else if (t.id === 'svApply') {
+    if (!SV.pend || !R.lobby) return;
+    importSave(SV.pend); SV.pend = null; SV.note = '기록을 가져왔어요!';
+    sfx('merge', 3); toast('기록을 가져왔어요'); await refreshCode();
+  }
+});
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-savecode]')) openSaveCode(); });
 el.codexBtn.addEventListener('click', openCodex);
 document.addEventListener('pointerdown', () => { if (!AU.ctx && AU.on) { auInit(); if (R.lobby) musicMode('title'); } if (!CLOUD.ready && CLOUD.state !== 'loading' && CLOUD.state !== 'off') cloudInit(); }, { capture: true });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !setPanel.hidden) { closeSettings(); return; }
+  if (e.key === 'Escape' && !saveOv.hidden) { closeSaveCode(); return; }
+  if (!saveOv.hidden) return;
   if (e.key === 'Escape' && el.coopOv && !el.coopOv.hidden) { closeCoop(); return; }
   if (e.key === 'Escape') { if (R.pickExp) { R.pickExp = false; R.pickSel = []; cache.infoKey = ''; refreshInfo(); return; } if (!el.pouchOv.hidden) { $('pouchOk').click(); return; } if (!el.rewardOv.hidden) $('rwOk').click(); else if (!el.codexOv.hidden) closeCodex(); else if (!el.gsheet.hidden) closeGut(); else if (!el.rsheet.hidden) closeRecipes(); else if (!el.csheet.hidden) closeChal(); return; }
   if (G.phase !== 'play' || !el.codexOv.hidden) return;
@@ -7834,7 +7930,7 @@ window.addEventListener('resize', () => { if (!el.coopBox.hidden) placeCoopBox()
 /* ---------- start the game: everything above is defined by now ---------- */
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
-window.__tal = { COOP, NET, CO, coopBegin, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, mainFam, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, gutOdds, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+window.__tal = { COOP, NET, CO, coopBegin, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, mainFam, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, gutOdds, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 
 })();
 </script>
