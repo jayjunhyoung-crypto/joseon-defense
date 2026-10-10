@@ -502,6 +502,9 @@ body.in-lobby .gearbtn{display:grid}
 #coCode{text-transform:uppercase;letter-spacing:.3em;text-align:center}
 .co-code{font-family:var(--f-brush);font-size:56px;letter-spacing:.18em;text-align:center;margin:6px 0 0;color:#ffe6a0}
 .co-who{text-align:center;font-size:15px;margin:8px 0}
+.co-warn{color:#ffb070}
+.co-note{color:#ffd98a;font-size:13px}
+#coInvite{width:100%;margin-top:8px}
 .ov-save{z-index:72}
 .ov-save .card{max-width:380px;gap:8px;text-align:left}
 .ov-save .title{text-align:center;margin:0}
@@ -7676,7 +7679,7 @@ function boot(data) {
    transport, first that works: the claude.ai room (inside claude.ai), a direct browser to browser link through PeerJS
    (the standalone build, no accounts), or a BroadcastChannel between tabs of this browser (testing) */
 el.coopOv = $('coopOv'); el.coopCard = $('coopCard'); el.coopBox = $('coopBox'); el.coopCv = $('coopCv'); el.coopGift = $('coopGift');
-const NET = { link: null, kind: '', code: '', role: '', peers: new Map() };
+const NET = { link: null, kind: '', code: '', role: '', peers: new Map(), srv: '', err: '' };
 const CO = { nick: '', partner: null, rd: '', giftSent: 0, giftGot: 0, lost: false, ph: 'lobby', sendT: 0, big: false, left: false, imgs: new Map() };
 try { CO.nick = localStorage.getItem('talnori-nick') || ''; } catch (err) { /* ignore */ }
 const COOP_GIFT = 200;
@@ -7701,7 +7704,8 @@ async function netOpen(code) {
       return true;
     }
   } catch (err) { /* fall through */ }
-  if (typeof window.Peer === 'function') { const r = await peerOpen(code); if (r) return r; }
+  /* the no-login page: the internet link or nothing. falling back to same-browser tabs there only hides the failure */
+  if (typeof window.Peer === 'function') return peerOpen(code);
   try {
     const id = Math.random().toString(36).slice(2), bc = new BroadcastChannel('talnori-coop-' + code);
     bc.onmessage = ev => { const m = ev.data; if (!m || m.id === id) return; if (m.bye) NET.peers.delete(m.id); else NET.peers.set(m.id, { presence: m.p || {}, at: Date.now() }); onNet(); };
@@ -7711,36 +7715,93 @@ async function netOpen(code) {
   } catch (err) { NET.link = null; NET.kind = ''; return false; }
 }
 /* outside claude.ai: the two browsers meet on a public PeerJS signalling server and then talk directly (WebRTC).
-   the host claims an id made from the room code; the guest dials it. resolves true, 'taken' (code in use) or false */
+   the host claims an id made from the room code; the guest dials it. resolves true, 'taken' (code in use) or false.
+   phones drop the server link whenever the game goes to the background (sending the code by chat does that),
+   so both sides keep reconnecting, and the guest keeps looking for the host for a minute instead of giving up at once */
+const HUNT_MS = (window.PEER_OPTS && window.PEER_OPTS.hunt) || 60000;
 function peerOpen(code) {
   return new Promise(resolve => {
-    const opts = Object.assign({ debug: 0 }, window.PEER_OPTS || {}), hostId = 'joseon-defense-' + code.toLowerCase(), conns = new Map();
-    let done = false, peer;
+    const opts = Object.assign({ debug: 0 }, window.PEER_OPTS || {}), host = NET.role === 'host', hostId = 'joseon-defense-' + code.toLowerCase(), conns = new Map();
+    let done = false, closed = false, peer = null, huntT0 = 0, dialN = 0, expired = false, iceBad = false, dog = 0;
     const finish = v => { if (!done) { done = true; resolve(v); } };
+    const setSrv = st => { if (NET.srv !== st) { NET.srv = st; if (!el.coopOv.hidden) renderCoop(); } };
+    const stop = () => { closed = true; clearInterval(dog); document.removeEventListener('visibilitychange', onVis); try { if (peer) peer.destroy(); } catch (err) { /* ignore */ } };
+    const lost = () => coopNote(iceBad && !expired ? '방은 찾았는데 연결이 막혔어요. 와이파이를 끄고 데이터로 해 보거나 다른 와이파이로 바꿔 주세요'
+      : '그 코드의 방을 찾지 못했어요. 방장 게임 화면이 켜져 있는지, 둘 다 같은 링크로 들어왔는지 확인해 주세요');
     const wire = c => {
-      c.on('open', () => { conns.set(c.peer, c); NET.peers.set(c.peer, { presence: {}, at: Date.now() }); if (CO.lastSnap) c.send(CO.lastSnap); onNet(); });
-      c.on('data', d => { if (d && typeof d === 'object') { NET.peers.set(c.peer, { presence: d, at: Date.now() }); onNet(); } });
-      c.on('close', () => { conns.delete(c.peer); NET.peers.delete(c.peer); onNet(); });
-      c.on('error', () => {});
+      c.on('open', () => {
+        if (closed) { try { c.close(); } catch (err) { /* ignore */ } return; }
+        /* the newest link wins: a friend who dialled again after a hiccup replaces the stale one */
+        for (const [k, o] of conns) if (o !== c) { conns.delete(k); NET.peers.delete(k); try { o.close(); } catch (err) { /* ignore */ } }
+        conns.set(c.peer, c); NET.peers.set(c.peer, { presence: {}, at: Date.now() }); huntT0 = 0; expired = false; iceBad = false;
+        if (CO.note && CO.note !== '시작해요!') CO.note = '';
+        if (CO.lastSnap) c.send(CO.lastSnap); onNet();
+      });
+      c.on('data', d => { if (d && typeof d === 'object' && conns.get(c.peer) === c) { NET.peers.set(c.peer, { presence: d, at: Date.now() }); onNet(); } });
+      c.on('close', () => {
+        if (conns.get(c.peer) !== c) return;
+        conns.delete(c.peer); NET.peers.delete(c.peer); onNet();
+        if (!host && !closed) { huntT0 = Date.now(); setTimeout(dial, 1500); }
+      });
+      c.on('error', e => { if (e && /negotiation|ice|webrtc/i.test(String(e.type || ''))) iceBad = true; });
     };
-    try { peer = NET.role === 'host' ? new Peer(hostId, opts) : new Peer(opts); } catch (err) { finish(false); return; }
-    peer.on('open', () => {
-      NET.link = { send: obj => { CO.lastSnap = obj; for (const c of conns.values()) if (c.open) c.send(obj); }, close: () => { try { peer.destroy(); } catch (err) { /* ignore */ } } };
-      NET.kind = 'p2p';
-      if (NET.role === 'host') peer.on('connection', c => { if (conns.size >= 1) { c.on('open', () => c.close()); return; } wire(c); });
-      else wire(peer.connect(hostId, { reliable: true, serialization: 'json' }));
-      finish(true);
-    });
-    peer.on('error', e => {
-      if (!done) { finish(e && e.type === 'unavailable-id' ? 'taken' : false); try { peer.destroy(); } catch (err) { /* ignore */ } return; }
-      if (e.type === 'peer-unavailable') coopNote('그 코드의 방을 찾지 못했어요. 코드를 다시 확인해 주세요');
-      else if (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error') coopNote('연결 서버에 닿지 못했어요. 잠시 뒤에 다시 해 주세요');
-    });
-    peer.on('disconnected', () => { if (NET.kind === 'p2p') { try { peer.reconnect(); } catch (err) { /* ignore */ } } });
-    setTimeout(() => finish(false), 9000);
+    const dial = () => {
+      if (closed || host || conns.size || !peer || peer.destroyed || peer.disconnected) return;
+      const n = ++dialN, c = peer.connect(hostId, { reliable: true, serialization: 'json' });
+      wire(c);
+      /* an offer sent while the host's phone was asleep goes nowhere: try again */
+      setTimeout(() => {
+        if (n !== dialN || closed || conns.size || c.open) return;
+        try { c.close(); } catch (err) { /* ignore */ }
+        if (Date.now() - huntT0 < HUNT_MS) dial(); else lost();
+      }, 9000);
+    };
+    const make = () => {
+      const me = host ? new Peer(hostId, opts) : new Peer(opts);
+      peer = me;
+      me.on('open', () => {
+        if (me !== peer || closed) return;
+        setSrv('ok');
+        if (!done) { NET.link = { send: obj => { CO.lastSnap = obj; for (const c of conns.values()) if (c.open) c.send(obj); }, close: stop }; NET.kind = 'p2p'; finish(true); }
+        if (!host && !conns.size) { if (!huntT0) huntT0 = Date.now(); dial(); }
+      });
+      if (host) me.on('connection', c => { if (me === peer && !closed) wire(c); });
+      me.on('error', e => {
+        const t = e && e.type;
+        if (!done) {
+          NET.err = t === 'browser-incompatible' ? '이 브라우저는 같이 하기가 안 돼요. 크롬이나 사파리로 열어 주세요' : '연결 서버에 닿지 못했어요. 와이파이를 바꾸거나 데이터로 다시 해 주세요';
+          finish(t === 'unavailable-id' ? 'taken' : false); stop(); return;
+        }
+        if (me !== peer || closed) return;
+        if (t === 'peer-unavailable') {
+          if (host || conns.size) return;
+          expired = true;
+          if (Date.now() - huntT0 < HUNT_MS) { coopNote('방장을 찾는 중이에요. 방장 게임 화면이 켜져 있어야 해요'); dialN++; setTimeout(dial, 2500); } else lost();
+        } else if (t !== 'webrtc' && t !== 'negotiation-failed') setSrv('re');
+        else iceBad = true;
+      });
+      me.on('disconnected', () => { if (me === peer && !closed) { setSrv('re'); setTimeout(revive, 700); } });
+    };
+    /* every few seconds, and whenever the page comes back to the front: get back on the server */
+    const revive = () => {
+      if (closed || !done) return;
+      try {
+        if (!peer || peer.destroyed) make();
+        else if (peer.disconnected) peer.reconnect();
+      } catch (err) { /* next tick */ }
+    };
+    const onVis = () => {
+      if (document.visibilityState !== 'visible' || closed || !done) return;
+      revive();
+      if (!host && !conns.size) { huntT0 = Date.now(); expired = false; dial(); }
+    };
+    dog = setInterval(revive, 4000);
+    document.addEventListener('visibilitychange', onVis);
+    try { make(); } catch (err) { NET.err = '이 브라우저는 같이 하기가 안 돼요. 크롬이나 사파리로 열어 주세요'; finish(false); stop(); return; }
+    setTimeout(() => { if (!done) { NET.err = '연결 서버에 닿지 못했어요. 와이파이를 바꾸거나 데이터로 다시 해 주세요'; finish(false); stop(); } }, 12000);
   });
 }
-function netClose() { if (NET.link) NET.link.close(); NET.link = null; NET.kind = ''; NET.peers.clear(); CO.partner = null; }
+function netClose() { if (NET.link) NET.link.close(); NET.link = null; NET.kind = ''; NET.srv = ''; NET.peers.clear(); CO.partner = null; }
 
 /* the snapshot this player shows the other */
 function coopSnap() {
@@ -7874,7 +7935,13 @@ function openCoop() { auInit(); el.coopOv.hidden = false; renderCoop(); }
 function closeCoop() { el.coopOv.hidden = true; }
 function renderCoop() {
   const p = CO.partner, S = STAGES[NET.role === 'guest' && p ? (p.st || 0) : (SAVE.stageSel || 0)] || STAGES[0];
-  const how = NET.kind === 'p2p' ? '<p class="meta">인터넷으로 바로 연결돼요 · 친구는 이 게임 링크를 열고 코드만 넣으면 돼요</p>' : NET.kind === 'local' ? '<p class="meta">지금은 이 브라우저의 다른 탭끼리만 연결돼요. 다른 기기의 친구와 하려면 이 페이지를 친구에게 공유해야 해요</p>' : NET.kind === 'room' ? '<p class="meta">실시간 연결 중 · 친구도 이 페이지를 열고 같은 코드로 들어오면 돼요</p>' : '';
+  const GH = 'https://jayjunhyoung-crypto.github.io/joseon-defense/';
+  const p2pHow = NET.role === 'host'
+    ? (NET.srv === 're' ? '<p class="meta co-warn">연결 서버에 다시 붙는 중이에요. 이 화면을 켜 두세요</p>' : '<p class="meta"><span class="sync ok"></span>방이 열려 있어요. 코드를 보낸 뒤 이 화면으로 꼭 돌아와 주세요</p>')
+    : (NET.srv === 're' ? '<p class="meta co-warn">연결 서버에 다시 붙는 중이에요</p>' : '<p class="meta">친구는 이 게임 링크를 열고 코드만 넣으면 돼요</p>');
+  const how = NET.kind === 'p2p' ? p2pHow : NET.kind === 'local' ? '<p class="meta">지금은 이 브라우저의 다른 탭끼리만 연결돼요. 다른 기기의 친구와 하려면 이 페이지를 친구에게 공유해야 해요</p>' : NET.kind === 'room' ? '<p class="meta">실시간 연결 중 · 친구도 이 페이지를 열고 같은 코드로 들어오면 돼요</p>' : '';
+  /* inside claude.ai the room only reaches people who open this same page with an account; the no-login page is a different place */
+  const ghNote = window.claude && (!NET.link || NET.kind === 'room') ? `<p class="meta">친구가 Claude 계정이 없으면 둘 다 <a class="linkbtn" href="${GH}" target="_blank" rel="noopener">로그인 없는 링크</a>로 들어가서 거기서 방을 만들어야 해요. 여기서 만든 방은 그 링크에서 안 보여요</p>` : '';
   let body;
   if (!NET.link) {
     body = `<p class="sub">각자 자기 마당을 지키고, 보스는 체력 하나를 둘이 같이 깎아요. 엽전도 보내줄 수 있어요. 둘 중 한 명이라도 무너지면 같이 끝나요</p>
@@ -7884,13 +7951,13 @@ function renderCoop() {
   } else if (NET.role === 'host') {
     body = `<p class="co-code">${esc(NET.code)}</p><p class="sub">친구에게 이 코드를 알려주세요 · 고을 ${esc(S.name)}</p>
       <p class="co-who">${p ? `<b>${esc(pname())}</b> 들어왔어요` : '친구를 기다리는 중…'}</p>
-      <button class="btn-main" id="coGo" type="button" ${p ? '' : 'disabled'}>같이 시작</button>${how}`;
+      <button class="btn-main" id="coGo" type="button" ${p ? '' : 'disabled'}>같이 시작</button>${NET.kind === 'p2p' && !p ? '<button class="btn-sub" id="coInvite" type="button">초대 링크 보내기</button>' : ''}${how}`;
   } else {
     body = `<p class="co-code">${esc(NET.code)}</p>
       <p class="co-who">${p ? `<b>${esc(pname())}</b>의 방 · 고을 ${esc(S.name)}` : '방장을 찾는 중…'}</p>
       <p class="sub">방장이 시작하면 같이 시작해요</p>${how}`;
   }
-  el.coopCard.innerHTML = `<h2 class="title" style="font-size:38px">친구랑 같이</h2>${body}${CO.note ? `<p class="meta">${esc(CO.note)}</p>` : ''}
+  el.coopCard.innerHTML = `<h2 class="title" style="font-size:38px">친구랑 같이</h2>${body}${CO.note ? `<p class="meta co-note">${esc(CO.note)}</p>` : ''}${ghNote}
     <div class="two">${NET.link ? '<button class="btn-sub" id="coLeave" type="button">방 나가기</button>' : ''}<button class="btn-sub" id="coClose" type="button">닫기</button></div>`;
 }
 async function coopEnter(code, role) {
@@ -7901,7 +7968,8 @@ async function coopEnter(code, role) {
   /* someone else is holding that code right now: pick another */
   for (let k = 0; ok === 'taken' && k < 3; k++) { code = coopCode(); ok = await netOpen(code); }
   ok = ok === true;
-  CO.note = ok ? '' : '연결하지 못했어요';
+  if (!ok || CO.note === '연결하는 중…') CO.note = ok ? '' : (NET.err || '연결하지 못했어요');
+  NET.err = '';
   if (!ok) NET.role = '';
   if (NET.link) NET.link.send(coopSnap());
   renderCoop();
@@ -7912,6 +7980,7 @@ document.addEventListener('click', e => {
   if (t.id === 'coMake') coopEnter(coopCode(), 'host');
   else if (t.id === 'coJoin') { const c = ($('coCode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (c.length !== 4) { toast('코드 네 글자를 넣어 주세요'); return; } coopEnter(c, 'guest'); }
   else if (t.id === 'coGo') coopStart();
+  else if (t.id === 'coInvite') coopInvite();
   else if (t.id === 'coLeave') { netClose(); NET.role = ''; CO.note = ''; renderCoop(); }
   else if (t.id === 'coClose') closeCoop();
 });
@@ -7927,10 +7996,28 @@ window.addEventListener('pagehide', () => netClose());
 function placeCoopBox() { const hud = document.getElementById('hud'); if (hud) el.coopBox.style.top = `${Math.round(hud.getBoundingClientRect().bottom + 4)}px`; }
 window.addEventListener('resize', () => { if (!el.coopBox.hidden) placeCoopBox(); });
 
+/* one tap for the friend: the link carries the room code and joins by itself */
+const joinURL = () => location.origin + location.pathname + '#join=' + NET.code;
+async function coopInvite() {
+  const text = `조선 디펜스 같이 하자! 방 코드 ${NET.code}`, url = joinURL();
+  if (navigator.share) { try { await navigator.share({ title: '조선 디펜스', text, url }); return; } catch (err) { if (err && err.name === 'AbortError') return; } }
+  const tmp = document.createElement('textarea'); tmp.value = `${text}\n${url}`; tmp.style.cssText = 'position:fixed;left:-999px;top:0'; document.body.appendChild(tmp);
+  const ok = await copyText(tmp.value, tmp); tmp.remove();
+  toast(ok ? '초대 링크를 복사했어요. 친구에게 붙여넣어 보내 주세요' : `친구에게 이 주소를 보내 주세요 · ${url}`);
+}
+function joinFromLink() {
+  const m = /[#&]join=([A-Za-z0-9]{4})\b/.exec(location.hash || '');
+  if (!m || typeof window.Peer !== 'function') return;
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (err) { /* ignore */ }
+  const go = () => { if (!R.lobby) { setTimeout(go, 500); return; } openCoop(); const c = $('coCode'); if (c) c.value = m[1].toUpperCase(); coopEnter(m[1].toUpperCase(), 'guest'); };
+  setTimeout(go, 700);
+}
+
 /* ---------- start the game: everything above is defined by now ---------- */
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
-window.__tal = { COOP, NET, CO, coopBegin, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, mainFam, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, gutOdds, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+joinFromLink();
+window.__tal = { COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, mainFam, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, gutOdds, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 
 })();
 </script>
