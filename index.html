@@ -519,6 +519,22 @@ body.in-lobby .gearbtn{display:grid}
 .sp-sub{display:block;font-size:11px;color:var(--hanji-dim)}
 .linkbtn{background:none;border:0;padding:0;margin:0;color:#ffd98a;text-decoration:underline;font:inherit;cursor:pointer}
 .coopbox{position:fixed;left:8px;top:calc(var(--hud-h,108px) + 4px);z-index:4;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.coopbox.is-pill{flex-direction:row;align-items:center}
+/* wide screens (a laptop, an iPad on its side): the yard takes the full height on the left, buttons live in a column on the right */
+:root{--side:392px}
+#sidebg{display:none}
+body.wide:not(.in-lobby) #sidebg{display:block;position:fixed;top:0;right:0;bottom:0;width:var(--side);z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(22,19,31,0),rgba(22,19,31,.9) 18px,rgba(22,19,31,.97));border-left:1px solid rgba(230,178,74,.12)}
+body.wide .hud{left:auto;width:var(--side);box-sizing:border-box;background:none;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 12px 22px}
+body.wide .deck{left:auto;width:var(--side);box-sizing:border-box;background:none;padding:14px 18px calc(env(safe-area-inset-bottom,0px) + 16px) 22px}
+body.wide .hud-in,body.wide .deck-in{max-width:none}
+body.wide .deck-in{gap:9px}
+body.wide .info{height:auto;min-height:72px}
+body.wide .act{padding:10px 6px}
+body.wide .toast{left:calc((100% - var(--side)) / 2)}
+body.wide .banner,body.wide .cutin{right:var(--side)}
+body.wide .ucard.right{right:calc(var(--side) + 8px)}
+body.wide .rsheet{left:auto;width:var(--side);box-sizing:border-box;padding:0 10px}
+body.wide .rsheet-in{max-height:min(74vh,680px)}
 .coopbox[hidden]{display:none}
 .coopbox canvas{border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer}
 .coopbox .btn-sm{font-size:11px;padding:4px 8px}
@@ -535,6 +551,7 @@ body.in-lobby .gearbtn{display:grid}
 
 <canvas id="cv" aria-label="조선 디펜스 마당. 동료를 끌어서 옮기거나 같은 계열 같은 등급 동료 위에 놓아 합치세요"></canvas>
 <div id="vignette" aria-hidden="true"></div>
+<div id="sidebg" aria-hidden="true"></div>
 
 <header class="hud" id="hud">
   <div class="hud-in">
@@ -4164,7 +4181,13 @@ function layout() {
     const wide = W >= 900 && W / H >= 1.25;
     if (wide) { x1 = W - 560; top = H * 0.34; bot = H - 12; }
     else { const sh = document.querySelector('.sheet'), st = sh ? sh.getBoundingClientRect().top : H * 0.55; top = Math.min(H * 0.205, st - 180); bot = st - 2; }
-  } else { top = document.getElementById('hud').getBoundingClientRect().bottom - 8; bot = document.getElementById('deck').getBoundingClientRect().top + 8; }
+  } else {
+    const wide = W >= 1000 && W / H >= 1.2 && H >= 560;
+    document.body.classList.toggle('wide', wide);
+    if (wide) { x1 = W - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--side')) || 392); top = 6; bot = H - 6; }
+    else { top = document.getElementById('hud').getBoundingClientRect().bottom - 8; bot = document.getElementById('deck').getBoundingClientRect().top + 8; }
+  }
+  if (R.lobby) document.body.classList.remove('wide');
   const freeH = Math.max(160, bot - top), ww = WORLD.x1 - WORLD.x0, wh = WORLD.y1 - WORLD.y0;
   R.CS = Math.max(18, Math.min((x1 - x0 - 12) / ww, freeH / wh));
   R.OX = (x0 + x1) / 2 - (WORLD.x0 + WORLD.x1) / 2 * R.CS;
@@ -4172,6 +4195,7 @@ function layout() {
   const scale = R.CS * UNIT_H * 1.3 / 100 * R.DPR;
   if (Math.abs(scale - R.artScale) / scale > 0.12) buildArt(scale);
   buildBG();
+  try { if (el.coopBox && !el.coopBox.hidden) placeCoopBox(); } catch (err) { /* not ready yet */ }
 }
 function seeded(s) { return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 let MAT_PAT = null;
@@ -6796,7 +6820,7 @@ function renderUcard() {
     <dl><dt>잡은 도깨비</dt><dd>${fmtC(killsOf(u))}마리</dd>${earnOf(u) ? `<dt>번 엽전</dt><dd style="color:#f2c94a">+${fmtC(earnOf(u))}</dd>` : ''}<dt>공격력</dt><dd>${fmt(dmg)} ${upTag(dmg, T)}</dd><dt>기본 공격력</dt><dd>${fmt(baseDmg(T))} <small>${dmg > baseDmg(T) + 0.5 ? `${(dmg / baseDmg(T)).toFixed(1)}배` : ''}</small></dd><dt>공격 간격</dt><dd>${iv.toFixed(2)}초</dd><dt>초당 피해</dt><dd>${fmt(dps)} <small>한 마리</small></dd><dt>사거리</dt><dd>${T.range > 50 ? '마당 전체' : rngOf(T, i).toFixed(1) + '칸'}</dd><dt>방식</dt><dd>${hitNote(T)}</dd>${sp ? `<dt>특수</dt><dd>${sp}</dd>` : ''}<dt>팔면</dt><dd>엽전 ${fmtC(Tr.sell)}</dd></dl>
     ${ult ? `<div class="uult">궁극기 ${esc(ult.name)} · ${esc(ult.desc)} · 마나 ${Math.floor(u.mana || 0)}%</div>` : ''}
     ${bl.length ? `<div class="ubuff">받는 효과<br>${bl.join('<br>')}</div>` : ''}${myth ? `<div class="ubuff" style="color:var(--dan-gold)">${esc(myth)}</div>` : ''}`;
-  const top = $('hud').getBoundingClientRect().bottom + 4, bot = $('deck').getBoundingClientRect().top - 6;
+  const wide = document.body.classList.contains('wide'), top = wide ? 8 : $('hud').getBoundingClientRect().bottom + 4, bot = wide ? R.H - 8 : $('deck').getBoundingClientRect().top - 6;
   c.style.top = `${Math.round(top)}px`; c.style.maxHeight = `${Math.max(140, Math.round(bot - top))}px`; c.style.overflow = 'hidden';
   const side = i % COLS <= 2 ? 'right' : 'left';
   c.classList.toggle('right', side === 'right'); c.classList.toggle('left', side === 'left');
@@ -7895,11 +7919,21 @@ function partnerImg(id) {
   return im;
 }
 function drawPartner() {
-  const cvs = el.coopCv, d = Math.min(window.devicePixelRatio || 1, 2), W = CO.big ? 236 : 124, H = Math.round(W * 1.12);
-  if (cvs.width !== Math.round(W * d)) { cvs.width = Math.round(W * d); cvs.height = Math.round(H * d); cvs.style.width = W + 'px'; cvs.style.height = H + 'px'; }
+  const pill = CO.compact && !CO.big;
+  const cvs = el.coopCv, d = Math.min(window.devicePixelRatio || 1, 2), W = pill ? 150 : CO.big ? 236 : CO.wideBox ? 168 : 124, H = pill ? 30 : Math.round(W * 1.12);
+  if (cvs.width !== Math.round(W * d) || cvs.height !== Math.round(H * d)) { cvs.width = Math.round(W * d); cvs.height = Math.round(H * d); cvs.style.width = W + 'px'; cvs.style.height = H + 'px'; }
   const g = cvs.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
   g.fillStyle = 'rgba(18,15,28,.86)'; g.beginPath(); RR(g, 0, 0, W, H, 10); g.fill();
   const p = CO.partner, top = 18;
+  /* a phone has no room beside the yard: one line with the friend's wave and crowd, tap to see their yard */
+  if (pill) {
+    g.textBaseline = 'middle'; g.font = '12px "Jua",sans-serif';
+    if (!p || p.ph !== 'play') { g.fillStyle = '#ffe6a0'; g.textAlign = 'left'; g.fillText(p ? `${pname()} · 기다리는 중` : '친구 연결 끊김', 9, H / 2); return; }
+    g.textAlign = 'left'; g.fillStyle = '#ffe6a0'; g.fillText(`${pname()} · ${p.w}마당`, 9, H / 2 - (p.bh >= 0 ? 2 : 0));
+    g.textAlign = 'right'; g.fillStyle = p.fn >= 80 ? '#ff8a6a' : '#cfc6b4'; g.fillText(`${p.fn || 0}/${BAL.cap} ▾`, W - 8, H / 2 - (p.bh >= 0 ? 2 : 0));
+    if (p.bh >= 0) { g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(9, H - 6, W - 18, 3); g.fillStyle = '#ef5a3a'; g.fillRect(9, H - 6, (W - 18) * p.bh / 100, 3); }
+    return;
+  }
   g.fillStyle = '#ffe6a0'; g.font = `${CO.big ? 13 : 11}px "Jua",sans-serif`; g.textBaseline = 'middle'; g.textAlign = 'left';
   if (!p || p.ph !== 'play') { g.fillText(p ? `${pname()} · 기다리는 중` : '친구 연결 끊김', 8, 10); return; }
   g.fillText(`${pname()} · ${p.w}마당`, 8, 10);
@@ -7984,7 +8018,7 @@ document.addEventListener('click', e => {
   else if (t.id === 'coLeave') { netClose(); NET.role = ''; CO.note = ''; renderCoop(); }
   else if (t.id === 'coClose') closeCoop();
 });
-el.coopCv.addEventListener('click', () => { CO.big = !CO.big; drawPartner(); });
+el.coopCv.addEventListener('click', () => { CO.big = !CO.big; placeCoopBox(); });
 el.coopGift.addEventListener('click', () => {
   if (!COOP.on || G.phase !== 'play') return;
   if (!CO.partner) { toast('친구와 연결이 끊겼어요'); return; }
@@ -7993,7 +8027,16 @@ el.coopGift.addEventListener('click', () => {
 });
 window.addEventListener('pagehide', () => netClose());
 
-function placeCoopBox() { const hud = document.getElementById('hud'); if (hud) el.coopBox.style.top = `${Math.round(hud.getBoundingClientRect().bottom + 4)}px`; }
+/* beside the yard when there is room (laptop, tablet on its side), otherwise a one-line strip under the top bar */
+function placeCoopBox() {
+  const wide = document.body.classList.contains('wide'), hud = document.getElementById('hud');
+  const room = R.OX + WORLD.x0 * R.CS - 12;
+  CO.wideBox = room >= 180; CO.compact = room < 132;
+  el.coopBox.classList.toggle('is-pill', CO.compact && !CO.big);
+  const top = wide ? 10 : hud ? Math.round(hud.getBoundingClientRect().bottom - (CO.compact && !CO.big ? 6 : -4)) : 110;
+  el.coopBox.style.top = `${top}px`;
+  drawPartner();
+}
 window.addEventListener('resize', () => { if (!el.coopBox.hidden) placeCoopBox(); });
 
 /* one tap for the friend: the link carries the room code and joins by itself */
