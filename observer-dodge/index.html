@@ -1,0 +1,1354 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="옵저버의 탐지 범위를 피해 끝까지 살아남는 생존 게임. 방 코드로 친구들과 같이 해요.">
+<meta property="og:title" content="옵저버 피하기">
+<meta property="og:description" content="방 코드 하나로 친구들과 같이 하는 생존 피하기 게임">
+<title>옵저버 피하기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: one screen. A square night field on the left, the mission pane on the right (stacks under the field on phones).
+   Single dark theme on purpose: the whole game is about staying out of the light. */
+:root{
+  --night:#0d1226;
+  --panel:#151c38;
+  --line:#263160;
+  --ink:#eaedfa;
+  --muted:#99a2c8;
+  --lamp:#ffb347;
+  --alarm:#ff5d3a;
+  --safe:#78e0c0;
+  --f-display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+html{height:100%;box-sizing:border-box;background:var(--night)}
+[hidden]{display:none!important}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;background:var(--night);color:var(--ink);font:15px/1.55 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+#app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;padding-inline:16px;padding-block:10px 16px;max-width:1360px;margin-inline:auto}
+
+/* top bar */
+.bar{display:flex;align-items:center;gap:12px 22px;flex-wrap:wrap;min-height:46px}
+.brand{font-family:var(--f-display);font-size:22px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.brand i{width:12px;height:12px;border-radius:50%;background:var(--lamp);box-shadow:0 0 0 4px color-mix(in srgb,var(--lamp) 20%,transparent),0 0 16px color-mix(in srgb,var(--lamp) 70%,transparent)}
+.hud{display:flex;gap:22px;align-items:flex-end;margin-left:auto;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.hud>div{display:grid;line-height:1.1}
+.hud .lbl,.lbl{font-family:var(--f-body);font-size:11.5px;color:var(--muted);letter-spacing:.08em}
+.hud .big{font-size:26px;font-weight:600}
+.hud .mid{font-size:19px;font-weight:600}
+.hud .big small{font-size:13px;color:var(--muted);margin-left:2px;font-weight:500}
+.tag{display:flex;gap:8px;align-items:baseline;padding:6px 12px;border:1px solid var(--line);border-radius:999px}
+.tag b{font-family:var(--f-mono);letter-spacing:.18em;font-size:16px;color:var(--lamp)}
+
+/* stage */
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:minmax(0,1fr);gap:18px;min-height:0}
+.arena-cell{min-height:0;min-width:0;display:grid;place-items:center;overflow:hidden}
+.arena{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 24px 60px -30px color-mix(in srgb,var(--lamp) 35%,transparent)}
+#cv{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.side{position:relative;min-height:0;overflow-y:auto;display:grid;align-content:start;gap:12px}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:16px}
+
+.eyebrow{margin:0;font-size:12px;letter-spacing:.12em;color:var(--lamp)}
+.title{margin:-6px 0 0;font-family:var(--f-display);font-weight:400;font-size:40px;line-height:1.1;text-wrap:balance}
+.lede{margin:0;color:var(--muted);font-size:14px}
+.field{display:grid;gap:6px;margin:0;padding:0;border:0;min-width:0}
+.field label,.field legend,.join label{font-size:12.5px;color:var(--muted);padding:0;letter-spacing:.04em}
+input[type=text],#nm,#code{width:100%;min-width:0;background:var(--night);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none}
+#nm:focus-visible,#code:focus-visible{border-color:var(--lamp);box-shadow:0 0 0 3px color-mix(in srgb,var(--lamp) 25%,transparent)}
+#code{font-family:var(--f-mono);letter-spacing:.3em;text-transform:uppercase;font-size:17px}
+.sw-row{display:flex;flex-wrap:wrap;gap:8px}
+.sw-row input{position:absolute;opacity:0;pointer-events:none}
+.sw-row label{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;box-shadow:inset 0 0 0 3px var(--panel)}
+.sw-row input:checked+label{border-color:var(--ink)}
+.sw-row input:focus-visible+label{outline:2px solid var(--lamp);outline-offset:2px}
+
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{appearance:none;border:1px solid var(--line);background:transparent;border-radius:10px;padding:11px 14px;cursor:pointer;font-weight:600;transition:background .15s,border-color .15s,transform .05s}
+.btn:hover{border-color:var(--muted)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--lamp);border-color:var(--lamp);color:var(--night)}
+.btn.primary:hover{background:color-mix(in srgb,var(--lamp) 85%,var(--ink))}
+.btn.ghost{color:var(--muted)}
+.btn.sm{padding:7px 12px;font-size:13px}
+.join{display:grid;gap:6px}
+.join-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
+.note{margin:0;font-size:12.5px;color:var(--muted)}
+.rooms{display:grid;gap:8px}
+.rooms ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.rooms li{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+.rooms li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rooms li small{color:var(--muted);font-family:var(--f-mono)}
+.howto summary{cursor:pointer;color:var(--muted);font-size:13px}
+.howto ul{margin:10px 0 0;padding-left:18px;display:grid;gap:6px;font-size:13.5px;color:var(--ink)}
+.howto b{color:var(--lamp);font-weight:600}
+
+.codebox{display:grid;gap:8px}
+.code{font-family:var(--f-mono);font-weight:600;font-size:46px;letter-spacing:.22em;line-height:1;color:var(--lamp)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.phase{margin:0;font-weight:500}
+.roster{list-style:none;margin:0;padding:0;display:grid;gap:6px;counter-reset:r}
+.roster li{display:grid;grid-template-columns:22px 14px minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--night) 55%,transparent)}
+.roster .rk{font-family:var(--f-mono);font-size:12px;color:var(--muted);text-align:right}
+.roster .dot{width:12px;height:12px;border-radius:50%}
+.roster .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.roster .nm em{font-style:normal;font-size:11px;color:var(--muted);margin-left:6px}
+.roster .st{font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.st.alive{color:var(--safe);background:color-mix(in srgb,var(--safe) 14%,transparent)}
+.st.caught{color:var(--alarm);background:color-mix(in srgb,var(--alarm) 14%,transparent)}
+.st.idle{color:var(--muted)}
+.roster li.me{box-shadow:inset 0 0 0 1px var(--line)}
+.roster .wn{font-family:var(--f-mono);font-size:12.5px;font-weight:600;color:var(--lamp);font-variant-numeric:tabular-nums}
+.toast{position:sticky;bottom:0;padding:12px 14px;border-radius:10px;background:var(--ink);color:var(--night);font-weight:500;font-size:14px}
+.pane>.btn.sm{justify-self:start}
+
+/* hall of fame card, laid over the idle field */
+.board{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 28px));max-height:calc(100% - 28px);overflow-y:auto;display:grid;gap:12px;padding:18px 18px 16px;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 90%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 20px 50px -20px rgba(0,0,0,.6)}
+.board-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.board-head h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:26px;line-height:1.1}
+.board-scope{margin:4px 0 0;font-size:12.5px;color:var(--muted)}
+.board-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.board-list li{display:grid;grid-template-columns:24px 10px minmax(0,1fr) auto;align-items:center;gap:10px;padding:6px 8px;border-radius:8px}
+.board-list li.me{background:color-mix(in srgb,var(--lamp) 16%,transparent)}
+.board-list .rk{font-family:var(--f-mono);font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.board-list li:nth-child(-n+3) .rk{color:var(--lamp);font-weight:600}
+.board-list .dot{width:10px;height:10px;border-radius:50%}
+.board-list .nm{min-width:0;display:grid;line-height:1.3}
+.board-list .nm b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-list .nm em{font-style:normal;font-size:11px;color:var(--lamp);margin-left:6px}
+.board-list .nm small{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.board-list .tm{font-family:var(--f-mono);font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.board-note{margin:0;font-size:13px;color:var(--muted)}
+
+@media (max-width:860px){
+  #app{height:auto;min-height:100%}
+  .bar{gap:10px 16px}
+  .hud{margin-left:0;width:100%;justify-content:space-between}
+  .stage{grid-template-columns:minmax(0,1fr);grid-template-rows:auto}
+  .side{overflow:visible}
+  .title{font-size:34px}
+  .code{font-size:38px}
+}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<div id="app">
+  <header class="bar">
+    <div class="brand"><i aria-hidden="true"></i>옵저버 피하기</div>
+    <div class="hud">
+      <div><span class="lbl">생존 시간</span><span class="big"><span id="hTime">0.0</span><small>초</small></span></div>
+      <div><span class="lbl">생존 인원</span><span class="mid" id="hAlive">·</span></div>
+      <div><span class="lbl">단계</span><span class="mid" id="hLevel">·</span></div>
+    </div>
+    <div class="tag" id="roomTag" hidden><span class="lbl">방</span><b id="roomTagCode"></b></div>
+  </header>
+  <main class="stage">
+    <div class="arena-cell" id="arenaCell">
+      <div class="arena" id="arena">
+        <canvas id="cv" aria-label="게임 화면"></canvas>
+        <section class="board" id="board" aria-labelledby="boardTitle">
+          <div class="board-head">
+            <div><h2 id="boardTitle">명예의 전당</h2><p class="board-scope" id="boardScope">이 기기에 저장된 기록</p></div>
+            <button class="btn sm ghost" id="bBoardClose" type="button" hidden>닫기</button>
+          </div>
+          <ol class="board-list" id="boardList"></ol>
+          <p class="board-note" id="boardEmpty">아직 기록이 없어요. 한 판 하면 버틴 시간이 여기에 올라가요.</p>
+          <p class="board-note" id="boardMine" hidden></p>
+        </section>
+      </div>
+    </div>
+    <aside class="side">
+      <section class="pane" id="pMenu">
+        <p class="eyebrow">다 같이 하는 숨바꼭질 생존전</p>
+        <h1 class="title">옵저버 피하기</h1>
+        <p class="lede">옵저버가 비추는 주황색 탐지 범위에 들어가면 발각돼요. 끝까지 숨어 있는 사람이 이겨요.</p>
+        <div class="field"><label for="nm">닉네임</label><input id="nm" maxlength="10" autocomplete="off" spellcheck="false"></div>
+        <fieldset class="field"><legend>내 색</legend><div class="sw-row" id="swRow"></div></fieldset>
+        <div class="btns">
+          <button class="btn primary" id="bCreate" type="button">방 만들기</button>
+          <button class="btn" id="bSolo" type="button">혼자 연습</button>
+        </div>
+        <form class="join" id="fJoin" autocomplete="off">
+          <label for="code">방 코드로 참가</label>
+          <div class="join-row"><input id="code" maxlength="4" placeholder="ABCD" autocapitalize="characters" spellcheck="false"><button class="btn" id="bJoin" type="submit">참가</button></div>
+        </form>
+        <div class="rooms" id="rooms" hidden><p class="lbl">지금 열린 방</p><ul id="roomList"></ul></div>
+        <p class="note" id="netNote">연결 준비 중</p>
+        <details class="howto">
+          <summary>규칙과 조작법</summary>
+          <ul>
+            <li>옵저버는 <b>주황색 탐지 범위</b>를 비추며 돌아다녀요. 범위 안에 있으면 발각 게이지가 차고, 꽉 차면 탈락이에요. 살짝 스치는 정도는 버틸 수 있어요.</li>
+            <li>점선 원은 곧 켜질 범위, 가장자리의 빨간 띠는 일렬 수색이 들어오는 방향이에요. 초록 틈으로 빠져나가요.</li>
+            <li>시간이 갈수록 옵저버가 늘고 빨라져요. 확장 스캔, 돌진, 회전 감시, 십자 수색 패턴이 섞여 나와요.</li>
+            <li>마우스로 누른 곳으로 이동하고, 누른 채 끌면 따라와요. WASD와 방향키도 돼요. 폰에서는 화면을 누르고 끌면 조이스틱처럼 움직여요.</li>
+            <li>게임 중에 다른 탭으로 가면 그 자리에서 발각 처리돼요.</li>
+            <li>가장 오래 버틴 기록이 <b>명예의 전당</b>에 올라가요. 여럿이 한 판에서 마지막까지 살아남으면 <b>1승</b>이 쌓여요.</li>
+          </ul>
+        </details>
+      </section>
+
+      <section class="pane" id="pRoom" hidden>
+        <div class="codebox" id="codeBox">
+          <p class="lbl">방 코드</p>
+          <div class="code" id="codeText">····</div>
+          <div class="btn-row"><button class="btn sm" id="bCopyCode" type="button">코드 복사</button><button class="btn sm" id="bCopyLink" type="button" hidden>초대 링크 복사</button></div>
+        </div>
+        <p class="phase" id="phaseText"></p>
+        <ol class="roster" id="roster"></ol>
+        <div class="btns">
+          <button class="btn primary" id="bStart" type="button">게임 시작</button>
+          <button class="btn ghost" id="bLeave" type="button">나가기</button>
+        </div>
+        <p class="note" id="bestText"></p>
+        <button class="btn sm" id="bBoard" type="button">명예의 전당 보기</button>
+      </section>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- constants
+const W = 800, H = 800;            // logical arena
+const PR = 12;                     // unit radius
+const SPEED = 250;                 // units per second
+const COUNTDOWN = 3.2;             // seconds before observers wake
+const MAXP = 8;
+const FILL = 3.4, DRAIN = 1.6;     // detection meter per second
+const WARM = 1.0, FADE = 0.6;
+const COLORS = ['#5ec8ff','#b892ff','#78e0c0','#ff86c2','#b6e36a','#f2f4ff','#6c8dff','#9fb3d9'];
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CODE_RE = /^[A-HJ-NP-Z2-9]{4}$/;
+const PEER_PREFIX = 'obsdodge-jjh-v1-';
+const PEERJS_URL = 'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js';
+
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const num = (v, d = 0) => (typeof v === 'number' && isFinite(v)) ? v : d;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('obsdodge.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('obsdodge.' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+// ---------- deterministic randomness (every client builds the same observers from the seed)
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash2(a, b) { let h = Math.imul((a ^ 0x9e3779b9) >>> 0, 0x85ebca6b) ^ Math.imul((b + 0x632be5ab) >>> 0, 0xc2b2ae35); h ^= h >>> 16; h = Math.imul(h, 0x7feb352d); h ^= h >>> 15; return h >>> 0; }
+function tri(p, lo, hi) { const L = hi - lo; let m = (p - lo) % (2 * L); if (m < 0) m += 2 * L; return lo + (m <= L ? m : 2 * L - m); }
+const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+
+function genSchedule(seed) {
+  const R = mulberry32(seed >>> 0);
+  const rnd = (a, b) => a + (b - a) * R();
+  const ri = (a, b) => Math.floor(a + (b - a + 1) * R());
+  const L = [];
+  const edgePt = () => { const s = ri(0, 3), u = rnd(90, W - 90), e = rnd(50, 120); return s === 0 ? [u, e] : s === 1 ? [W - e, u] : s === 2 ? [u, H - e] : [e, u]; };
+  const inPt = m => [rnd(m, W - m), rnd(m, H - m)];
+  const drift = (t, sp) => { const [x, y] = edgePt(), a = rnd(0, Math.PI * 2), v = rnd(85, 130) * sp; return { k: 'drift', t0: t, t1: 1e9, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: rnd(54, 70) }; };
+  const sweep = (t, sp, dir, slow = 1) => { const r = 42, gw = Math.max(118, 190 - t * 0.7), v = rnd(150, 185) * sp * slow; return { k: 'sweep', t0: t, dir, r, v, gw, gap: rnd(gw / 2 + 40, W - gw / 2 - 40), step: 62, t1: t + 1.3 + (W + 2 * r + 40) / v }; };
+  const dash = (t, sp) => { const [x, y] = inPt(100), rest = 1.3 / Math.sqrt(sp); return { k: 'dash', t0: t, x, y, r: 56, s: (R() * 4294967296) >>> 0, n: 4, rest, dur: .42, t1: t + WARM + 4 * (rest + .42) + .5 }; };
+  const pulse = (t, sp) => { const [x, y] = inPt(130), per = 2.6 / Math.sqrt(sp); return { k: 'pulse', t0: t, x, y, rmin: 18, rmax: rnd(125, 170), per, t1: t + 1.4 + per * 3 }; };
+  const orbit = (t, sp) => { const [cx, cy] = inPt(250), w = rnd(.75, 1.15) * sp * (R() < .5 ? -1 : 1); return { k: 'orbit', t0: t, cx, cy, R: rnd(120, 180), n: ri(3, 5), w, ph: rnd(0, Math.PI * 2), r: 46, t1: t + WARM + rnd(8, 11) }; };
+
+  for (let i = 0; i < 3; i++) L.push(drift(0, 1));
+  let drifts = 3;
+  for (let w = 1; w < 220; w++) {
+    const t = w * 5.5, sp = Math.min(1.8, 1 + t / 160);
+    if (w % 2 === 1 && drifts < Math.min(10, 3 + Math.floor(t / 14))) { L.push(drift(t, sp)); drifts++; }
+    const pool = ['pulse', 'dash', 'pulse', 'dash'];
+    if (t >= 10) pool.push('sweep', 'sweep');
+    if (t >= 20) pool.push('orbit');
+    if (t >= 40) pool.push('cross');
+    if (t >= 55) pool.push('dash2', 'orbit');
+    switch (pool[ri(0, pool.length - 1)]) {
+      case 'pulse': L.push(pulse(t, sp)); break;
+      case 'dash': L.push(dash(t, sp)); break;
+      case 'dash2': L.push(dash(t, sp), dash(t, sp)); break;
+      case 'sweep': L.push(sweep(t, sp, ri(0, 3))); break;
+      case 'cross': L.push(sweep(t, sp, ri(0, 1), .8), sweep(t, sp, ri(2, 3), .8)); break;
+      case 'orbit': L.push(orbit(t, sp)); break;
+    }
+  }
+  return L;
+}
+
+// where every observer is at time t (a pure function of the schedule and t)
+function computeThreats(L, t, circles, warns) {
+  circles.length = 0; warns.length = 0;
+  if (!L) return;
+  for (const o of L) {
+    if (o.t0 > t) break;
+    if (t > o.t1) continue;
+    const age = t - o.t0, left = o.t1 - t;
+    const vis = Math.min(1, age / .35) * clamp(left / FADE, 0, 1);
+    const live = left > FADE;
+    switch (o.k) {
+      case 'drift':
+        circles.push({ x: tri(o.x + o.vx * age, 26, W - 26), y: tri(o.y + o.vy * age, 26, H - 26), r: o.r, on: age >= WARM && live, w: Math.min(1, age / WARM), vis });
+        break;
+      case 'pulse': {
+        const wu = 1.4; let r = o.rmax, on = false;
+        if (age >= wu) { const ph = (age - wu) / o.per; r = o.rmin + (o.rmax - o.rmin) * (.5 - .5 * Math.cos(ph * Math.PI * 2)); on = live; }
+        circles.push({ x: o.x, y: o.y, r, on, w: Math.min(1, age / wu), vis, ring: o.rmax });
+        break;
+      }
+      case 'orbit': {
+        const a = o.ph + o.w * age, on = age >= WARM && live, w = Math.min(1, age / WARM);
+        for (let j = 0; j < o.n; j++) { const b = a + j * Math.PI * 2 / o.n; circles.push({ x: o.cx + Math.cos(b) * o.R, y: o.cy + Math.sin(b) * o.R, r: o.r, on, w, vis, pivot: [o.cx, o.cy] }); }
+        break;
+      }
+      case 'dash': {
+        const anc = i => { if (i === 0) return [o.x, o.y]; const g = mulberry32(hash2(o.s, i)); return [110 + g() * (W - 220), 110 + g() * (H - 220)]; };
+        const w = Math.min(1, age / WARM), on = age >= WARM && live, a = age - WARM;
+        if (a < 0) { circles.push({ x: o.x, y: o.y, r: o.r, on, w, vis }); break; }
+        const cyc = o.rest + o.dur, i = Math.floor(a / cyc);
+        if (i >= o.n) { const p = anc(o.n); circles.push({ x: p[0], y: p[1], r: o.r, on, w, vis }); break; }
+        const f = a - i * cyc, A = anc(i), B = anc(i + 1);
+        if (f < o.rest) {
+          const tw = Math.min(.85, o.rest), c = { x: A[0], y: A[1], r: o.r, on, w, vis };
+          if (f > o.rest - tw) c.tele = { x: B[0], y: B[1], p: (f - (o.rest - tw)) / tw };
+          circles.push(c);
+        } else {
+          const e = ease((f - o.rest) / o.dur);
+          circles.push({ x: A[0] + (B[0] - A[0]) * e, y: A[1] + (B[1] - A[1]) * e, r: o.r, on, w, vis, from: A });
+        }
+        break;
+      }
+      case 'sweep': {
+        const pre = 1.3;
+        if (age < pre) { warns.push({ dir: o.dir, gap: o.gap, gw: o.gw, p: age / pre }); break; }
+        const u = -o.r - 20 + o.v * (age - pre);
+        for (let q = 14; q <= W - 14; q += o.step) {
+          if (Math.abs(q - o.gap) < o.gw / 2 + o.r) continue;
+          const x = o.dir === 0 ? u : o.dir === 1 ? W - u : q;
+          const y = o.dir === 2 ? u : o.dir === 3 ? H - u : q;
+          circles.push({ x, y, r: o.r, on: true, w: 1, vis: 1 });
+        }
+        break;
+      }
+    }
+  }
+}
+
+// ---------- network: everyone keeps one small state object; three ways to share it
+function patchInto(obj, p) { for (const k in p) { if (p[k] === null) delete obj[k]; else obj[k] = p[k]; } }
+function baseNet(kind) { return { kind, id: null, me: {}, dirty: true, closed: false, fail: null, onUpdate: null, sendBoard: null, onBoard: null, boardNeed: false }; }
+
+function LocalNet() {
+  const n = baseNet('local'); n.id = 'solo';
+  n.set = p => patchInto(n.me, p);
+  n.list = () => [{ id: 'solo', s: n.me, me: true, seen: Date.now() }];
+  n.flush = () => {};
+  n.close = () => { n.closed = true; };
+  return n;
+}
+
+// claude.ai artifact: the page's built-in room (presence only, so viewers can play too)
+async function RoomNet(room, code) {
+  const r = await room.join('obs-' + code.toLowerCase());
+  const n = baseNet('room');
+  let pending = {};
+  n.set = p => { patchInto(n.me, p); Object.assign(pending, p); n.dirty = true; };
+  n.flush = () => { if (!n.dirty || n.closed) return; const p = pending; pending = {}; n.dirty = false; r.presence(p).catch(() => {}); };
+  n.list = () => {
+    const out = []; let mine = false;
+    for (const p of r.peers()) {
+      if (p.kind !== 'viewer') continue;
+      if (p.sameTab) { mine = true; n.id = p.peer; out.push({ id: p.peer, s: n.me, me: true, seen: Date.now() }); }
+      else out.push({ id: p.peer, s: p.presence || {}, me: false, seen: p.updatedAt });
+    }
+    if (!mine) out.push({ id: n.id || 'self', s: n.me, me: true, seen: Date.now() });
+    return out;
+  };
+  const unsub = r.onPeers(() => { n.onUpdate && n.onUpdate(); }, () => { if (!n.closed && n.fail) n.fail('net'); });
+  n.close = () => { if (n.closed) return; n.closed = true; try { unsub(); } catch (e) {} r.leave().catch(() => {}); };
+  return n;
+}
+
+// standalone page: PeerJS, the host's browser is the hub
+function PeerHostNet(code) {
+  return new Promise((resolve, reject) => {
+    const n = baseNet('peer');
+    const peer = new window.Peer(PEER_PREFIX + code, { debug: 0 });
+    const conns = new Map();
+    let opened = false;
+    peer.on('open', id => { opened = true; n.id = id; resolve(n); });
+    peer.on('error', e => { if (!opened) { try { peer.destroy(); } catch (x) {} reject(e); } });
+    peer.on('disconnected', () => { if (!n.closed) { try { peer.reconnect(); } catch (e) {} } });
+    peer.on('connection', conn => {
+      conn.on('open', () => {
+        if (conns.size >= MAXP - 1) { try { conn.send({ t: 'full' }); } catch (e) {} setTimeout(() => { try { conn.close(); } catch (e) {} }, 400); return; }
+        conns.set(conn.peer, { conn, s: null, seen: Date.now() }); n.boardNeed = true;
+      });
+      conn.on('data', d => {
+        const c = conns.get(conn.peer);
+        if (!c || !d || typeof d !== 'object') return;
+        if (d.t === 'p' && d.s && typeof d.s === 'object') { c.s = d.s; c.seen = Date.now(); n.onUpdate && n.onUpdate(); }
+        else if (d.t === 'lb' && n.onBoard) n.onBoard(d.b);
+      });
+      const drop = () => { conns.delete(conn.peer); n.onUpdate && n.onUpdate(); };
+      conn.on('close', drop); conn.on('error', drop);
+    });
+    n.set = p => patchInto(n.me, p);
+    n.list = () => { const out = [{ id: n.id, s: n.me, me: true, seen: Date.now() }]; for (const [id, c] of conns) if (c.s) out.push({ id, s: c.s, me: false, seen: c.seen }); return out; };
+    n.flush = () => {
+      const p = {}; p[n.id] = n.me;
+      for (const [id, c] of conns) if (c.s) p[id] = c.s;
+      const msg = { t: 'a', p };
+      for (const c of conns.values()) if (c.conn.open) { try { c.conn.send(msg); } catch (e) {} }
+    };
+    n.sendBoard = list => { const msg = { t: 'lb', b: list }; for (const c of conns.values()) if (c.conn.open) { try { c.conn.send(msg); } catch (e) {} } };
+    n.close = () => { if (n.closed) return; n.closed = true; for (const c of conns.values()) { try { c.conn.close(); } catch (e) {} } try { peer.destroy(); } catch (e) {} };
+  });
+}
+
+function PeerClientNet(code) {
+  return new Promise((resolve, reject) => {
+    const n = baseNet('peer');
+    const peer = new window.Peer({ debug: 0 });
+    let states = {}, recv = Date.now(), conn = null, done = false;
+    const fail = why => {
+      if (!done) { done = true; try { peer.destroy(); } catch (e) {} reject(new Error(why)); }
+      else if (!n.closed && n.fail) n.fail(why);
+    };
+    peer.on('open', id => {
+      n.id = id;
+      conn = peer.connect(PEER_PREFIX + code, { reliable: true });
+      conn.on('open', () => { n.boardNeed = true; if (!done) { done = true; resolve(n); } });
+      conn.on('data', d => {
+        if (!d || typeof d !== 'object') return;
+        if (d.t === 'full') { fail('full'); return; }
+        if (d.t === 'a' && d.p && typeof d.p === 'object') { states = d.p; recv = Date.now(); n.onUpdate && n.onUpdate(); }
+        else if (d.t === 'lb' && n.onBoard) n.onBoard(d.b);
+      });
+      conn.on('close', () => fail('host-left'));
+      conn.on('error', () => fail('host-left'));
+    });
+    peer.on('error', e => { if (!done) fail(e && e.type === 'peer-unavailable' ? 'no-room' : 'net'); });
+    peer.on('disconnected', () => { if (!n.closed) { try { peer.reconnect(); } catch (e) {} } });
+    setTimeout(() => { if (!done) fail('timeout'); }, 12000);
+    n.set = p => { patchInto(n.me, p); n.dirty = true; };
+    n.flush = () => { if (conn && conn.open && n.dirty) { n.dirty = false; try { conn.send({ t: 'p', s: n.me }); } catch (e) {} } };
+    n.list = () => {
+      const out = [{ id: n.id, s: n.me, me: true, seen: Date.now() }];
+      for (const id in states) { const s = states[id]; if (id !== n.id && s && typeof s === 'object') out.push({ id, s, me: false, seen: recv }); }
+      return out;
+    };
+    n.sendBoard = list => { if (conn && conn.open) { try { conn.send({ t: 'lb', b: list }); } catch (e) {} } };
+    n.close = () => { if (n.closed) return; n.closed = true; try { conn && conn.close(); } catch (e) {} try { peer.destroy(); } catch (e) {} };
+  });
+}
+
+// ---------- which way to connect, depending on where the page is open
+const ENV = { kind: 'detecting', room: null };
+function loadScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+}
+async function detectEnv() {
+  if (window.claude && typeof window.claude.use === 'function') {
+    initDbBoard();
+    try {
+      const room = await window.claude.use('room');
+      if (room) { ENV.kind = 'room'; ENV.room = room; watchLobby(); }
+      else ENV.kind = 'none';
+    } catch (e) { ENV.kind = 'none'; }
+  } else {
+    initRemoteBoard();
+    if (!window.Peer) { try { await loadScript(PEERJS_URL); } catch (e) {} }
+    ENV.kind = window.Peer ? 'peer' : 'none';
+    if (LB.mode === 'local' && ENV.kind === 'peer') LB.mode = 'gossip';
+    renderBoard();
+  }
+  renderMenuNet();
+}
+
+// ---------- hall of fame: everyone's longest survival
+const KEY_RE = /^[A-Za-z0-9_.:@+~-]{1,128}$/;
+const PID_RE = /^p_[a-z0-9]{6,16}$/;
+const BOARD_CAP = 100;
+const LB = { mode: 'local', pid: '', mine: null, map: new Map(), ver: 0, db: null, uid: null, dbBusy: false, dbAgain: false, dbBlocked: false, remote: '', remoteOk: null, pulling: false, pushing: false, pushAgain: false, lastPull: 0 };
+
+function el(tag, cls, txt) { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; }
+function readMine(raw, p) {
+  const r = raw && typeof raw === 'object' ? raw : {}, b = num(r.b, 0);
+  return { p, n: typeof r.n === 'string' ? r.n.trim().slice(0, 10) : '', c: clamp(num(r.c, 0) | 0, 0, COLORS.length - 1), b: b > 0 && b <= 3600 ? Math.round(b * 100) / 100 : 0, g: clamp(Math.floor(num(r.g, 0)), 0, 1e6), w: clamp(Math.floor(num(r.w, 0)), 0, 1e6), t: num(r.t, 0) };
+}
+function cleanEntry(raw, key) {
+  if (!raw || typeof raw !== 'object') return null;
+  const p = key || raw.p;
+  if (typeof p !== 'string' || !KEY_RE.test(p)) return null;
+  const e = readMine(raw, p);
+  if (!(e.b > 0)) return null;
+  if (!e.n) e.n = '?';
+  return e;
+}
+function sortEntries(a) { return a.sort((x, y) => (y.b - x.b) || (x.t - y.t) || (x.p < y.p ? -1 : x.p > y.p ? 1 : 0)); }
+function myKey() { return LB.mode === 'db' && LB.uid ? LB.uid : LB.pid; }
+function boardRows() {
+  const key = myKey(), rows = [];
+  for (const e of LB.map.values()) if (e.p !== key) rows.push(e);
+  if (LB.mine.b > 0) rows.push(Object.assign({}, LB.mine, { p: key, n: LB.mine.n || myName() }));
+  return sortEntries(rows);
+}
+function myRank() { return LB.mine.b > 0 ? boardRows().findIndex(e => e.p === myKey()) + 1 : 0; }
+function boardPayload() { return boardRows().slice(0, BOARD_CAP).map(e => ({ p: e.p, n: e.n, c: e.c, b: e.b, g: e.g, w: e.w, t: e.t })); }
+
+// records arriving from a friend's room or the shared server: keep each person's best
+function mergeMany(list) {
+  if (!Array.isArray(list)) return;
+  let changed = false;
+  for (const raw of list.slice(0, 2000)) {
+    const e = cleanEntry(raw);
+    if (!e || e.p === LB.pid) continue;
+    const cur = LB.map.get(e.p), newer = !cur || e.t > cur.t;
+    const nx = cur ? { p: e.p, n: newer ? e.n : cur.n, c: newer ? e.c : cur.c, b: Math.max(cur.b, e.b), g: Math.max(cur.g, e.g), w: Math.max(cur.w, e.w), t: Math.max(cur.t, e.t) } : e;
+    if (cur && cur.n === nx.n && cur.c === nx.c && cur.b === nx.b && cur.g === nx.g && cur.w === nx.w && cur.t === nx.t) continue;
+    LB.map.set(e.p, nx); changed = true;
+  }
+  if (!changed) return;
+  if (LB.map.size > BOARD_CAP) LB.map = new Map(sortEntries([...LB.map.values()]).slice(0, BOARD_CAP).map(e => [e.p, e]));
+  LB.ver++;
+  store.set('board', [...LB.map.values()]);
+  renderBoard();
+}
+
+function initBoard() {
+  let pid = store.get('pid', '');
+  if (typeof pid !== 'string' || !PID_RE.test(pid)) {
+    pid = 'p_'; for (let i = 0; i < 10; i++) pid += 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)];
+    store.set('pid', pid);
+  }
+  LB.pid = pid;
+  LB.mine = readMine(store.get('mine', null), pid);
+  const old = num(store.get('best', 0));   // best time saved by the first version of the game
+  if (!LB.mine.b && old > 0 && old <= 3600) LB.mine.b = Math.round(old * 100) / 100;
+  const saved = store.get('board', []);
+  if (Array.isArray(saved)) for (const raw of saved.slice(0, BOARD_CAP)) { const e = cleanEntry(raw); if (e && e.p !== pid) LB.map.set(e.p, e); }
+}
+
+function saveMine() { store.set('mine', LB.mine); LB.ver++; renderBoard(); pushDb(); pushRemote(); }
+function recordRound(d) {
+  const m = LB.mine;
+  m.g += 1; if (d > m.b) m.b = Math.min(3600, Math.round(d * 100) / 100);
+  m.n = myName(); m.c = myColor(); m.t = Date.now();
+  saveMine();
+}
+function recordWin() { LB.mine.w += 1; LB.mine.t = Date.now(); saveMine(); }
+function renameMine() {
+  const m = LB.mine;
+  if (m.n === myName() && m.c === myColor()) return;
+  m.n = myName(); m.c = myColor(); m.t = Date.now(); saveMine();
+}
+
+// claude.ai: one shared score sheet, each person writes only their own row
+async function initDbBoard() {
+  try {
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!db) return;
+    const uid = user ? await user.id() : null;
+    LB.db = db; LB.uid = uid; LB.mode = 'db'; LB.map = new Map(); LB.dbBlocked = !uid; LB.ver++;
+    renderBoard();
+    db.collection('scores').orderBy('b', 'desc').limit(BOARD_CAP).onSnapshot(snap => {
+      const m = new Map();
+      for (const d of snap.docs) { if (d.id === LB.uid) continue; const e = cleanEntry(d.data(), d.id); if (e) m.set(e.p, e); }
+      LB.map = m; LB.ver++; renderBoard();
+    }, () => {});
+    if (!uid) return;
+    const s = await db.doc('scores/' + uid).get();
+    const r = s.exists ? readMine(s.data(), uid) : null, m = LB.mine;
+    if (r) {
+      const ahead = m.b > r.b || m.g > r.g || m.w > r.w;
+      m.b = Math.max(m.b, r.b); m.g = Math.max(m.g, r.g); m.w = Math.max(m.w, r.w);
+      if (!m.n && r.n) { m.n = r.n; m.c = r.c; }
+      store.set('mine', m); LB.ver++; renderBoard();
+      if (ahead) pushDb();
+    } else pushDb();
+  } catch (e) {}
+}
+async function pushDb() {
+  if (LB.mode !== 'db' || !LB.db || !LB.uid || LB.dbBlocked || !(LB.mine.b > 0)) return;
+  if (LB.dbBusy) { LB.dbAgain = true; return; }
+  LB.dbBusy = true;
+  const m = LB.mine;
+  try { await LB.db.doc('scores/' + LB.uid).set({ n: m.n || myName(), c: m.c, b: m.b, g: m.g, w: m.w, t: m.t }); }
+  catch (e) { if (e && (e.code === 'invalid_argument' || e.code === 'not_granted' || e.code === 'revoked')) { LB.dbBlocked = true; renderBoard(); } }
+  LB.dbBusy = false;
+  if (LB.dbAgain) { LB.dbAgain = false; pushDb(); }
+}
+
+// GitHub Pages: optional shared server (a Firebase Realtime Database address in config.js)
+function initRemoteBoard() {
+  const u = typeof window.OBS_LEADERBOARD_URL === 'string' ? window.OBS_LEADERBOARD_URL.trim().replace(/\/+$/, '') : '';
+  if (!/^https:\/\/[a-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)$/i.test(u)) return false;
+  LB.remote = u; LB.mode = 'remote';
+  pullRemote(); pushRemote();
+  return true;
+}
+async function pullRemote() {
+  if (!LB.remote || LB.pulling) return;
+  LB.pulling = true; LB.lastPull = Date.now();
+  try {
+    const r = await fetch(LB.remote + '/obsdodge/v1/scores.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json();
+    LB.remoteOk = true;
+    if (j && typeof j === 'object') mergeMany(Object.keys(j).map(k => Object.assign({}, j[k], { p: k })));
+  } catch (e) { LB.remoteOk = false; }
+  LB.pulling = false; renderBoard();
+}
+async function pushRemote() {
+  if (!LB.remote || !(LB.mine.b > 0)) return;
+  if (LB.pushing) { LB.pushAgain = true; return; }
+  LB.pushing = true;
+  const m = LB.mine;
+  try {
+    const r = await fetch(LB.remote + '/obsdodge/v1/scores/' + LB.pid + '.json', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ n: m.n || myName(), c: m.c, b: m.b, g: m.g, w: m.w, t: m.t }) });
+    LB.remoteOk = r.ok;
+  } catch (e) { LB.remoteOk = false; }
+  LB.pushing = false;
+  if (LB.pushAgain) { LB.pushAgain = false; pushRemote(); }
+  renderBoard();
+}
+
+function scopeText() {
+  if (LB.mode === 'db') return LB.dbBlocked ? '보기 권한이라 내 기록은 이 기기에만 남아요' : '이 페이지에서 플레이한 모두의 기록';
+  if (LB.mode === 'remote') return LB.remoteOk === false ? '순위 서버에 연결하지 못해 이 기기 기록만 보여요' : '모든 플레이어의 기록';
+  if (LB.mode === 'gossip') return '같은 방에서 만난 사람끼리 기록이 모여요';
+  return '이 기기에 저장된 기록';
+}
+let boardSig = '';
+function renderBoard() {
+  if (!LB.mine) return;
+  const rows = boardRows(), key = myKey(), rank = rows.findIndex(e => e.p === key) + 1;
+  const sig = JSON.stringify([LB.mode, LB.remoteOk, LB.dbBlocked, rank, rows.slice(0, 10).map(e => [e.p, e.n, e.c, e.b, e.g, e.w])]);
+  if (sig === boardSig) return; boardSig = sig;
+  const ol = $('boardList'); ol.textContent = '';
+  rows.slice(0, 10).forEach((e, i) => {
+    const li = el('li', e.p === key ? 'me' : '');
+    const dot = el('span', 'dot'); dot.style.background = COLORS[e.c] || COLORS[0];
+    const nm = el('span', 'nm'), b = el('b', '', e.n);
+    if (e.p === key) b.append(el('em', '', '나'));
+    nm.append(b, el('small', '', `${e.g}판` + (e.w > 0 ? ` · ${e.w}승` : '')));
+    li.append(el('span', 'rk', String(i + 1)), dot, nm, el('span', 'tm', e.b.toFixed(1) + '초'));
+    ol.append(li);
+  });
+  $('boardEmpty').hidden = rows.length > 0;
+  const mineEl = $('boardMine');
+  mineEl.hidden = !(rank > 10);
+  if (rank > 10) mineEl.textContent = `내 순위 ${rank}위 · ${LB.mine.b.toFixed(1)}초`;
+  $('boardScope').textContent = scopeText();
+}
+function showBoard(v) {
+  G.showBoard = v;
+  $('board').hidden = !v;
+  $('bBoardClose').hidden = !G.net;
+  if (v) renderBoard();
+  if (G.net) renderSide(true);
+}
+initBoard();
+
+// ---------- game state
+const G = {
+  net: null, code: null, isHost: false, solo: false, busy: false,
+  list: [], g: null, round: -1, playing: false, sched: null,
+  offs: [], offset: 0, lastHn: null, noHostSince: 0, sawHost: false, lastPh: null,
+  me: { x: W / 2, y: H / 2, m: 0, dead: false, d: null },
+  view: new Map(), circles: [], warns: [],
+  target: null, clickFx: null, hitFx: 0, hb: 0, lastHb: 0,
+  attract: genSchedule(20251011), attractStart: performance.now(),
+  newBest: false, roomWins: 0, creditRound: -1, lbSent: -1, lbAt: 0, showBoard: true
+};
+const keys = { up: false, down: false, left: false, right: false };
+const joy = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
+
+function gameTime() { return G.g ? (Date.now() + G.offset - num(G.g.st)) / 1000 : 0; }
+function myName() { return ($('nm').value || '').trim().slice(0, 10) || '이름없음'; }
+function myColor() { const el = document.querySelector('input[name=col]:checked'); return el ? +el.value : 0; }
+function safeName(s) { return typeof s.nm === 'string' && s.nm ? s.nm.slice(0, 10) : '?'; }
+function safeCol(s) { const c = num(s.c, 0) | 0; return c >= 0 && c < COLORS.length ? c : 0; }
+function isDead(s) { return typeof s.d === 'number'; }
+
+function pickHost(list) {
+  let h = null;
+  for (const p of list) if (p.s && p.s.h === 1 && p.s.g && typeof p.s.g === 'object') { if (!h || p.id < h.id) h = p; }
+  return h;
+}
+function addOffsetSample(v) {
+  const now = Date.now();
+  G.offs.push({ v, at: now });
+  while (G.offs.length && now - G.offs[0].at > 5000) G.offs.shift();
+  let m = -Infinity; for (const o of G.offs) if (o.v > m) m = o.v;
+  G.offset = m;
+}
+
+function sync() {
+  const net = G.net; if (!net) return;
+  const now = Date.now();
+  const list = net.list();
+  G.list = list;
+  const host = pickHost(list);
+  if (!host) {
+    if (!G.noHostSince) G.noHostSince = now;
+    if (now - G.noHostSince > (G.sawHost ? 4000 : 6000)) leaveRoom(G.sawHost ? '방장이 나가서 방이 닫혔어요.' : '그 코드의 방을 찾지 못했어요. 코드를 다시 확인해 주세요.');
+    return;
+  }
+  G.noHostSince = 0; G.sawHost = true;
+  const g = host.s.g;
+  if (host.me) G.offset = 0;
+  else if (g.hn !== G.lastHn) { G.lastHn = g.hn; addOffsetSample(num(g.hn) - host.seen); }
+  G.g = g;
+  const ph = g.ph;
+  if ((ph === 'play' || ph === 'over') && g.n !== G.round) {
+    G.round = g.n; G.sched = genSchedule(num(g.sd)); G.view.clear(); G.newBest = false;
+    if (ph === 'play' && gameTime() < 0.25) beginMyRound(list);
+    else { G.playing = false; net.set({ r: null, d: null }); }
+  }
+  if (ph !== G.lastPh) { G.lastPh = ph; onPhase(ph); }
+  if (ph === 'over' && G.playing && g.n === G.round && G.creditRound !== g.n) {
+    G.creditRound = g.n;
+    const mine = list.find(p => p.me);
+    if (g.win && mine && g.win === mine.id) { G.roomWins++; net.set({ w: G.roomWins }); recordWin(); renderSide(true); }
+  }
+}
+
+function beginMyRound(list) {
+  const ids = list.filter(p => p.s && typeof p.s.nm === 'string').map(p => p.id).sort();
+  const myId = (list.find(p => p.me) || {}).id;
+  const k = Math.max(1, ids.length), i = Math.max(0, ids.indexOf(myId));
+  const ang = -Math.PI / 2 + i * Math.PI * 2 / k, rad = k > 1 ? 70 : 0;
+  G.me = { x: W / 2 + Math.cos(ang) * rad, y: H / 2 + Math.sin(ang) * rad, m: 0, dead: false, d: null };
+  G.target = null; G.playing = true;
+  G.net.set({ r: G.round, x: Math.round(G.me.x), y: Math.round(G.me.y), m: 0, d: null });
+}
+
+function die(t) {
+  if (!G.playing || G.me.dead) return;
+  G.me.dead = true; G.me.d = Math.max(0, t); G.me.m = 1; G.hitFx = performance.now();
+  G.net.set({ d: Math.round(G.me.d * 100) / 100, m: 100 });
+  const prev = LB.mine.b;
+  recordRound(G.me.d);
+  G.newBest = G.me.d > prev && prev > 0;
+  renderSide(true);
+}
+
+function hostTick(now) {
+  if (!G.isHost || !G.net) return;
+  const g = G.net.me.g; if (!g) return;
+  if (g.ph === 'play') {
+    const t = gameTime();
+    if (t > 0.5) {
+      const inRound = G.list.filter(p => p.s && p.s.r === g.n);
+      const alive = inRound.filter(p => !isDead(p.s) && (p.me || now - p.seen < 6000));
+      if (alive.length === 0) {
+        let et = 0, win = null, wd = -1;
+        for (const p of inRound) {
+          const d = num(p.s.d, 0); et = Math.max(et, d);
+          if (d > wd || (d === wd && p.id < win)) { wd = d; win = p.id; }
+        }
+        if (inRound.length < 2) win = null;
+        G.net.set({ g: Object.assign({}, g, { ph: 'over', et, win }) });
+      }
+    }
+  }
+  G.net.set({ g: Object.assign({}, G.net.me.g, { hn: Date.now() }) });
+}
+
+function startRound() {
+  if (!G.isHost || !G.net) return;
+  const g = G.net.me.g || { n: 0 };
+  G.net.set({ g: { ph: 'play', n: num(g.n) + 1, sd: (Math.random() * 4294967296) >>> 0, st: Date.now() + COUNTDOWN * 1000, hn: Date.now() } });
+  sync(); renderSide(true);
+}
+
+// ---------- entering and leaving rooms
+function makeCode() { let s = ''; for (let i = 0; i < 4; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return s; }
+
+function enterRoom(net, code, isHost, solo) {
+  G.net = net; G.code = code; G.isHost = isHost; G.solo = solo;
+  G.round = -1; G.playing = false; G.sched = null; G.g = null; G.offs = []; G.offset = 0; G.lastHn = null;
+  G.noHostSince = 0; G.sawHost = false; G.lastPh = null; G.view.clear(); G.target = null;
+  G.roomWins = 0; G.creditRound = -1; G.lbSent = -1; G.lbAt = 0;
+  G.me = { x: 120 + Math.random() * (W - 240), y: 120 + Math.random() * (H - 240), m: 0, dead: false, d: null };
+  store.set('nm', myName()); store.set('c', myColor()); renameMine();
+  const st = { nm: myName(), c: myColor(), x: Math.round(G.me.x), y: Math.round(G.me.y), hb: 0, w: 0 };
+  if (isHost) { st.h = 1; st.g = { ph: 'lobby', n: 0, sd: 0, st: 0, hn: Date.now() }; }
+  net.set(st);
+  net.fail = why => leaveRoom(why === 'full' ? '방이 꽉 찼어요. 한 방에 8명까지 들어갈 수 있어요.' : why === 'host-left' ? '방장이 나가서 방이 닫혔어요.' : '연결이 끊겼어요.');
+  net.onUpdate = () => {};
+  net.onBoard = list => mergeMany(list);
+  net.flush();
+  $('pMenu').hidden = true; $('pRoom').hidden = false; showBoard(false);
+  $('roomTag').hidden = solo; $('roomTagCode').textContent = code || '';
+  $('codeBox').hidden = solo; $('codeText').textContent = code || '';
+  $('bCopyLink').hidden = net.kind !== 'peer';
+  sync();
+  if (solo) startRound();
+  renderSide(true);
+  advertise();
+}
+
+function leaveRoom(msg) {
+  if (G.net) { try { G.net.close(); } catch (e) {} }
+  G.net = null; G.code = null; G.isHost = false; G.solo = false; G.g = null; G.playing = false; G.sched = null; G.round = -1;
+  $('pRoom').hidden = true; $('pMenu').hidden = false; $('roomTag').hidden = true; showBoard(true);
+  advertise();
+  if (msg) toast(msg);
+  renderMenuNet();
+}
+
+async function createRoom() {
+  if (G.busy) return; setBusy(true);
+  try {
+    if (ENV.kind === 'room') {
+      const code = makeCode();
+      enterRoom(await RoomNet(ENV.room, code), code, true, false);
+    } else if (ENV.kind === 'peer') {
+      let lastErr = null;
+      for (let i = 0; i < 3; i++) {
+        const code = makeCode();
+        try { enterRoom(await PeerHostNet(code), code, true, false); lastErr = null; break; }
+        catch (e) { lastErr = e; if (!e || e.type !== 'unavailable-id') break; }
+      }
+      if (lastErr) throw lastErr;
+    }
+  } catch (e) { toast('방을 만들지 못했어요. 인터넷 연결을 확인하고 다시 해 봐요.'); }
+  setBusy(false);
+}
+
+async function joinRoom(code) {
+  code = (code || '').trim().toUpperCase();
+  if (!CODE_RE.test(code)) { toast('방 코드는 영문과 숫자 4자리예요.'); $('code').focus(); return; }
+  if (G.busy) return; setBusy(true);
+  try {
+    if (ENV.kind === 'room') enterRoom(await RoomNet(ENV.room, code), code, false, false);
+    else if (ENV.kind === 'peer') enterRoom(await PeerClientNet(code), code, false, false);
+  } catch (e) {
+    const m = e && e.message;
+    toast(m === 'no-room' ? '그 코드의 방을 찾지 못했어요. 코드를 다시 확인해 주세요.' : m === 'full' ? '방이 꽉 찼어요. 한 방에 8명까지 들어갈 수 있어요.' : '방에 연결하지 못했어요. 잠시 뒤 다시 해 봐요.');
+  }
+  setBusy(false);
+}
+
+function playSolo() { enterRoom(LocalNet(), null, true, true); }
+
+function setBusy(b) {
+  G.busy = b;
+  const off = b || !(ENV.kind === 'room' || ENV.kind === 'peer');
+  $('bCreate').disabled = off; $('bJoin').disabled = off;
+  if (b) $('netNote').textContent = '연결하는 중이에요';
+  else renderMenuNet();
+}
+
+// claude.ai only: open rooms show up on everyone's menu
+let lobbyAd = '';
+function advertise() {
+  if (ENV.kind !== 'room') return;
+  const ad = (G.net && G.isHost && !G.solo)
+    ? { nm: myName(), at: G.code, pc: G.list.filter(p => p.s && typeof p.s.nm === 'string').length, ph: G.g ? G.g.ph : 'lobby' }
+    : { nm: myName(), at: null, pc: null, ph: null };
+  const key = JSON.stringify(ad);
+  if (key === lobbyAd) return; lobbyAd = key;
+  ENV.room.presence(ad).catch(() => {});
+}
+function watchLobby() {
+  ENV.room.onPeers(() => renderRooms(), () => {});
+}
+function renderRooms() {
+  if (ENV.kind !== 'room') return;
+  const rows = ENV.room.peers().filter(p => !p.sameTab && p.kind === 'viewer' && p.presence && typeof p.presence.at === 'string' && CODE_RE.test(p.presence.at));
+  const ul = $('roomList'); ul.textContent = '';
+  for (const p of rows.slice(0, 6)) {
+    const li = document.createElement('li');
+    const sp = document.createElement('span'); sp.textContent = (typeof p.presence.nm === 'string' ? p.presence.nm.slice(0, 10) : '누군가') + '의 방';
+    const sm = document.createElement('small'); sm.textContent = num(p.presence.pc, 1) + '명' + (p.presence.ph === 'play' ? ' · 게임 중' : '');
+    const b = document.createElement('button'); b.className = 'btn sm'; b.type = 'button'; b.textContent = '참가';
+    const code = p.presence.at; b.addEventListener('click', () => joinRoom(code));
+    li.append(sp, sm, b); ul.append(li);
+  }
+  $('rooms').hidden = rows.length === 0 || !!G.net;
+}
+
+function renderMenuNet() {
+  const note = $('netNote');
+  const ok = ENV.kind === 'room' || ENV.kind === 'peer';
+  $('bCreate').disabled = !ok || G.busy; $('bJoin').disabled = !ok || G.busy;
+  if (ENV.kind === 'detecting') note.textContent = '연결 준비 중이에요. 혼자 연습은 바로 할 수 있어요.';
+  else if (ENV.kind === 'room') note.textContent = '이 페이지를 공유받은 친구가 방 코드로 들어올 수 있어요. 한 방에 8명까지.';
+  else if (ENV.kind === 'peer') note.textContent = '방 코드나 초대 링크만 있으면 로그인 없이 같이 할 수 있어요. 한 방에 8명까지.';
+  else note.textContent = '여기서는 같이 하기를 쓸 수 없어요. 혼자 연습은 할 수 있어요.';
+  renderRooms();
+}
+
+// ---------- side pane
+let sideSig = '';
+function rosterRows() {
+  const g = G.g, rows = [];
+  for (const p of G.list) {
+    const s = p.s; if (!s || typeof s.nm !== 'string') continue;
+    const inRound = g && (g.ph === 'play' || g.ph === 'over') && s.r === g.n;
+    const d = p.me ? (G.me.dead ? G.me.d : null) : (isDead(s) ? num(s.d) : null);
+    rows.push({ id: p.id, me: p.me, host: s.h === 1, nm: safeName(s), c: safeCol(s), w: clamp(Math.floor(num(s.w, 0)), 0, 999), inRound, d, stale: !p.me && Date.now() - p.seen > 6000 && g && g.ph === 'play' });
+  }
+  const byId = (a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  if (g && g.ph !== 'lobby') rows.sort((a, b) => (b.inRound - a.inRound) || ((b.d == null ? 1e9 : b.d) - (a.d == null ? 1e9 : a.d)) || byId(a, b));
+  else rows.sort((a, b) => (b.host - a.host) || byId(a, b));
+  return rows;
+}
+function renderSide(force) {
+  if (!G.net) return;
+  const g = G.g, rows = rosterRows(), ph = g ? g.ph : 'lobby';
+  const sig = JSON.stringify([ph, g && g.n, G.isHost, rows.map(r => [r.id, r.nm, r.c, r.w, r.inRound, r.d, r.stale, r.host]), G.playing, G.me.dead, LB.ver, G.showBoard]);
+  if (!force && sig === sideSig) return; sideSig = sig;
+
+  const ol = $('roster'); ol.textContent = '';
+  rows.forEach((r, i) => {
+    const li = document.createElement('li'); if (r.me) li.className = 'me';
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = (ph !== 'lobby' && r.inRound) ? (i + 1) : '';
+    const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = COLORS[r.c];
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.nm;
+    const tags = [r.me ? '나' : '', r.host && !G.solo ? '방장' : ''].filter(Boolean).join(' · ');
+    if (tags) { const em = document.createElement('em'); em.textContent = tags; nm.append(em); }
+    const st = document.createElement('span'); st.className = 'st';
+    if (ph === 'lobby') { st.textContent = '대기'; st.classList.add('idle'); }
+    else if (!r.inRound) { st.textContent = '관전'; st.classList.add('idle'); }
+    else if (r.d != null) { st.textContent = '발각 ' + r.d.toFixed(1) + '초'; st.classList.add('caught'); }
+    else if (r.stale) { st.textContent = '응답 없음'; st.classList.add('idle'); }
+    else { st.textContent = '생존'; st.classList.add('alive'); }
+    const wn = document.createElement('span'); wn.className = 'wn'; wn.textContent = r.w > 0 ? r.w + '승' : '';
+    li.append(rk, dot, nm, wn, st); ol.append(li);
+  });
+
+  const n = rows.length, inR = rows.filter(r => r.inRound), alive = inR.filter(r => r.d == null).length;
+  let msg = '';
+  if (ph === 'lobby') msg = G.isHost ? (n > 1 ? `${n}명 모였어요. 준비되면 게임 시작을 눌러요.` : '친구에게 방 코드를 보내 주세요. 혼자서 먼저 시작해도 돼요.') : '방장이 시작하기를 기다리는 중이에요. 그동안 맵에서 움직여 볼 수 있어요.';
+  else if (ph === 'play') msg = !G.playing && !G.solo ? '진행 중인 판이에요. 다음 판부터 같이 해요.' : G.me.dead ? `발각됐어요. 남은 ${alive}명을 지켜봐요.` : `살아남은 사람 ${alive}명`;
+  else if (ph === 'over') {
+    const top = inR[0];
+    msg = G.solo ? `${(G.me.d || 0).toFixed(1)}초 버텼어요.` : top ? `${top.nm} 님이 ${(top.d || 0).toFixed(1)}초로 1등이에요.` : '판이 끝났어요.';
+    if (!G.isHost && !G.solo) msg += ' 방장이 다시 시작하면 바로 들어가요.';
+  }
+  $('phaseText').textContent = msg;
+
+  const bs = $('bStart');
+  bs.hidden = !G.isHost || ph === 'play';
+  bs.textContent = ph === 'over' ? '다시 하기' : '게임 시작';
+  const best = LB.mine.b, rk = myRank();
+  $('bestText').textContent = best > 0 ? `내 최고 기록 ${best.toFixed(1)}초${rk > 0 ? ` · 명예의 전당 ${rk}위` : ''}${G.newBest ? ' · 새 기록!' : ''}` : '';
+  $('bBoard').hidden = ph === 'play';
+  $('bBoard').textContent = G.showBoard ? '명예의 전당 닫기' : '명예의 전당 보기';
+}
+
+function onPhase(ph) {
+  if (ph === 'play') showBoard(false);
+  renderSide(true);
+  if (ph === 'play' && document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 4200);
+}
+
+// ---------- canvas
+const cv = $('cv'), ctx = cv.getContext('2d');
+let scale = 1, dpr = 1;
+const narrowMQ = matchMedia('(max-width: 860px)');
+function fit() {
+  const cell = $('arenaCell'), arena = $('arena');
+  let size = narrowMQ.matches ? cell.clientWidth : Math.min(cell.clientWidth, cell.clientHeight);
+  size = Math.max(220, Math.floor(size));
+  if (arena.style.width !== size + 'px') { arena.style.width = size + 'px'; arena.style.height = size + 'px'; }
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  const px = Math.round(size * dpr);
+  if (cv.width !== px) { cv.width = px; cv.height = px; }
+  scale = size / W;
+}
+new ResizeObserver(fit).observe($('arenaCell'));
+addEventListener('resize', fit);
+fit();
+
+const css = getComputedStyle(document.documentElement);
+const tok = n => css.getPropertyValue(n).trim();
+const C = { night: tok('--night'), panel: tok('--panel'), line: tok('--line'), ink: tok('--ink'), muted: tok('--muted'), lamp: tok('--lamp'), alarm: tok('--alarm'), safe: tok('--safe') };
+const F = { display: tok('--f-display'), body: tok('--f-body'), mono: tok('--f-mono') };
+function rgba(hex, a) { const n = parseInt(hex.replace('#', ''), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+function circle(x, y, r) { ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2); }
+
+function drawField() {
+  ctx.fillStyle = C.night; ctx.fillRect(0, 0, W, H);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = rgba(C.line, .45); ctx.beginPath();
+  for (let i = 40; i < W; i += 40) if (i % 200) { ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.moveTo(0, i); ctx.lineTo(W, i); }
+  ctx.stroke();
+  ctx.strokeStyle = rgba(C.line, 1); ctx.beginPath();
+  for (let i = 200; i < W; i += 200) { ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.moveTo(0, i); ctx.lineTo(W, i); }
+  ctx.stroke();
+}
+
+function drawWarns() {
+  for (const wv of G.warns) {
+    const blink = .55 + .45 * Math.sin(wv.p * Math.PI * 7);
+    const a0 = wv.gap - wv.gw / 2, a1 = wv.gap + wv.gw / 2, th = 12;
+    const seg = (from, to, col) => {
+      if (wv.dir === 0) ctx.fillRect(0, from, th, to - from);
+      else if (wv.dir === 1) ctx.fillRect(W - th, from, th, to - from);
+      else if (wv.dir === 2) ctx.fillRect(from, 0, to - from, th);
+      else ctx.fillRect(from, H - th, to - from, th);
+    };
+    ctx.fillStyle = rgba(C.alarm, .8 * blink); seg(0, a0); seg(a1, W);
+    ctx.fillStyle = rgba(C.safe, .9); seg(a0, a1);
+    // chevrons pointing into the field
+    ctx.strokeStyle = rgba(C.alarm, .7 * blink); ctx.lineWidth = 3;
+    for (const q of [W * .18, W * .5, W * .82]) {
+      if (q > a0 - 30 && q < a1 + 30) continue;
+      ctx.beginPath();
+      for (let k = 0; k < 2; k++) {
+        const d = 26 + k * 14;
+        if (wv.dir === 0) { ctx.moveTo(d - 8, q - 10); ctx.lineTo(d, q); ctx.lineTo(d - 8, q + 10); }
+        else if (wv.dir === 1) { ctx.moveTo(W - d + 8, q - 10); ctx.lineTo(W - d, q); ctx.lineTo(W - d + 8, q + 10); }
+        else if (wv.dir === 2) { ctx.moveTo(q - 10, d - 8); ctx.lineTo(q, d); ctx.lineTo(q + 10, d - 8); }
+        else { ctx.moveTo(q - 10, H - d + 8); ctx.lineTo(q, H - d); ctx.lineTo(q + 10, H - d + 8); }
+      }
+      ctx.stroke();
+    }
+  }
+}
+
+function drawThreats(units, dim) {
+  const cs = G.circles;
+  ctx.save();
+  if (dim) ctx.globalAlpha = .7;
+  // pivots and arms for rotating patrols
+  for (const c of cs) if (c.pivot) {
+    ctx.strokeStyle = rgba(C.lamp, .22 * c.vis); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(c.pivot[0], c.pivot[1]); ctx.lineTo(c.x, c.y); ctx.stroke();
+  }
+  // detection ranges
+  for (const c of cs) {
+    if (!c.on) {
+      ctx.setLineDash([7, 8]); ctx.lineWidth = 1.6;
+      ctx.strokeStyle = rgba(C.lamp, .65 * c.w * c.vis);
+      circle(c.x, c.y, c.ring || c.r); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = rgba(C.lamp, .05 * c.w * c.vis); ctx.fill();
+    } else {
+      const gr = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, Math.max(1, c.r));
+      gr.addColorStop(0, rgba(C.lamp, .07 * c.vis)); gr.addColorStop(.72, rgba(C.lamp, .15 * c.vis)); gr.addColorStop(1, rgba(C.lamp, .32 * c.vis));
+      ctx.fillStyle = gr; circle(c.x, c.y, c.r); ctx.fill();
+      ctx.strokeStyle = rgba(C.lamp, .85 * c.vis); ctx.lineWidth = 1.6; ctx.stroke();
+      if (c.ring) { ctx.setLineDash([3, 9]); ctx.strokeStyle = rgba(C.lamp, .3 * c.vis); circle(c.x, c.y, c.ring); ctx.stroke(); ctx.setLineDash([]); }
+    }
+  }
+  // dash telegraphs
+  for (const c of cs) {
+    if (c.tele) {
+      const p = c.tele.p;
+      ctx.setLineDash([10, 10]); ctx.lineDashOffset = -p * 40;
+      ctx.strokeStyle = rgba(C.alarm, .35 + .5 * p); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.tele.x, c.tele.y); ctx.stroke();
+      ctx.setLineDash([5, 7]); ctx.lineDashOffset = 0; circle(c.tele.x, c.tele.y, c.r); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(c.tele.x - 10, c.tele.y); ctx.lineTo(c.tele.x + 10, c.tele.y); ctx.moveTo(c.tele.x, c.tele.y - 10); ctx.lineTo(c.tele.x, c.tele.y + 10); ctx.stroke();
+    }
+    if (c.from) {
+      const gr = ctx.createLinearGradient(c.from[0], c.from[1], c.x, c.y);
+      gr.addColorStop(0, rgba(C.lamp, 0)); gr.addColorStop(1, rgba(C.lamp, .5));
+      ctx.strokeStyle = gr; ctx.lineWidth = 10; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(c.from[0], c.from[1]); ctx.lineTo(c.x, c.y); ctx.stroke(); ctx.lineCap = 'butt';
+    }
+  }
+  // the observers themselves: a lamp body with a pupil that watches the nearest unit
+  for (const c of cs) {
+    let lx = 0, ly = 0, best = 1e12;
+    for (const u of units) { const dx = u.x - c.x, dy = u.y - c.y, d = dx * dx + dy * dy; if (d < best) { best = d; lx = dx; ly = dy; } }
+    const l = Math.hypot(lx, ly) || 1, a = c.on ? c.vis : .55 * c.w * c.vis;
+    ctx.globalAlpha = (dim ? .7 : 1) * a;
+    ctx.fillStyle = rgba(C.lamp, .25); circle(c.x, c.y, 15); ctx.fill();
+    ctx.fillStyle = C.panel; circle(c.x, c.y, 9.5); ctx.fill();
+    ctx.strokeStyle = C.lamp; ctx.lineWidth = 2.2; ctx.stroke();
+    ctx.fillStyle = C.lamp; circle(c.x + lx / l * 3.6, c.y + ly / l * 3.6, 3.6); ctx.fill();
+    ctx.globalAlpha = dim ? .7 : 1;
+  }
+  ctx.restore();
+}
+
+function drawUnit(u) {
+  const color = COLORS[u.c] || COLORS[0];
+  ctx.save();
+  if (u.dead) ctx.globalAlpha = .4;
+  if (u.me && !u.dead) { ctx.fillStyle = rgba(color, .18); circle(u.x, u.y, PR + 10); ctx.fill(); }
+  if (u.meter > 0.01 && !u.dead) {
+    ctx.strokeStyle = C.alarm; ctx.lineWidth = 3.2;
+    ctx.beginPath(); ctx.arc(u.x, u.y, PR + 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, u.meter)); ctx.stroke();
+  }
+  ctx.fillStyle = color; circle(u.x, u.y, PR); ctx.fill();
+  ctx.lineWidth = u.me ? 2.6 : 2; ctx.strokeStyle = u.me ? C.ink : C.night; ctx.stroke();
+  if (u.dead) {
+    ctx.strokeStyle = C.night; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(u.x - 5, u.y - 5); ctx.lineTo(u.x + 5, u.y + 5); ctx.moveTo(u.x + 5, u.y - 5); ctx.lineTo(u.x - 5, u.y + 5); ctx.stroke();
+  }
+  ctx.font = `600 13px ${F.body}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.lineWidth = 4; ctx.strokeStyle = rgba(C.night, .85); ctx.strokeText(u.nm, u.x, u.y - PR - 9);
+  ctx.fillStyle = u.me ? C.ink : rgba(C.ink, .85); ctx.fillText(u.nm, u.x, u.y - PR - 9);
+  ctx.restore();
+}
+
+function centerText(lines) {
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const [txt, font, color, y] of lines) { ctx.font = font; ctx.fillStyle = color; ctx.fillText(txt, W / 2, y); }
+}
+
+function collectUnits() {
+  const units = [], g = G.g, ph = g ? g.ph : null;
+  const k = 1 - Math.exp(-dtLast * 14);
+  for (const p of G.list) {
+    const s = p.s; if (!s || typeof s.nm !== 'string') continue;
+    if (p.me) {
+      if (ph === 'lobby' || (G.playing && s.r === G.round)) units.push({ x: G.me.x, y: G.me.y, c: safeCol(s), nm: safeName(s), me: true, dead: G.me.dead && ph !== 'lobby', meter: ph === 'lobby' ? 0 : G.me.m });
+      continue;
+    }
+    if (ph !== 'lobby' && s.r !== G.round) continue;
+    const tx = clamp(num(s.x, W / 2), 0, W), ty = clamp(num(s.y, H / 2), 0, H);
+    let v = G.view.get(p.id);
+    if (!v) { v = { x: tx, y: ty }; G.view.set(p.id, v); }
+    v.x += (tx - v.x) * k; v.y += (ty - v.y) * k;
+    units.push({ x: v.x, y: v.y, c: safeCol(s), nm: safeName(s), me: false, dead: ph !== 'lobby' && isDead(s), meter: clamp(num(s.m, 0) / 100, 0, 1) });
+  }
+  units.sort((a, b) => (a.me - b.me) || (b.dead - a.dead));
+  return units;
+}
+
+let dtLast = 0.016;
+function render(now) {
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+  drawField();
+  const g = G.g, ph = G.net ? (g ? g.ph : 'lobby') : 'menu';
+  if (ph === 'menu') {
+    drawWarns(); drawThreats([], false);
+    return;
+  }
+  const units = collectUnits();
+  if (ph === 'play' || ph === 'over') { drawWarns(); drawThreats(units.filter(u => !u.dead), ph === 'over'); }
+
+  // move-command marker
+  if (G.clickFx) {
+    const a = (now - G.clickFx.at) / 380;
+    if (a >= 1) G.clickFx = null;
+    else { ctx.strokeStyle = rgba(C.safe, 1 - a); ctx.lineWidth = 2; circle(G.clickFx.x, G.clickFx.y, 14 * (1 - a) + 3); ctx.stroke(); }
+  }
+  for (const u of units) drawUnit(u);
+
+  // touch joystick
+  if (joy.active) {
+    const ox = joy.ox / scale, oy = joy.oy / scale;
+    ctx.strokeStyle = rgba(C.ink, .35); ctx.lineWidth = 2; circle(ox, oy, 50 / scale); ctx.stroke();
+    const l = Math.hypot(joy.dx, joy.dy), m = Math.min(l, 50) / (l || 1);
+    ctx.fillStyle = rgba(C.ink, .35); circle(ox + joy.dx * m / scale, oy + joy.dy * m / scale, 18 / scale); ctx.fill();
+  }
+
+  // caught flash
+  const hf = (now - G.hitFx) / 600;
+  if (G.hitFx && hf < 1) { ctx.strokeStyle = rgba(C.alarm, .7 * (1 - hf)); ctx.lineWidth = 24; ctx.strokeRect(0, 0, W, H); }
+
+  if (ph === 'lobby') {
+    centerText([[G.isHost ? '게임 시작을 누르면 3초 뒤에 옵저버가 깨어나요' : '방장이 시작하면 3초 뒤에 옵저버가 깨어나요', `500 17px ${F.body}`, rgba(C.muted, 1), H - 40]]);
+  } else if (ph === 'play') {
+    const t = gameTime();
+    if (t < 0) {
+      ctx.fillStyle = rgba(C.night, .35); ctx.fillRect(0, 0, W, H);
+      centerText([[String(Math.ceil(-t)), `150px ${F.display}`, C.ink, H / 2 - 10], ['숨을 곳을 미리 봐 두세요', `500 18px ${F.body}`, C.muted, H / 2 + 90]]);
+    } else if (t < 0.7) {
+      centerText([['시작!', `90px ${F.display}`, rgba(C.lamp, 1 - t / 0.7), H / 2]]);
+    }
+    if (!G.playing && !G.solo) centerText([['관전 중 · 다음 판부터 참가', `600 16px ${F.body}`, C.muted, 30]]);
+    else if (G.me.dead) centerText([[`발각! ${(G.me.d || 0).toFixed(1)}초`, `40px ${F.display}`, C.alarm, 46]]);
+  } else if (ph === 'over') {
+    ctx.fillStyle = rgba(C.night, .55); ctx.fillRect(0, 0, W, H);
+    const rows = rosterRows().filter(r => r.inRound);
+    if (G.solo) {
+      const best = LB.mine.b, rk = myRank();
+      centerText([['발각', `600 16px ${F.body}`, C.alarm, H / 2 - 80], [`${(G.me.d || 0).toFixed(1)}초`, `96px ${F.display}`, C.ink, H / 2 - 10], [G.newBest ? '새 최고 기록!' : `최고 기록 ${best.toFixed(1)}초`, `500 18px ${F.body}`, G.newBest ? C.lamp : C.muted, H / 2 + 66], [rk > 0 ? `명예의 전당 ${rk}위` : '', `500 15px ${F.body}`, C.muted, H / 2 + 96]]);
+    } else if (rows.length) {
+      const top = rows[0];
+      centerText([['1등', `600 16px ${F.body}`, C.lamp, H / 2 - 92], [top.nm, `72px ${F.display}`, COLORS[top.c], H / 2 - 26], [`${(top.d || 0).toFixed(1)}초 생존`, `600 22px ${F.mono}`, C.ink, H / 2 + 38]]);
+      rows.slice(1, 5).forEach((r, i) => centerText([[`${i + 2}등  ${r.nm}  ${(r.d || 0).toFixed(1)}초`, `500 16px ${F.body}`, C.muted, H / 2 + 92 + i * 26]]));
+    }
+  }
+}
+
+// ---------- loop
+let lastFrame = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now; dtLast = dt;
+  if (!G.net) {
+    const t = 8 + ((now - G.attractStart) / 1000) % 60;
+    computeThreats(G.attract, t, G.circles, G.warns);
+  } else {
+    sync();
+    const g = G.g;
+    if (g && g.ph === 'play') {
+      const t = gameTime();
+      computeThreats(G.sched, Math.max(0, t), G.circles, G.warns);
+      if (G.playing && !G.me.dead && t >= 0) { move(dt); detect(dt, t); }
+      if (G.playing && G.net) G.net.set({ x: Math.round(G.me.x), y: Math.round(G.me.y), m: Math.round(G.me.m * 100) });
+    } else if (g && g.ph === 'over') {
+      computeThreats(G.sched, num(g.et, 0), G.circles, G.warns);
+    } else if (g && g.ph === 'lobby') {
+      G.circles.length = 0; G.warns.length = 0;
+      move(dt);
+      if (G.net) G.net.set({ x: Math.round(G.me.x), y: Math.round(G.me.y) });
+    }
+    hud();
+  }
+  render(now);
+  requestAnimationFrame(frame);
+}
+
+function move(dt) {
+  let dx = 0, dy = 0;
+  const kx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+  if (kx || ky) { const l = Math.hypot(kx, ky); dx = kx / l; dy = ky / l; G.target = null; }
+  else if (joy.active) { const l = Math.hypot(joy.dx, joy.dy); if (l > 6) { const s = Math.min(1, l / 45); dx = joy.dx / l * s; dy = joy.dy / l * s; } }
+  else if (G.target) {
+    const vx = G.target.x - G.me.x, vy = G.target.y - G.me.y, l = Math.hypot(vx, vy);
+    if (l < 1.5) G.target = null;
+    else { const s = Math.min(1, l / (SPEED * dt)); dx = vx / l * s; dy = vy / l * s; }
+  }
+  G.me.x = clamp(G.me.x + dx * SPEED * dt, PR, W - PR);
+  G.me.y = clamp(G.me.y + dy * SPEED * dt, PR, H - PR);
+}
+
+function detect(dt, t) {
+  let inside = false;
+  for (const c of G.circles) {
+    if (!c.on) continue;
+    const dx = G.me.x - c.x, dy = G.me.y - c.y, rr = c.r + PR * 0.35;
+    if (dx * dx + dy * dy < rr * rr) { inside = true; break; }
+  }
+  G.me.m = clamp(G.me.m + (inside ? FILL : -DRAIN) * dt, 0, 1);
+  if (G.me.m >= 1) die(t);
+}
+
+let hudSig = '';
+function hud() {
+  const g = G.g; let time = 0, alive = '·', lvl = '·';
+  if (g && (g.ph === 'play' || g.ph === 'over')) {
+    const t = g.ph === 'over' ? num(g.et) : gameTime();
+    time = G.playing && G.me.dead ? G.me.d : Math.max(0, t);
+    const rows = rosterRows().filter(r => r.inRound);
+    alive = `${rows.filter(r => r.d == null).length}/${rows.length}`;
+    lvl = String(1 + Math.floor(Math.max(0, t) / 20));
+  }
+  const sig = time.toFixed(1) + alive + lvl;
+  if (sig === hudSig) return; hudSig = sig;
+  $('hTime').textContent = time.toFixed(1); $('hAlive').textContent = alive; $('hLevel').textContent = lvl;
+}
+
+// network pump runs on a timer so the host keeps the room going even when its frames slow down
+setInterval(() => {
+  if (!G.net) return;
+  const now = Date.now();
+  sync();
+  if (!G.net) return;
+  if (now - G.lastHb > 1000) { G.lastHb = now; G.hb = (G.hb + 1) % 1000; G.net.set({ hb: G.hb }); }
+  hostTick(now);
+  G.net.flush();
+  if (G.net.sendBoard && (G.net.boardNeed || G.lbSent !== LB.ver) && now - G.lbAt > 1200) { G.net.boardNeed = false; G.lbSent = LB.ver; G.lbAt = now; G.net.sendBoard(boardPayload()); }
+  renderSide(false);
+  advertise();
+}, 50);
+
+setInterval(() => {
+  if (LB.remote && Date.now() - LB.lastPull > 30000 && !(G.playing && !G.me.dead && G.g && G.g.ph === 'play')) pullRemote();
+}, 5000);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && G.net && G.playing && !G.me.dead && G.g && G.g.ph === 'play') die(Math.max(0, gameTime()));
+});
+
+// ---------- input
+function toArena(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height, sx: e.clientX - r.left, sy: e.clientY - r.top }; }
+let mouseHeld = false;
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('pointerdown', e => {
+  if (!G.net) return;
+  e.preventDefault();
+  const p = toArena(e);
+  if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+    joy.active = true; joy.id = e.pointerId; joy.ox = p.sx; joy.oy = p.sy; joy.dx = 0; joy.dy = 0; G.target = null;
+  } else {
+    mouseHeld = true; G.target = { x: p.x, y: p.y }; G.clickFx = { x: p.x, y: p.y, at: performance.now() };
+  }
+  try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+});
+cv.addEventListener('pointermove', e => {
+  const p = toArena(e);
+  if (joy.active && e.pointerId === joy.id) { joy.dx = p.sx - joy.ox; joy.dy = p.sy - joy.oy; }
+  else if (mouseHeld) G.target = { x: p.x, y: p.y };
+});
+const endPtr = e => { if (joy.active && e.pointerId === joy.id) { joy.active = false; joy.dx = joy.dy = 0; } mouseHeld = false; };
+cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+
+const KEYMAP = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' };
+addEventListener('keydown', e => {
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const k = KEYMAP[e.code]; if (!k || !G.net) return;
+  keys[k] = true; e.preventDefault();
+});
+addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
+addEventListener('blur', () => { keys.up = keys.down = keys.left = keys.right = false; mouseHeld = false; });
+
+// ---------- menu wiring
+(function initMenu() {
+  const row = $('swRow');
+  COLORS.forEach((col, i) => {
+    const inp = document.createElement('input'); inp.type = 'radio'; inp.name = 'col'; inp.id = 'col' + i; inp.value = i;
+    const lab = document.createElement('label'); lab.htmlFor = 'col' + i; lab.style.background = col; lab.title = '색 ' + (i + 1);
+    row.append(inp, lab);
+  });
+  const c = num(store.get('c', Math.floor(Math.random() * COLORS.length)), 0) | 0;
+  const pick = $('col' + clamp(c, 0, COLORS.length - 1)); if (pick) pick.checked = true;
+  $('nm').value = store.get('nm', '') || ('요원' + Math.floor(10 + Math.random() * 90));
+
+  $('bSolo').addEventListener('click', playSolo);
+  $('bCreate').addEventListener('click', createRoom);
+  $('fJoin').addEventListener('submit', e => { e.preventDefault(); joinRoom($('code').value); });
+  $('code').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+  $('bStart').addEventListener('click', startRound);
+  $('bBoard').addEventListener('click', () => showBoard(!G.showBoard));
+  $('bBoardClose').addEventListener('click', () => showBoard(false));
+  $('bLeave').addEventListener('click', () => leaveRoom(''));
+  const copy = (text, ok) => {
+    const done = () => toast(ok), fallback = () => toast('복사가 안 되면 화면의 코드를 그대로 알려 주세요.');
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+  };
+  $('bCopyCode').addEventListener('click', () => copy(G.code || '', '방 코드를 복사했어요.'));
+  $('bCopyLink').addEventListener('click', () => copy(location.origin + location.pathname + '?room=' + (G.code || ''), '초대 링크를 복사했어요. 친구가 열면 코드가 자동으로 들어가요.'));
+
+  try {
+    const q = new URLSearchParams(location.search).get('room');
+    if (q && CODE_RE.test(q.toUpperCase())) { $('code').value = q.toUpperCase(); toast('초대받은 방 코드가 들어가 있어요. 닉네임을 확인하고 참가를 눌러요.'); }
+  } catch (e) {}
+  renderMenuNet();
+  renderBoard();
+})();
+
+if (window.__OBS_TEST__) window.__obs = { G, gameTime, die, ENV, LB, boardRows, myRank };
+detectEnv();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
