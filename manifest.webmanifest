@@ -1,0 +1,21 @@
+{
+  "name": "조선 디펜스",
+  "short_name": "조선 디펜스",
+  "description": "도깨비가 고을을 돈다. 놀이패와 장수를 불러 막아라",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#16131f",
+  "theme_color": "#16131f",
+  "lang": "ko",
+  "dir": "ltr",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
