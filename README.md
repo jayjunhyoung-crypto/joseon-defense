@@ -19,4 +19,4 @@ Please defense Joseon!
 기록은 그 기기에 저장돼요. 홈 화면 앱은 브라우저랑 기록이 따로라서, 옮길 땐 설정의 기록 옮기기에서 저장 코드를 쓰면 돼요.
 
 ## 고친 뒤에
-index.html을 고쳤으면 `python3 tools/build_app.py`를 한 번 돌려서 버전 표시를 새로 찍어 주세요.
+게임 코드는 src/ 안에 나눠져 있어요. 고친 다음 `python3 tools/build.py`를 돌리면 index.html이 새로 만들어지고 버전 표시도 새로 찍혀요.
