@@ -117,6 +117,10 @@ function onEvent(e) {
       for (let i = 0; i < 3; i++) FX.push({ k: 'ring', x: 0, y: 0, r0: 6.5, r1: 0.6, col: i % 2 ? '#e0f0ff' : '#4a9ae8', w: 7, life: 0.8, t: -i * 0.12, flat: 0.75 });
       const p = unitPos(e.cell); fxText(p.x, p.y - 1.8, '인당수!', 'word', 1.2); burst(0, 0, 3, 30, ['#bfe0ff', '#4a9ae8', '#ffffff'], 4, 0.06, 0.9, { up: 1.5, g: 1 }); shake(0.3); sfx('wave'); break;
     }
+    case 'ship': { const p = unitPos(e.cell); fxText(p.x, p.y - 1.7, '무역선이 들어왔다!', 'word', 1.1); fxText(p.x, p.y - 1.2, `혼 +${e.hon}`, 'coin', 1.1); fxRing(p.x, p.y, 0.2, 1.4, '#5ab0ff', 4, 0.6); sfx('gong'); break; }
+    case 'hon': fxText(e.x, e.y - 0.6, `혼 +${e.v}`, 'coin', 1.1); break;
+    case 'mission': sfx('upgrade'); if (e.coins) flyCoin(0, -3.2, COIN_EL, 3); break;
+    case 'steal': fxText(e.x, e.y - 1.0, '슬쩍!', 'word', 0.8); burst(e.x, e.y - 0.4, 0.3, 6, ['#f2c94a', '#fff2b0'], 1.4, 0.05, 0.5, { up: 2, g: 1.2 }); break;
     case 'execute': for (let i = 0; i < 5; i++) part(e.x + rand(-0.15, 0.15), e.y, 0.3, 0, 0, rand(0.8, 1.4), '#e8f4ff', 0.06, 1.0, { g: -0.5, drag: 0.6, kind: 'petal' }); break;
     case 'command': {
       const p = unitPos(e.cell);
@@ -177,17 +181,17 @@ function onEvent(e) {
       FX.push({ k: 'ring', x: b.x, y: b.y - 0.15, r0: 0.1, r1: 1.4, col: '#e2563c', w: 6, life: 0.7, t: -0.45, flat: 0.55 });
       FX.push({ k: 'flash', x: b.x, y: b.y - 0.55, r: 1.3, col: '#ffcf8a', life: 0.7, t: -0.45, a: 0.5 });
       setTimeout(() => { burst(b.x, b.y, 0.5, 26, OBANG, 3, 0.07, 1.0, { up: 2.2, g: 0.6 }); shake(0.3); }, 450 / Math.max(1, G.speed));
-      if (T.tier === BEAST_TIER) { for (let i = 0; i < 5; i++) FX.push({ k: 'ring', x: b.x, y: b.y - 0.15, r0: 0.2, r1: 2.6 + i * 0.35, col: ['#2f6ad8', '#e2402e', '#f4f0e6', '#1f1a17', '#f2c43a'][i], w: 5, life: 0.9, t: -0.45 - i * 0.07, flat: 0.55 }); fxFlash(b.x, b.y - 0.8, 2.5, '#b4f2e6', 0.9, 0.5); }
-      if (T.tier >= TALE_TIER) { for (let i = 0; i < 6; i++) FX.push({ k: 'ring', x: b.x, y: b.y - 0.15, r0: 0.2, r1: 3 + i * 0.4, col: ['#e2402e', '#f2c43a', '#3fae6a', '#3a6ad8', '#b06aff', '#ff7ab8'][i], w: 5, life: 1.0, t: -0.45 - i * 0.08, flat: 0.55 }); fxFlash(0, 0, 6, '#fff3d0', 1.0, 0.4); }
-      showBanner(T.tier >= TALE_TIER ? '전래동화가 깨어났다' : T.tier === BEAST_TIER ? '신수가 내려왔다' : '신화 탄생', `${T.name} · ${T.skill}`, false, true);
-      cutIn(T.id, T.tier >= TALE_TIER ? '전래동화' : T.tier === BEAST_TIER ? '신수 강림' : '신화 탄생', T.name, true);
+      if (T.grp === 'beast') { for (let i = 0; i < 5; i++) FX.push({ k: 'ring', x: b.x, y: b.y - 0.15, r0: 0.2, r1: 2.6 + i * 0.35, col: ['#2f6ad8', '#e2402e', '#f4f0e6', '#1f1a17', '#f2c43a'][i], w: 5, life: 0.9, t: -0.45 - i * 0.07, flat: 0.55 }); fxFlash(b.x, b.y - 0.8, 2.5, '#b4f2e6', 0.9, 0.5); }
+      if (T.grp === 'tale') { for (let i = 0; i < 6; i++) FX.push({ k: 'ring', x: b.x, y: b.y - 0.15, r0: 0.2, r1: 3 + i * 0.4, col: ['#e2402e', '#f2c43a', '#3fae6a', '#3a6ad8', '#b06aff', '#ff7ab8'][i], w: 5, life: 1.0, t: -0.45 - i * 0.08, flat: 0.55 }); fxFlash(0, 0, 6, '#fff3d0', 1.0, 0.4); }
+      showBanner(T.grp === 'tale' ? '전래동화가 깨어났다' : T.grp === 'beast' ? '신수가 내려왔다' : '신화 탄생', `${T.name} · ${T.skill}`, false, true);
+      cutIn(T.id, T.grp === 'tale' ? '전래동화' : T.grp === 'beast' ? '신수 강림' : '신화 탄생', T.name, true);
       sfx('craft');
       break;
     }
     case 'stack': { const b = unitPos(e.to); fxRing(b.x, b.y - 0.18, 0.1, 0.5, '#ffffff', 3, 0.3); sfx('tap'); break; }
     case 'sell': { const p = unitPos(e.cell); puff(p.x, p.y, 3, '#cfc6b4', 0.1, 0.5); fxText(p.x, p.y - 0.9, `+${e.v}`, 'coin', 0.8); sfx('sell'); break; }
     case 'upgrade':
-      for (let i = 0; i < NCELL; i++) { const u = G.units[i]; if (!u) continue; const T = TYPES[u.t]; if (e.g === LUCK || FAM_IX[T.fam] === e.g) { const p = unitPos(i); burst(p.x, p.y, 0.2, 5, e.g === LUCK ? TIERS[T.tier].light : FAMS[T.fam].color, 1.2, 0.045, 0.7, { up: 1.5, g: -0.6 }); } }
+      for (let i = 0; i < NCELL; i++) { const u = G.units[i]; if (!u) continue; const T = TYPES[u.t]; if (e.g === LUCK || upGroup(T) === e.g) { const p = unitPos(i); burst(p.x, p.y, 0.2, 5, e.g === LUCK ? TIERS[T.tier].light : UP_COLOR[e.g], 1.2, 0.045, 0.7, { up: 1.5, g: -0.6 }); } }
       sfx('upgrade');
       break;
     case 'banner': showBanner(e.main, e.sub, e.boss); break;
@@ -292,6 +296,12 @@ function onEvent(e) {
       else if (e.id === 'hokburi') { fxFlash(e.tx, e.ty - 0.4, 1.0, '#ffb3e0', 0.5, 0.6); fxText(e.tx, e.ty - 1.2, '혹 떼였다!', 'word', 1.2); burst(e.tx, e.ty - 0.3, 0.3, 14, ['#f0c49a', '#ffd36a'], 3, 0.06, 0.8, { up: 2, g: 1 }); }
       else if (e.id === 'namukkun') { for (const q of e.pts || []) { FX.push({ k: 'fall', x: q.x, y: q.y, life: 0.5 / Math.max(1, G.speed), t: 0 }); fxFlash(q.x, q.y - 0.4, 0.7, '#ffe08a', 0.4, 0.6); } fxText(p.x, p.y - 2.2, '금도끼 은도끼!', 'coin', 1.2); }
       else if (e.id === 'simcheong') { for (let i = 0; i < 3; i++) FX.push({ k: 'ring', x: p.x, y: p.y, r0: 0.3, r1: 4.5, col: i % 2 ? '#ffd6e4' : '#ff8ab4', w: 6, life: 0.9, t: -i * 0.15, flat: 0.55 }); burst(p.x, p.y - 0.5, 0.5, 26, ['#ffc2d8', '#ff8ab4', '#fff1a8'], 4, 0.06, 1.1, { up: 1.5, g: -0.2 }); fxText(p.x, p.y - 2.2, '모두 60% 빨리', 'coin', 1.2); }
+      else if (e.id === 'choimuseon') { for (const q of e.pts || []) fxFlash(q.x, q.y - 0.3, 1.0, '#ffb347', 0.4, 0.5); fxText(p.x, p.y - 2.2, '주화 발사!', 'word', 1.2); shake(0.3); sfx('cannon'); }
+      else if (e.id === 'yeongno') { for (const q of e.pts || []) { fxSlash(q.x, q.y - 0.35, 0.3, -PI / 2, '#b07aff', 0.25); puff(q.x, q.y, 3, '#5a4a60', 0.12, 0.6); } fxText(p.x, p.y - 2.2, '꿀꺽!', 'word', 1.3); sfx('bite'); }
+      else if (e.id === 'gangrim') { for (let i = 0; i < 3; i++) FX.push({ k: 'ring', x: 0, y: 0, r0: 6.5, r1: 0.5, col: i % 2 ? '#f4f0e6' : '#c23a3a', w: 5, life: 0.8, t: -i * 0.12, flat: 0.75 }); fxText(p.x, p.y - 2.2, '명부에 올랐다!', 'word', 1.2); sfx('command'); }
+      else if (e.id === 'gimseondal') { fxRing(e.tx, e.ty, 0.2, 2.0, '#5ab0ff', 6, 0.6); burst(e.tx, e.ty, 0.4, 24, ['#bfe0ff', '#5ab0ff', '#ffffff'], 3, 0.06, 0.8, { up: 2, g: 1 }); fxText(p.x, p.y - 2.2, '대동강 물 사려!', 'word', 1.2); sfx('wave'); }
+      else if (e.id === 'jangbogo') { puff(p.x, p.y - 0.2, 10, '#cfc8bc', 0.16, 1.0); fxText(p.x, p.y - 2.2, '청해진 무역선!', 'word', 1.2); sfx('cannon'); }
+      else if (e.id === 'honggildong') { for (const q of e.pts || []) { fxSlash(q.x, q.y - 0.3, 0.3, rand(-PI, PI), '#ff6a5a', 0.2); } fxText(p.x, p.y - 2.2, '동에 번쩍 서에 번쩍!', 'word', 1.2); sfx('whoosh'); }
       else if (e.id === 'seolmundae') FX.push({ k: 'fall', x: e.tx, y: e.ty, life: 0.8 / Math.max(1, G.speed), t: 0, big: true });
       break;
     }
@@ -346,7 +356,7 @@ function cutIn(id, label, name, force) {
   const el = document.getElementById('cutin'); if (!el) return;
   cutT = now;
   const T = TYPES[TYPE_IX[id]]; if (!T) return;
-  const col = CUT_COL[id] || (T.tier >= TALE_TIER ? '#b06aff' : T.tier === BEAST_TIER ? '#2fbfa6' : T.tier >= 4 ? '#e2563c' : TIERS[T.tier].color);
+  const col = CUT_COL[id] || (T.grp === 'tale' ? '#b06aff' : T.grp === 'beast' ? '#2fbfa6' : T.tier >= 4 ? '#e2563c' : TIERS[T.tier].color);
   el.style.setProperty('--ci', col);
   /* a mythic with a big illustration shows it whole instead of the small portrait */
   const ill = typeof ILLUST !== 'undefined' && ILLUST[id] && ILLUST[id].complete && ILLUST[id].naturalWidth ? ILLUST[id] : null;

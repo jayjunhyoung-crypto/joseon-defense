@@ -45,6 +45,10 @@ if '--sim' in sys.argv:
     # the rules alone, for the headless balance bots
     simdir = root / 'tools' / 'sim'; simdir.mkdir(exist_ok=True)
     core = (parts_dir / 'a_core.js').read_text(encoding='utf-8')
-    (simdir / 'core.js').write_text("'use strict';\n" + core + "\nmodule.exports = { get G() { return G; }, TYPES, TYPE_IX, MYTHS, MYTH_BY, STAGES, BAL, TIERS, makeState, setG: g => { G = g; }, api: typeof SIM_API === 'object' ? SIM_API : null };\n", encoding='utf-8')
+    names = ['TYPES', 'TYPE_IX', 'MYTHS', 'MYTH_BY', 'STAGES', 'BAL', 'TIERS', 'GUTS', 'PITY_MAX', 'ROSTER', 'ULTS', 'CHALS', 'LUCK', 'LUCK_MAX', 'UP_MAX', 'UP_NAMES', 'NCELL', 'LAST_WAVE',
+             'makeState', 'newGame', 'update', 'summon', 'summonCost', 'mergeAt', 'canMergeAt', 'gamble', 'gutP', 'craft', 'recipeState', 'upgrade', 'upCost', 'luckByHon',
+             'emptyCells', 'hasRoom', 'capOf', 'sell', 'charm', 'callChallenge', 'chalReady', 'applyLevels', 'dmgOf', 'hpAt', 'mythOpen', 'poolOf', 'summonOdds', 'COOP']
+    exports = ', '.join(names)
+    (simdir / 'core.js').write_text("'use strict';\n" + core + "\nmodule.exports = { get G() { return G; }, setG: g => { G = g; }, " + exports + " };\n", encoding='utf-8')
 
 print('build', build, 'bytes', len(html.encode('utf-8')))

@@ -66,6 +66,9 @@ const TIERS = [
   { name: '전래동화', color: '#9b6bff', light: '#e2d2ff', sell: 3000 },
 ];
 const BEAST_TIER = 5, TALE_TIER = 6;
+/* 신화 roles: what a mythic is for, shown on its card */
+const ROLES = { aoe: { name: '광역', color: '#e2563c' }, boss: { name: '보스', color: '#9b4ad8' }, ctrl: { name: '제어', color: '#2f86d6' }, eco: { name: '경제', color: '#d6a12a' } };
+const GRP = { beast: '신수', tale: '전래동화' };
 const FAMS = {
   tal: { name: '탈', short: '탈', color: '#c8763c' },
   samul: { name: '사물놀이', short: '사물놀이', color: '#3f78c8' },
@@ -75,123 +78,208 @@ const FAMS = {
 const FAM_KEYS = ['tal', 'samul', 'suho', 'jang'], FAM_IX = { tal: 0, samul: 1, suho: 2, jang: 3 }, LUCK = 4;
 const TYPES = [
   // 일반
-  { id: 'choraengi', name: '초랭이', tier: 0, fam: 'tal', origin: '하회별신굿탈놀이', skill: '돌팔매', desc: '잽싸게 돌멩이를 연달아 던져요', dmg: 5, cd: 0.4, range: 3.1, kind: 'shot', shot: 'stone' },
-  { id: 'imae', name: '이매', tier: 0, fam: 'tal', origin: '하회별신굿탈놀이', skill: '헛웃음 밀치기', desc: '맞은 도깨비를 뒤로 밀어내요', dmg: 10, cd: 0.95, range: 3.0, kind: 'shot', shot: 'gust', kb: 0.6 },
+  { id: 'choraengi', name: '초랭이', tier: 0, old: 1, fam: 'tal', origin: '하회별신굿탈놀이', skill: '돌팔매', desc: '잽싸게 돌멩이를 연달아 던져요', dmg: 5, cd: 0.4, range: 3.1, kind: 'shot', shot: 'stone' },
+  { id: 'imae', name: '이매', tier: 0, old: 1, fam: 'tal', origin: '하회별신굿탈놀이', skill: '헛웃음 밀치기', desc: '맞은 도깨비를 뒤로 밀어내요', dmg: 10, cd: 0.95, range: 3.0, kind: 'shot', shot: 'gust', kb: 0.6 },
   { id: 'halmi', name: '할미', tier: 0, fam: 'tal', origin: '하회별신굿탈놀이', skill: '실타래', desc: '맞은 도깨비가 한참 느려져요', dmg: 7, cd: 0.85, range: 3.2, kind: 'shot', shot: 'yarn', slow: 0.35, slowT: 1.8 },
   { id: 'kkwaenggwari', name: '꽹과리', tier: 0, fam: 'samul', origin: '사물놀이', skill: '쇳소리', desc: '쨍한 소리가 한 마리 더 튕겨 가요', dmg: 6, cd: 0.6, range: 3.0, kind: 'chain', chain: 2 },
   { id: 'buk', name: '북', tier: 0, fam: 'samul', origin: '사물놀이', skill: '둥둥', desc: '맞은 자리 둘레를 한꺼번에 울려요', dmg: 13, cd: 1.35, range: 3.0, kind: 'thump', aoe: 0.8 },
-  { id: 'sotdae', name: '솟대', tier: 0, fam: 'suho', origin: '마을 수호', skill: '높이 본 새', desc: '둘레 여덟 칸 동료의 사거리가 0.5 늘어나요. 나무새도 날려요', dmg: 8, cd: 1.0, range: 4.2, kind: 'shot', shot: 'bird', rngAura: 0.5 },
+  { id: 'sotdae', name: '솟대', tier: 0, old: 1, fam: 'suho', origin: '마을 수호', skill: '높이 본 새', desc: '둘레 여덟 칸 동료의 사거리가 0.5 늘어나요. 나무새도 날려요', dmg: 8, cd: 1.0, range: 4.2, kind: 'shot', shot: 'bird', rngAura: 0.5 },
   { id: 'dolhareubang', name: '돌하르방', tier: 0, fam: 'suho', origin: '제주 수호석', skill: '수호석', desc: '마을 어귀를 지키는 수호석이에요. 둘레 여덟 칸 동료가 보스와 도전 귀신에게 주는 피해가 15% 늘어요. 다가온 도깨비는 돌주먹으로 쳐요', dmg: 15, cd: 1.3, range: 2.5, kind: 'thump', aoe: 0.55, stunT: 0.3, bossAura: 0.15 },
-  { id: 'uibyeong', name: '의병', tier: 0, fam: 'jang', origin: '조선 의병', skill: '죽창 찌르기', desc: '긴 죽창으로 찔러 뒤에 선 도깨비까지 꿰뚫어요', dmg: 9, cd: 0.8, range: 2.4, kind: 'beam', beamW: 0.26 },
+  { id: 'uibyeong', name: '의병', tier: 0, old: 1, fam: 'jang', origin: '조선 의병', skill: '죽창 찌르기', desc: '긴 죽창으로 찔러 뒤에 선 도깨비까지 꿰뚫어요', dmg: 9, cd: 0.8, range: 2.4, kind: 'beam', beamW: 0.26 },
   { id: 'sugun', name: '수군 궁수', tier: 0, fam: 'jang', origin: '조선 수군', skill: '애기살', desc: '짧고 빠른 화살을 멀리까지 쏴요', dmg: 7, cd: 0.55, range: 4.0, kind: 'shot', shot: 'arrow' },
   // 희귀
-  { id: 'bune', name: '부네', tier: 1, fam: 'tal', origin: '하회별신굿탈놀이', skill: '홀림 꽃잎', desc: '네 번에 한 번꼴로 도깨비를 홀려 멈춰 세워요', dmg: 22, cd: 0.8, range: 3.2, kind: 'shot', shot: 'petal', stunP: 0.25, stunT: 0.7 },
-  { id: 'baekjeong', name: '백정', tier: 1, fam: 'tal', origin: '하회별신굿탈놀이', skill: '식칼 던지기', desc: '묵직한 칼이 맞은 자리 둘레까지 베어요', dmg: 46, cd: 1.45, range: 3.0, kind: 'shot', shot: 'cleaver', splash: 1.0 },
+  { id: 'bune', name: '부네', tier: 1, old: 1, fam: 'tal', origin: '하회별신굿탈놀이', skill: '홀림 꽃잎', desc: '네 번에 한 번꼴로 도깨비를 홀려 멈춰 세워요', dmg: 22, cd: 0.8, range: 3.2, kind: 'shot', shot: 'petal', stunP: 0.25, stunT: 0.7 },
+  { id: 'baekjeong', name: '백정', tier: 1, old: 1, fam: 'tal', origin: '하회별신굿탈놀이', skill: '식칼 던지기', desc: '묵직한 칼이 맞은 자리 둘레까지 베어요', dmg: 46, cd: 1.45, range: 3.0, kind: 'shot', shot: 'cleaver', splash: 1.0 },
   { id: 'janggu', name: '장구', tier: 1, fam: 'samul', origin: '사물놀이', skill: '덩더쿵', desc: '한 번에 두 번씩 두드려요', dmg: 15, cd: 0.9, range: 3.1, kind: 'double' },
   { id: 'jing', name: '징', tier: 1, fam: 'samul', origin: '사물놀이', skill: '징 울림', desc: '넓게 울려서 둘레 도깨비를 느리게 해요', dmg: 22, cd: 1.6, range: 3.0, kind: 'thump', aoe: 1.3, slow: 0.25, slowT: 1.2 },
-  { id: 'jangseung', name: '장승', tier: 1, fam: 'suho', origin: '마을 수호', skill: '길목 호통', desc: '둘레를 지나는 도깨비를 늦추고 받는 피해를 20% 늘려요. 길가에 두세요', dmg: 12, cd: 1.2, range: 2.3, kind: 'pulse', slow: 0.3, slowT: 1.4, mark: 0.2, markT: 1.6 },
+  { id: 'jangseung', name: '장승', tier: 1, old: 1, fam: 'suho', origin: '마을 수호', skill: '길목 호통', desc: '둘레를 지나는 도깨비를 늦추고 받는 피해를 20% 늘려요. 길가에 두세요', dmg: 12, cd: 1.2, range: 2.3, kind: 'pulse', slow: 0.3, slowT: 1.4, mark: 0.2, markT: 1.6 },
   { id: 'sapsal', name: '삽살개', tier: 1, fam: 'suho', origin: '귀신 쫓는 개', skill: '귀신 쫓기', desc: '도깨비 무리에 달려들어 물고 잠깐 멈춰 세워요', dmg: 40, cd: 1.15, range: 3.0, kind: 'pounce', aoe: 0.6, stunT: 0.35 },
-  { id: 'seungbyeong', name: '승병', tier: 1, fam: 'jang', origin: '조선 승병', skill: '육모방망이', desc: '방망이를 크게 휘둘러 둘레 도깨비를 치고 잠깐 멈춰 세워요', dmg: 20, cd: 1.2, range: 2.1, kind: 'pulse', stunT: 0.2 },
+  { id: 'seungbyeong', name: '승병', tier: 1, old: 1, fam: 'jang', origin: '조선 승병', skill: '육모방망이', desc: '방망이를 크게 휘둘러 둘레 도깨비를 치고 잠깐 멈춰 세워요', dmg: 20, cd: 1.2, range: 2.1, kind: 'pulse', stunT: 0.2 },
   { id: 'singijeon', name: '신기전 화차', tier: 1, fam: 'jang', origin: '조선 화약 무기', skill: '신기전', desc: '불화살 다섯 발을 한꺼번에 쏘아 여러 도깨비를 맞혀요', dmg: 9, cd: 1.7, range: 4.0, kind: 'bolts', bolts: 5, shot: 'rocket' },
   { id: 'yangban', name: '양반', tier: 1, fam: 'tal', origin: '하회별신굿탈놀이', skill: '엽전 뿌리기', desc: '맞힐 때 셋에 한 번꼴로 엽전을 챙겨요', dmg: 24, cd: 0.95, range: 3.1, kind: 'shot', shot: 'coin', coinP: 0.35 },
   // 영웅
   { id: 'seonbi', name: '선비', tier: 2, fam: 'tal', origin: '하회별신굿탈놀이', skill: '글 읽는 소리', desc: '둘레 여덟 칸 동료의 공격이 25% 빨라져요. 먹물도 던져요', dmg: 34, cd: 1.0, range: 3.3, kind: 'shot', shot: 'ink', aura: 0.25 },
-  { id: 'jung', name: '중', tier: 2, fam: 'tal', origin: '하회별신굿탈놀이', skill: '염주 번개', desc: '염주 번개가 다섯 마리까지 튕겨요', dmg: 30, cd: 1.05, range: 3.1, kind: 'chain', chain: 5 },
+  { id: 'jung', name: '중', tier: 2, old: 1, fam: 'tal', origin: '하회별신굿탈놀이', skill: '염주 번개', desc: '염주 번개가 다섯 마리까지 튕겨요', dmg: 30, cd: 1.05, range: 3.1, kind: 'chain', chain: 5 },
   { id: 'gaksi', name: '각시', tier: 2, fam: 'tal', origin: '하회별신굿탈놀이', skill: '서낭빛', desc: '한 줄로 꿰뚫는 빛줄기를 쏴요', dmg: 90, cd: 1.5, range: 4.2, kind: 'beam' },
-  { id: 'malttugi', name: '말뚝이', tier: 2, fam: 'tal', origin: '봉산탈춤', skill: '채찍 조롱', desc: '채찍 맞은 도깨비는 3초 동안 피해를 35% 더 받아요', dmg: 34, cd: 0.55, range: 3.2, kind: 'whip', mark: 0.35 },
+  { id: 'malttugi', name: '말뚝이', tier: 2, old: 1, fam: 'tal', origin: '봉산탈춤', skill: '채찍 조롱', desc: '채찍 맞은 도깨비는 3초 동안 피해를 35% 더 받아요', dmg: 34, cd: 0.55, range: 3.2, kind: 'whip', mark: 0.35 },
   { id: 'sangmo', name: '상모꾼', tier: 2, fam: 'samul', origin: '풍물놀이', skill: '열두 발 상모', desc: '긴 상모 끈을 돌려 둘레를 모두 휩쓸어요', dmg: 40, cd: 1.0, range: 2.1, kind: 'pulse' },
-  { id: 'chwibari', name: '취발이', tier: 2, fam: 'tal', origin: '봉산탈춤', skill: '술불 뿜기', desc: '앞쪽 부채꼴로 불을 뿜어 3초 동안 태워요', dmg: 44, cd: 1.3, range: 3.0, kind: 'cone', cone: 0.62, burn: 0.5 },
-  { id: 'mudong', name: '무동', tier: 2, fam: 'samul', origin: '농악 무동놀이', skill: '어깨 위 소고', desc: '어깨 위 아이가 소고를 울려 둘레 여덟 칸 동료의 공격력을 20% 올려요. 소고도 던져요', dmg: 30, cd: 0.9, range: 3.2, kind: 'shot', shot: 'sogo', dmgAura: 0.2 },
-  { id: 'sansin', name: '산신령', tier: 2, fam: 'suho', origin: '산신 신앙', skill: '산신 벼락', desc: '지팡이로 벼락을 내려 맞은 자리 둘레를 치고, 셋에 한 번꼴로 기절시켜요', dmg: 62, cd: 1.3, range: 3.6, kind: 'thump', aoe: 0.9, stunP: 0.33, stunT: 0.6 },
-  { id: 'samjogo', name: '삼족오', tier: 2, fam: 'suho', origin: '고구려 해 신화', skill: '해불', desc: '해처럼 타오르는 불덩이를 날려 맞은 도깨비를 3초 동안 태워요', dmg: 46, cd: 1.0, range: 3.8, kind: 'shot', shot: 'sunfire', burn: 0.45 },
+  { id: 'chwibari', name: '취발이', tier: 2, old: 1, fam: 'tal', origin: '봉산탈춤', skill: '술불 뿜기', desc: '앞쪽 부채꼴로 불을 뿜어 3초 동안 태워요', dmg: 44, cd: 1.3, range: 3.0, kind: 'cone', cone: 0.62, burn: 0.5 },
+  { id: 'mudong', name: '무동', tier: 2, old: 1, fam: 'samul', origin: '농악 무동놀이', skill: '어깨 위 소고', desc: '어깨 위 아이가 소고를 울려 둘레 여덟 칸 동료의 공격력을 20% 올려요. 소고도 던져요', dmg: 30, cd: 0.9, range: 3.2, kind: 'shot', shot: 'sogo', dmgAura: 0.2 },
+  { id: 'sansin', name: '산신령', tier: 2, old: 1, fam: 'suho', origin: '산신 신앙', skill: '산신 벼락', desc: '지팡이로 벼락을 내려 맞은 자리 둘레를 치고, 셋에 한 번꼴로 기절시켜요', dmg: 62, cd: 1.3, range: 3.6, kind: 'thump', aoe: 0.9, stunP: 0.33, stunT: 0.6 },
+  { id: 'samjogo', name: '삼족오', tier: 2, old: 1, fam: 'suho', origin: '고구려 해 신화', skill: '해불', desc: '해처럼 타오르는 불덩이를 날려 맞은 도깨비를 3초 동안 태워요', dmg: 46, cd: 1.0, range: 3.8, kind: 'shot', shot: 'sunfire', burn: 0.45 },
   { id: 'gwakjaewoo', name: '곽재우', tier: 2, fam: 'jang', origin: '홍의장군', skill: '홍의 돌격', desc: '붉은 옷을 휘날리며 도깨비 무리에 뛰어들어 둘레를 베고 잠깐 멈춰 세워요', dmg: 105, cd: 1.5, range: 3.4, kind: 'pounce', aoe: 0.95, stunT: 0.35 },
-  { id: 'gwonyul', name: '권율', tier: 2, fam: 'jang', origin: '행주대첩', skill: '행주 돌팔매', desc: '행주산성의 돌을 날려 맞은 자리 둘레를 크게 치고 느리게 해요', dmg: 58, cd: 1.35, range: 3.6, kind: 'thump', aoe: 1.1, slow: 0.3, slowT: 1.2 },
+  { id: 'gwonyul', name: '권율', tier: 2, old: 1, fam: 'jang', origin: '행주대첩', skill: '행주 돌팔매', desc: '행주산성의 돌을 날려 맞은 자리 둘레를 크게 치고 느리게 해요', dmg: 58, cd: 1.35, range: 3.6, kind: 'thump', aoe: 1.1, slow: 0.3, slowT: 1.2 },
   // 전설
-  { id: 'yeongno', name: '영노', tier: 3, fam: 'tal', origin: '수영야류', skill: '통째로 삼키기', desc: '네 번째 공격마다 도깨비를 통째로 삼켜요. 보스에겐 두 배 피해', dmg: 85, cd: 1.4, range: 2.9, kind: 'devour', devour: 4 },
+  { id: 'yeongno', name: '영노', tier: 4, fam: 'tal', role: 'boss', origin: '수영야류', skill: '통째로 삼키기', desc: '양반 아흔아홉을 잡아먹고 하늘로 오르려는 탈판의 괴물이에요. 네 번째 공격마다 작은 도깨비를 통째로 삼키고, 보스는 남은 체력의 2.5%를 한입에 베어 물어요', dmg: 230, cd: 1.0, range: 3.2, kind: 'devour', devour: 4, bite: 0.025 },
   { id: 'bangsangsi', name: '방상시', tier: 3, fam: 'tal', origin: '나례', skill: '네 눈 창', desc: '네 눈에서 금빛 창을 날려요. 치명타가 자주 터져요', dmg: 26, cd: 1.1, range: 3.8, kind: 'bolts', bolts: 4, crit: 0.3, critMul: 3 },
   { id: 'haetae', name: '해태', tier: 3, fam: 'suho', origin: '마을 수호', skill: '덮치기', desc: '도깨비 무리에 뛰어들어 둘레를 치고 잠깐 기절시켜요', dmg: 160, cd: 1.6, range: 3.2, kind: 'pounce', aoe: 1.0, stunT: 0.5 },
-  { id: 'taepyeongso', name: '태평소', tier: 3, fam: 'samul', origin: '풍물놀이', skill: '날라리 가락', desc: '앞쪽 부채꼴로 쩌렁한 소리를 보내 도깨비를 밀어내요', dmg: 120, cd: 1.3, range: 3.3, kind: 'cone', cone: 0.7, kb: 0.25 },
+  { id: 'taepyeongso', name: '태평소', tier: 3, old: 1, fam: 'samul', origin: '풍물놀이', skill: '날라리 가락', desc: '앞쪽 부채꼴로 쩌렁한 소리를 보내 도깨비를 밀어내요', dmg: 120, cd: 1.3, range: 3.3, kind: 'cone', cone: 0.7, kb: 0.25 },
   { id: 'yisunsin', name: '이순신', tier: 3, fam: 'jang', origin: '삼도수군통제사', skill: '학익진', desc: '학이 날개를 펴듯 화살 일곱 발을 부채꼴로 쏘아 앞쪽 도깨비를 모두 꿰뚫어요', dmg: 40, cd: 1.35, range: 3.9, kind: 'volley', arrows: 7, spread: 0.95 },
   // 신화 (조합으로만)
-  { id: 'samulpae', name: '사물놀이패', tier: 4, fam: 'samul', origin: '사물놀이', skill: '신명 장단', desc: '장단에 맞춰 둘레를 계속 울리고 네 번째 박마다 기절시켜요. 사물놀이 동료 공격력 20% 증가', dmg: 70, cd: 0.55, range: 3.0, kind: 'beat', famAura: 0.2 },
-  { id: 'bari', name: '바리공주', tier: 4, fam: 'suho', origin: '무속 신화', skill: '저승길 인도', desc: '방울 소리가 여섯 마리까지 튕기고, 체력이 적게 남은 도깨비는 바로 저승으로 보내요', dmg: 120, cd: 1.0, range: 3.4, kind: 'chain', chain: 6, execute: 0.15 },
-  { id: 'kkokdusoe', name: '꼭두쇠', tier: 4, fam: 'samul', origin: '남사당놀이', skill: '버나 돌리기', desc: '접시 셋을 부메랑처럼 던져 오가며 베어요. 가끔 엽전이 떨어져요', dmg: 85, cd: 1.4, range: 3.6, kind: 'boomerang', plates: 3, coinP: 0.08 },
-  { id: 'saja', name: '북청사자', tier: 4, fam: 'tal', origin: '북청사자놀음', skill: '사자후', desc: '마당 어디든 뛰어들어 둘레를 크게 치고 기절시켜요', dmg: 700, cd: 2.0, range: 99, kind: 'pounce', aoe: 1.6, stunT: 0.7, global: true },
-  { id: 'daejanggun', name: '천하대장군', tier: 4, fam: 'suho', origin: '마을 수호', skill: '마을 지킴', desc: '둘레 도깨비의 체력을 비율로 깎고 크게 늦춰요', dmg: 120, cd: 1.0, range: 2.8, kind: 'pulse', pct: 0.03, slow: 0.4, slowT: 1.2 },
-  { id: 'cheoyong', name: '처용', tier: 4, fam: 'tal', origin: '처용무', skill: '역신 쫓기', desc: '꿰뚫는 붉은 물결을 보내요. 보스에겐 세 배 피해', dmg: 260, cd: 1.2, range: 4.0, kind: 'wave', bossMul: 3 },
-  { id: 'bihyeong', name: '비형랑', tier: 4, fam: 'suho', origin: '삼국유사', skill: '도깨비 호령', desc: '도깨비불 셋을 날리고, 여덟 초마다 호령해서 도깨비들을 뒤로 걷게 해요', dmg: 190, cd: 1.2, range: 4.0, kind: 'homing', orbs: 3, command: 8 },
-  { id: 'geobukseon', name: '거북선', tier: 4, fam: 'jang', origin: '조선 수군', skill: '용머리 화포', desc: '화포를 쏘아 맞은 자리 둘레를 크게 치고 기절시켜요. 세 번째마다 용머리가 불을 뿜어 태워요', dmg: 300, cd: 1.4, range: 3.9, kind: 'cannon', aoe: 1.1, stunT: 0.45, breath: 3, cone: 0.6, burn: 0.4 },
-  { id: 'uibyeongdae', name: '팔도 의병', tier: 4, fam: 'jang', origin: '조선 의병', skill: '의병 봉기', desc: '네 의병이 함께 둘레를 휩쓸고 네 번째마다 기절시켜요. 장수 동료 공격력 20% 증가', dmg: 80, cd: 0.6, range: 2.9, kind: 'beat', famAura: 0.2 },
-  { id: 'seolmundae', name: '설문대할망', tier: 4, fam: 'suho', origin: '제주 창세 신화', skill: '흙치마', desc: '치마폭에 담은 바위를 마당 어디든 떨어뜨려 둘레를 크게 치고 한참 느리게 해요', dmg: 520, cd: 1.8, range: 99, kind: 'drop', aoe: 1.4, slow: 0.5, slowT: 2.2, global: true },
+  { id: 'samulpae', name: '사물놀이패', tier: 4, fam: 'samul', role: 'aoe', origin: '사물놀이', skill: '신명 장단', desc: '장단에 맞춰 둘레를 계속 울리고 네 번째 박마다 기절시켜요. 마당의 일반·희귀 동료 공격력이 20% 올라요', dmg: 70, cd: 0.55, range: 3.0, kind: 'beat', gAura: 0.2, gAuraT: [0, 1] },
+  { id: 'bari', name: '바리공주', tier: 4, fam: 'suho', role: 'aoe', origin: '무속 신화', skill: '저승길 인도', desc: '방울 소리가 여섯 마리까지 튕기고, 체력이 적게 남은 도깨비는 바로 저승으로 보내요', dmg: 260, cd: 1.0, range: 3.4, kind: 'chain', chain: 6, execute: 0.15 },
+  { id: 'kkokdusoe', name: '꼭두쇠', tier: 4, fam: 'samul', role: 'eco', origin: '남사당놀이', skill: '버나 돌리기', desc: '접시 셋을 부메랑처럼 던져 오가며 베어요. 가끔 엽전이 떨어져요', dmg: 85, cd: 1.4, range: 3.6, kind: 'boomerang', plates: 3, coinP: 0.08 },
+  { id: 'saja', name: '북청사자', tier: 4, fam: 'tal', role: 'ctrl', origin: '북청사자놀음', skill: '사자후', desc: '마당 어디든 뛰어들어 둘레를 크게 치고 기절시켜요', dmg: 520, cd: 2.0, range: 99, kind: 'pounce', aoe: 1.6, stunT: 0.7, global: true },
+  { id: 'daejanggun', name: '천하대장군', tier: 4, fam: 'suho', role: 'ctrl', origin: '마을 수호', skill: '마을 지킴', desc: '둘레 도깨비의 체력을 비율로 깎고 크게 늦춰요', dmg: 120, cd: 1.0, range: 2.8, kind: 'pulse', pct: 0.03, slow: 0.4, slowT: 1.2 },
+  { id: 'cheoyong', name: '처용', tier: 4, fam: 'tal', role: 'boss', origin: '처용무', skill: '역신 쫓기', desc: '꿰뚫는 붉은 물결을 보내요. 보스에겐 세 배 피해', dmg: 300, cd: 1.2, range: 4.0, kind: 'wave', bossMul: 3 },
+  { id: 'bihyeong', name: '비형랑', tier: 4, fam: 'suho', role: 'ctrl', origin: '삼국유사', skill: '도깨비 호령', desc: '도깨비불 셋을 날리고, 여덟 초마다 호령해서 도깨비들을 뒤로 걷게 해요', dmg: 260, cd: 1.2, range: 4.0, kind: 'homing', orbs: 3, command: 8 },
+  { id: 'geobukseon', name: '거북선', tier: 4, fam: 'jang', role: 'aoe', origin: '조선 수군', skill: '용머리 화포', desc: '화포를 쏘아 맞은 자리 둘레를 크게 치고 기절시켜요. 세 번째마다 용머리가 불을 뿜어 태워요', dmg: 300, cd: 1.4, range: 3.9, kind: 'cannon', aoe: 1.1, stunT: 0.45, breath: 3, cone: 0.6, burn: 0.4 },
+  { id: 'uibyeongdae', name: '팔도 의병', tier: 4, fam: 'jang', role: 'aoe', origin: '조선 의병', skill: '의병 봉기', desc: '네 의병이 함께 둘레를 휩쓸고 네 번째마다 기절시켜요. 마당의 영웅 동료 공격력이 20% 올라요', dmg: 80, cd: 0.6, range: 2.9, kind: 'beat', gAura: 0.2, gAuraT: [2] },
+  { id: 'seolmundae', name: '설문대할망', tier: 4, fam: 'suho', role: 'ctrl', origin: '제주 창세 신화', skill: '흙치마', desc: '치마폭에 담은 바위를 마당 어디든 떨어뜨려 둘레를 크게 치고 한참 느리게 해요', dmg: 400, cd: 1.8, range: 99, kind: 'drop', aoe: 1.4, slow: 0.5, slowT: 2.2, global: true },
   // 새 동료는 꼭 맨 뒤에 붙여요. 저장된 판이 동료를 순번으로 기억해서 중간에 끼우면 바뀌어요
-  { id: 'nongmin', name: '농민', tier: 0, fam: 'samul', origin: '두레 농사', skill: '풍년 농사', desc: '공격은 약하지만 5초마다 엽전 10을 거둬요. 쌓인 만큼 더 거둬요', dmg: 6, cd: 1.1, range: 3.0, kind: 'shot', shot: 'stone', income: 10, incCd: 5 },
-  { id: 'bobusang', name: '보부상', tier: 1, fam: 'tal', origin: '조선 장돌뱅이', skill: '장사 수완', desc: '공격은 약하지만 6초마다 엽전 30을 벌어요. 쌓인 만큼 더 벌어요', dmg: 12, cd: 1.0, range: 3.1, kind: 'shot', shot: 'coin', income: 30, incCd: 6 },
+  { id: 'nongmin', name: '농민', tier: 0, old: 1, fam: 'samul', origin: '두레 농사', skill: '풍년 농사', desc: '공격은 약하지만 5초마다 엽전 10을 거둬요. 쌓인 만큼 더 거둬요', dmg: 6, cd: 1.1, range: 3.0, kind: 'shot', shot: 'stone', income: 10, incCd: 5 },
+  { id: 'bobusang', name: '보부상', tier: 1, old: 1, fam: 'tal', origin: '조선 장돌뱅이', skill: '장사 수완', desc: '공격은 약하지만 6초마다 엽전 30을 벌어요. 쌓인 만큼 더 벌어요', dmg: 12, cd: 1.0, range: 3.1, kind: 'shot', shot: 'coin', income: 30, incCd: 6 },
   { id: 'mudang', name: '무당', tier: 2, fam: 'suho', origin: '굿', skill: '부정 저주', desc: '도깨비 무리에 부정을 씌워요. 4초 동안 받는 피해가 20% 늘고 되살아나거나 갈라지거나 체력이 차오르지 못해요', dmg: 16, cd: 2.0, range: 3.4, kind: 'curse', aoe: 1.4, curse: 0.2, curseT: 4 },
-  { id: 'honggildong', name: '홍길동', tier: 3, fam: 'jang', origin: '홍길동전', skill: '분신술', desc: '분신 둘과 함께 세 번 베어요. 도깨비가 여럿이면 나눠 베고 가끔 엽전을 훔쳐 와요', dmg: 40, cd: 1.05, range: 3.6, kind: 'clone', clones: 3, coinP: 0.12 },
-  // 전래동화: 신화 둘과 전설 하나, 그리고 이야기에 어울리는 동료 하나를 모아야 나와요
-  { id: 'haedal', name: '해님달님', tier: 6, fam: 'suho', origin: '해와 달이 된 오누이', skill: '해와 달', desc: '오누이가 해와 달이 되어 일곱 초씩 번갈아 떠요. 해가 뜨면 마당의 도깨비가 모두 타고, 달이 뜨면 모두 느려지고 받는 피해가 25% 늘어요. 햇살 다섯 줄기도 쏘아요', dmg: 180, cd: 1.0, range: 4.2, kind: 'homing', shot: 'sunray', orbs: 5, dayNight: 7 },
-  { id: 'hokburi', name: '혹부리 영감', tier: 6, fam: 'tal', origin: '혹부리 영감', skill: '도깨비 홀리는 노래', desc: '노랫가락이 일곱 마리까지 튕겨요. 열 초마다 노래를 불러 마당의 도깨비를 모두 춤추게 해 멈춰 세우고, 멈춘 도깨비마다 엽전을 받아요', dmg: 210, cd: 0.9, range: 3.8, kind: 'chain', chain: 7, song: 10 },
-  { id: 'namukkun', name: '나무꾼', tier: 6, fam: 'suho', origin: '금도끼 은도끼', skill: '금도끼 은도끼', desc: '금도끼를 던져 둘레까지 크게 베고 보스에겐 세 배를 줘요. 두 번에 한 번은 은도끼도 일직선으로 날아가 줄줄이 베어요', dmg: 560, cd: 1.1, range: 4.0, kind: 'axes', bossMul: 3, splash: 0.7 },
-  { id: 'simcheong', name: '심청', tier: 6, fam: 'suho', origin: '심청전', skill: '인당수', desc: '푸른 물결로 줄줄이 꿰뚫고 느리게 해요. 보스에겐 2.5배. 여덟 초마다 인당수 큰 물결이 마당을 덮쳐 모든 도깨비를 치고 뒤로 밀어내요', dmg: 420, cd: 0.9, range: 4.2, kind: 'wave', shot: 'bwave', slow: 0.3, slowT: 1.5, tide: 8, bossMul: 2.5 },
-  // 고을 전용 전설: 뒤 고을일수록 세요
-  { id: 'heodoryeong', name: '허도령', tier: 3, fam: 'tal', origin: '하회탈을 깎은 총각', skill: '탈 던지기', desc: '깎다 만 탈을 던져 맞은 자리 둘레까지 쳐요. 맞은 도깨비는 2초 동안 받는 피해가 15% 늘어요', dmg: 95, cd: 1.0, range: 3.6, kind: 'shot', shot: 'mask', splash: 0.9, mark: 0.15, markT: 2 },
-  { id: 'gimseondal', name: '김선달', tier: 3, fam: 'tal', origin: '봉이 김선달', skill: '대동강 물 팔기', desc: '대동강 물을 한 바가지 끼얹어 둘레를 쳐요. 김선달이 잡은 도깨비마다 엽전을 더 받아요', dmg: 110, cd: 1.1, range: 3.5, kind: 'thump', aoe: 0.95, killCoin: 6 },
+  { id: 'honggildong', name: '홍길동', tier: 4, fam: 'jang', role: 'eco', origin: '홍길동전', skill: '분신술', desc: '동에 번쩍 서에 번쩍하는 의적이에요. 분신 둘과 함께 세 번 베어요. 작은 도깨비에게선 가끔 엽전을, 보스를 벨 때는 일곱 번에 한 번꼴로 엽전 꾸러미를 훔쳐 와요', dmg: 130, cd: 1.0, range: 3.6, kind: 'clone', clones: 3, coinP: 0.12, steal: 0.15 },
+  // 전래동화: 신화를 재료로 깨워요
+  { id: 'haedal', name: '해님달님', tier: 4, grp: 'tale', fam: 'suho', role: 'aoe', origin: '해와 달이 된 오누이', skill: '해와 달', desc: '오누이가 해와 달이 되어 일곱 초씩 번갈아 떠요. 해가 뜨면 마당의 도깨비가 모두 타고, 달이 뜨면 모두 느려지고 받는 피해가 25% 늘어요. 햇살 다섯 줄기도 쏘아요', dmg: 208, cd: 1.0, range: 4.2, kind: 'homing', shot: 'sunray', orbs: 5, dayNight: 7 },
+  { id: 'hokburi', name: '혹부리 영감', tier: 4, grp: 'tale', fam: 'tal', role: 'eco', origin: '혹부리 영감', skill: '도깨비 홀리는 노래', desc: '노랫가락이 일곱 마리까지 튕겨요. 열 초마다 노래를 불러 마당의 도깨비를 모두 춤추게 해 멈춰 세우고, 멈춘 도깨비마다 엽전을 받아요', dmg: 242, cd: 0.9, range: 3.8, kind: 'chain', chain: 7, song: 10 },
+  { id: 'namukkun', name: '나무꾼', tier: 4, grp: 'tale', fam: 'suho', role: 'boss', origin: '금도끼 은도끼', skill: '금도끼 은도끼', desc: '금도끼를 던져 둘레까지 크게 베고 보스에겐 세 배를 줘요. 두 번에 한 번은 은도끼도 일직선으로 날아가 줄줄이 베어요', dmg: 800, cd: 1.1, range: 4.0, kind: 'axes', bossMul: 3, splash: 0.7 },
+  { id: 'simcheong', name: '심청', tier: 4, grp: 'tale', fam: 'suho', role: 'ctrl', origin: '심청전', skill: '인당수', desc: '푸른 물결로 줄줄이 꿰뚫고 느리게 해요. 보스에겐 2.5배. 여덟 초마다 인당수 큰 물결이 마당을 덮쳐 모든 도깨비를 치고 뒤로 밀어내요', dmg: 330, cd: 0.9, range: 4.2, kind: 'wave', shot: 'bwave', slow: 0.3, slowT: 1.5, tide: 8, bossMul: 2.5 },
+  // 예전 고을 전용 전설. 허도령은 은퇴했고 나머지는 신화가 됐어요
+  { id: 'heodoryeong', name: '허도령', tier: 3, old: 1, fam: 'tal', origin: '하회탈을 깎은 총각', skill: '탈 던지기', desc: '깎다 만 탈을 던져 맞은 자리 둘레까지 쳐요. 맞은 도깨비는 2초 동안 받는 피해가 15% 늘어요', dmg: 95, cd: 1.0, range: 3.6, kind: 'shot', shot: 'mask', splash: 0.9, mark: 0.15, markT: 2 },
+  { id: 'gimseondal', name: '김선달', tier: 4, fam: 'tal', role: 'eco', origin: '봉이 김선달', skill: '대동강 물 팔기', desc: '대동강 물도 팔아먹은 꾀보예요. 강물을 끼얹어 둘레를 치고, 김선달이 잡은 도깨비마다 엽전을 더 받아요. 마당이 바뀔 때마다 가진 엽전의 5%를 이자로 받아요', dmg: 170, cd: 1.1, range: 3.5, kind: 'thump', aoe: 1.0, killCoin: 8, interest: 0.05 },
   { id: 'euljimundeok', name: '을지문덕', tier: 3, fam: 'jang', origin: '살수대첩', skill: '살수대첩', desc: '막아 둔 강물을 터뜨려 일직선으로 쓸어버리고 한참 느리게 해요', dmg: 135, cd: 1.2, range: 4.0, kind: 'wave', shot: 'flood', slow: 0.35, slowT: 1.6 },
-  { id: 'jangbogo', name: '장보고', tier: 3, fam: 'jang', origin: '청해진 대사', skill: '청해진 화포', desc: '배에서 화포를 쏘아 맞은 자리 둘레를 크게 치고 잠깐 멈춰 세워요', dmg: 175, cd: 1.3, range: 3.9, kind: 'cannon', aoe: 0.95, stunT: 0.3 },
-  { id: 'gangrim', name: '강림도령', tier: 3, fam: 'suho', origin: '차사본풀이', skill: '저승 오랏줄', desc: '오랏줄이 다섯 마리까지 튕기고, 체력이 조금 남은 도깨비는 바로 저승으로 끌고 가요', dmg: 160, cd: 1.0, range: 3.7, kind: 'chain', chain: 5, execute: 0.12 },
-  // 신수: 전설 둘과 영웅 하나를 모아 불러요
-  { id: 'cheongryong', name: '청룡', tier: 5, fam: 'tal', origin: '동쪽을 지키는 신수', skill: '청룡의 숨결', desc: '푸른 숨결로 일직선을 꿰뚫어요. 네 초마다 번개가 떨어져 도깨비 넷을 크게 쳐요', dmg: 300, cd: 1.1, range: 4.3, kind: 'wave', shot: 'dragon', storm: 4 },
-  { id: 'jujak', name: '주작', tier: 5, fam: 'samul', origin: '남쪽을 지키는 신수', skill: '불새의 깃', desc: '마당 어디든 도깨비가 몰린 곳에 불을 떨어뜨려 둘레를 치고 오래 태워요', dmg: 430, cd: 1.6, range: 99, kind: 'fire', aoe: 1.3, burn: 0.6, global: true },
-  { id: 'baekho', name: '백호', tier: 5, fam: 'jang', origin: '서쪽을 지키는 신수', skill: '산군의 발톱', desc: '마당 어디든 뛰어들어 둘레를 크게 할퀴고 기절시켜요. 할퀸 도깨비는 3초 동안 받는 피해가 20% 늘어요', dmg: 820, cd: 1.8, range: 99, kind: 'pounce', aoe: 1.5, stunT: 0.6, mark: 0.2, markT: 3, global: true },
-  { id: 'hyeonmu', name: '현무', tier: 5, fam: 'suho', origin: '북쪽을 지키는 신수', skill: '북방의 물결', desc: '물방울 넷을 날려 맞은 도깨비를 느리게 해요. 아홉 초마다 큰 물결로 마당의 도깨비를 모두 뒤로 밀어내요', dmg: 320, cd: 1.2, range: 4.2, kind: 'homing', shot: 'waterorb', orbs: 4, slow: 0.35, slowT: 1.5, shell: 9 },
-  { id: 'hwangryong', name: '황룡', tier: 5, fam: 'suho', origin: '가운데를 지키는 신수', skill: '여의주', desc: '여의주 다섯 개를 날려요. 보스에겐 두 배. 황룡이 마당에 있으면 모든 동료 공격력이 15% 올라요', dmg: 300, cd: 1.0, range: 4.4, kind: 'homing', shot: 'pearl', orbs: 5, bossMul: 2, allAura: 0.15 },
-  { id: 'choimuseon', name: '최무선', tier: 3, fam: 'jang', origin: '진포 대첩', skill: '주화', desc: '화통도감에서 만든 주화 세 발을 쏘아요. 맞은 자리 둘레가 터지고 3초 동안 불타요', dmg: 70, cd: 1.3, range: 4.0, kind: 'bolts', bolts: 3, shot: 'rocket', splash: 0.75, burn: 0.5 },
-  { id: 'yongwang', name: '용왕', tier: 4, fam: 'suho', origin: '용왕 신앙', skill: '용궁 물대포', desc: '물대포로 줄줄이 꿰뚫고 뒤로 밀며 느리게 해요. 둘레 여덟 칸 동료의 궁극기가 30% 빨리 차요', dmg: 240, cd: 1.1, range: 4.2, kind: 'wave', shot: 'bwave', slow: 0.35, slowT: 1.5, kb: 0.35, ultAura: 0.3 },
+  { id: 'jangbogo', name: '장보고', tier: 4, fam: 'jang', role: 'eco', origin: '청해진 대사', skill: '청해진 화포', desc: '바다를 주름잡은 해상왕이에요. 배에서 화포를 쏘아 둘레를 크게 치고 잠깐 멈춰 세워요. 30초마다 무역선이 들어와 혼 1개와 엽전을 실어 와요', dmg: 210, cd: 1.3, range: 3.9, kind: 'cannon', aoe: 0.95, stunT: 0.3, trade: 30 },
+  { id: 'gangrim', name: '강림도령', tier: 4, fam: 'suho', role: 'boss', origin: '차사본풀이', skill: '저승 오랏줄', desc: '염라대왕도 붙잡아 온 저승차사예요. 오랏줄이 다섯 마리까지 튕기고 체력이 조금 남은 도깨비는 바로 저승으로 끌고 가요. 보스에겐 두 배를 주고, 묶인 보스는 명부에 올라 3초 동안 받는 피해가 25% 늘어요', dmg: 300, cd: 1.0, range: 3.7, kind: 'chain', chain: 5, execute: 0.15, book: 0.25, bossMul: 2 },
+  // 신수: 전설 둘을 모아 불러요
+  { id: 'cheongryong', name: '청룡', tier: 4, grp: 'beast', fam: 'tal', role: 'aoe', origin: '동쪽을 지키는 신수', skill: '청룡의 숨결', desc: '푸른 숨결로 일직선을 꿰뚫어요. 네 초마다 번개가 떨어져 도깨비 여섯을 크게 쳐요', dmg: 450, cd: 1.1, range: 4.3, kind: 'wave', shot: 'dragon', storm: 4 },
+  { id: 'jujak', name: '주작', tier: 4, grp: 'beast', fam: 'samul', role: 'aoe', origin: '남쪽을 지키는 신수', skill: '불새의 깃', desc: '마당 어디든 도깨비가 몰린 곳에 불을 떨어뜨려 둘레를 치고 오래 태워요', dmg: 300, cd: 1.6, range: 99, kind: 'fire', aoe: 1.3, burn: 0.4, global: true },
+  { id: 'baekho', name: '백호', tier: 4, grp: 'beast', fam: 'jang', role: 'boss', origin: '서쪽을 지키는 신수', skill: '산군의 발톱', desc: '마당 어디든 뛰어들어 둘레를 크게 할퀴고 기절시켜요. 할퀸 도깨비는 3초 동안 받는 피해가 20% 늘고 보스에겐 2.5배를 줘요', dmg: 883, cd: 1.8, range: 99, kind: 'pounce', aoe: 1.1, stunT: 0.6, mark: 0.2, markT: 3, global: true, bossMul: 2.5 },
+  { id: 'hyeonmu', name: '현무', tier: 4, grp: 'beast', fam: 'suho', role: 'ctrl', origin: '북쪽을 지키는 신수', skill: '북방의 물결', desc: '물방울 넷을 날려 맞은 도깨비를 느리게 해요. 아홉 초마다 큰 물결로 마당의 도깨비를 모두 뒤로 밀어내요', dmg: 345, cd: 1.2, range: 4.2, kind: 'homing', shot: 'waterorb', orbs: 4, slow: 0.35, slowT: 1.5, shell: 9 },
+  { id: 'hwangryong', name: '황룡', tier: 4, grp: 'beast', fam: 'suho', role: 'boss', origin: '가운데를 지키는 신수', skill: '여의주', desc: '여의주 세 개를 날려요. 보스에겐 2.5배. 황룡이 마당에 있으면 모든 동료 공격력이 15% 올라요', dmg: 323, cd: 1.0, range: 4.4, kind: 'homing', shot: 'pearl', orbs: 3, bossMul: 2.5, allAura: 0.15 },
+  { id: 'choimuseon', name: '최무선', tier: 4, fam: 'jang', role: 'aoe', origin: '진포 대첩', skill: '주화', desc: '고려에 화약을 들여온 발명가예요. 화통도감에서 만든 주화 네 발을 쏘아 맞은 자리를 터뜨리고, 3초 동안 불바다를 남겨 지나는 도깨비를 태워요', dmg: 120, cd: 1.3, range: 4.0, kind: 'bolts', bolts: 4, shot: 'rocket', splash: 0.8, burn: 0.4, field: 0.35 },
+  { id: 'yongwang', name: '용왕', tier: 4, fam: 'suho', role: 'ctrl', origin: '용왕 신앙', skill: '용궁 물대포', desc: '물대포로 줄줄이 꿰뚫고 뒤로 밀며 느리게 해요. 둘레 여덟 칸 동료의 궁극기가 30% 빨리 차요', dmg: 240, cd: 1.1, range: 4.2, kind: 'wave', shot: 'bwave', slow: 0.35, slowT: 1.5, kb: 0.35, ultAura: 0.3 },
 ];
 const TYPE_IX = {}; TYPES.forEach((T, i) => { TYPE_IX[T.id] = i; T.ix = i; });
 const TIER_POOL = TIERS.map(() => []); TYPES.forEach((T, i) => TIER_POOL[T.tier].push(i));
+/* every 고을 summons the same 19 companions, so every recipe works everywhere.
+   recipes follow the old stories: 바리공주 is the first shaman, 처용 dances away the plague spirit from his wife, and so on */
 const MYTHS = [
   { id: 'samulpae', parts: ['kkwaenggwari', 'janggu', 'jing', 'buk', 'sangmo'] },
-  { id: 'bari', parts: ['halmi', 'bune', 'jung'] },
-  { id: 'kkokdusoe', parts: ['imae', 'baekjeong', 'seonbi'] },
-  { id: 'saja', parts: ['choraengi', 'sangmo', 'taepyeongso'] },
-  { id: 'daejanggun', parts: ['sotdae', 'jangseung', 'haetae'] },
-  { id: 'cheoyong', parts: ['yangban', 'gaksi', 'bangsangsi'] },
-  { id: 'bihyeong', parts: ['malttugi', 'chwibari', 'yeongno'], secret: true },
+  { id: 'uibyeongdae', parts: ['gwakjaewoo', 'seonbi', 'halmi', 'singijeon'] },
   { id: 'geobukseon', parts: ['yisunsin', 'sugun', 'singijeon'] },
-  { id: 'uibyeongdae', parts: ['gwakjaewoo', 'gwonyul', 'seungbyeong', 'uibyeong'] },
-  { id: 'seolmundae', parts: ['dolhareubang', 'sapsal', 'sansin'], secret: true },
-  { id: 'yongwang', parts: ['jangbogo', 'mudang', 'sugun'] },
-  { id: 'haedal', parts: ['bari', 'cheoyong', 'bangsangsi', 'halmi'], tale: true },
-  { id: 'hokburi', parts: ['bihyeong', 'kkokdusoe', 'taepyeongso', 'imae'], tale: true },
-  { id: 'namukkun', parts: ['daejanggun', 'seolmundae', 'haetae', 'sansin'], tale: true },
-  { id: 'simcheong', parts: ['geobukseon', 'yongwang', 'yisunsin', 'jing'], tale: true },
-  // '*3' is any 전설 on the yard: spare legends become 신수 instead of sitting on a cell
-  { id: 'cheongryong', parts: ['heodoryeong', '*3', 'mudang'], beast: true },
-  { id: 'jujak', parts: ['gimseondal', '*3', 'mudong'], beast: true },
-  { id: 'baekho', parts: ['euljimundeok', '*3', 'samjogo'], beast: true },
-  { id: 'hyeonmu', parts: ['choimuseon', '*3', 'mudang'], beast: true },
-  { id: 'hwangryong', parts: ['gangrim', '*3', 'samjogo'], beast: true },
+  { id: 'choimuseon', parts: ['yisunsin', 'singijeon', 'buk'] },
+  { id: 'bari', parts: ['mudang', 'halmi', 'bangsangsi'] },
+  { id: 'cheoyong', parts: ['yangban', 'gaksi', 'bangsangsi'] },
+  { id: 'yeongno', parts: ['yangban', 'kkwaenggwari', 'haetae'] },
+  { id: 'gangrim', parts: ['gaksi', 'mudang', 'haetae'] },
+  { id: 'saja', parts: ['haetae', 'sapsal', 'buk'] },
+  { id: 'daejanggun', parts: ['dolhareubang', 'sapsal', 'seonbi'] },
+  { id: 'yongwang', parts: ['mudang', 'kkwaenggwari', 'yisunsin'] },
+  { id: 'kkokdusoe', parts: ['gaksi', 'sangmo', 'janggu'] },
+  { id: 'gimseondal', parts: ['seonbi', 'yangban', 'sugun'] },
+  { id: 'jangbogo', parts: ['sugun', 'gwakjaewoo', 'jing'] },
+  { id: 'honggildong', parts: ['yangban', 'gwakjaewoo', 'euljimundeok'] },
+  { id: 'seolmundae', parts: ['halmi', 'dolhareubang', 'euljimundeok'], secret: true },
+  { id: 'bihyeong', parts: ['bangsangsi', 'sangmo', 'dolhareubang'], secret: true },
+  // 신수: one named 전설, any 전설 ('*3'), and one more. spare legends become 신수 instead of sitting on a cell
+  { id: 'cheongryong', parts: ['euljimundeok', '*3', 'mudang'], beast: true },
+  { id: 'jujak', parts: ['bangsangsi', '*3', 'singijeon'], beast: true },
+  { id: 'baekho', parts: ['euljimundeok', '*3', 'gwakjaewoo'], beast: true },
+  { id: 'hyeonmu', parts: ['yisunsin', '*3', 'jing'], beast: true },
+  { id: 'hwangryong', parts: ['seonbi', '*3', '*3'], beast: true },
+  // 전래동화: other mythics are the parts
+  { id: 'haedal', parts: ['baekho', 'bari', 'halmi'], tale: true },
+  { id: 'hokburi', parts: ['bihyeong', 'kkokdusoe', 'kkwaenggwari'], tale: true },
+  { id: 'namukkun', parts: ['daejanggun', 'seolmundae', 'haetae'], tale: true },
+  { id: 'simcheong', parts: ['yongwang', 'jangbogo', 'gaksi'], tale: true },
 ];
 const WILD = { '*3': 3 };
-/* 신화 해금: each 고을 opens three mythics from the start; the rest are opened for good with 신화 두루마리.
+/* 신화 해금: four mythics, one per role, are open from the start; the rest are opened for good with 신화 두루마리.
    hidden mythics open by being found. playing together, a mythic either player has opened works for both */
-const MYTH_FREE = [['samulpae', 'bari', 'cheoyong'], ['samulpae', 'saja', 'kkokdusoe'], ['uibyeongdae', 'daejanggun', 'cheoyong'], ['geobukseon', 'uibyeongdae', 'samulpae'], ['bari', 'cheoyong', 'saja']];
+const MYTH_FREE = ['samulpae', 'cheoyong', 'daejanggun', 'kkokdusoe'];
 const scrollCost = M => (M.tale ? 3 : M.beast ? 2 : 1);
-function mythOpenSelf(id, st) {
+function mythOpenSelf(id) {
   if (typeof SAVE === 'undefined') return true;
   const M = MYTH_BY[id]; if (!M || M.secret) return true;
-  if ((MYTH_FREE[st] || []).includes(id)) return true;
+  if (MYTH_FREE.includes(id)) return true;
   return !!(SAVE.mopen && SAVE.mopen[id]);
 }
 function mythOpen(id) {
-  const st = G ? (G.stage || 0) : 0;
-  if (mythOpenSelf(id, st)) return true;
+  if (mythOpenSelf(id)) return true;
   return !!(COOP.on && typeof CO !== 'undefined' && CO.partner && Array.isArray(CO.partner.mo) && CO.partner.mo.includes(id));
 }
 MYTHS.forEach(M => { M.ix = TYPE_IX[M.id]; M.partIx = M.parts.map(p => TYPE_IX[p]); });
 const MYTH_BY = {}; MYTHS.forEach(M => { MYTH_BY[M.id] = M; });
-const PART_OF = {}, TALE_OF = {}; MYTHS.forEach(M => M.parts.forEach(p => { if (WILD[p]) return; if (M.tale || M.beast) (TALE_OF[p] = TALE_OF[p] || []).push(M.id); else PART_OF[p] = M.id; }));
+/* which recipes each companion or mythic goes into */
+const PARTS_OF = {}; MYTHS.forEach(M => M.parts.forEach(p => { if (WILD[p]) return; (PARTS_OF[p] = PARTS_OF[p] || []).push(M.id); }));
+MYTHS.forEach(M => { TYPES[M.ix].grp = M.beast ? 'beast' : M.tale ? 'tale' : TYPES[M.ix].grp; });
+
+/* ---------- 레벨 능력 ----------
+   companions: Lv 3 공격력 +10%, Lv 6 its own skill, Lv 9 공격 속도 +10%, Lv 12 its own skill (Lv 12 is the top).
+   mythics: every level adds attack; Lv 5 각성, Lv 10 신물, Lv 15 승천 (승천 needs 여의주, coming later).
+   a perk changes the numbers the attack code already reads, so it works the same in every 고을 and with a friend */
+const LV_TOP = 12, MYTH_TOP = 15;
+const pMul = (k, m) => T => { T[k] = +(T[k] * m).toFixed(3); };
+const pSet = (k, v) => T => { T[k] = v; };
+const pAdd = (k, v) => T => { T[k] = +((T[k] || 0) + v).toFixed(3); };
+const PERKS = {
+  halmi: { 6: ['실타래가 더 감겨 느려짐 50%', pSet('slow', 0.5)], 12: ['3초 동안 느려져요', pSet('slowT', 3)] },
+  kkwaenggwari: { 6: ['쇳소리가 세 마리까지 튕겨요', pSet('chain', 3)], 12: ['다섯 마리까지 튕겨요', pSet('chain', 5)] },
+  buk: { 6: ['울림 둘레 1칸', pSet('aoe', 1.0)], 12: ['울릴 때마다 0.3초 기절', pSet('stunT', 0.3)] },
+  dolhareubang: { 6: ['둘레 동료 보스 피해 +25%', pSet('bossAura', 0.25)], 12: ['돌주먹 기절 0.6초', pSet('stunT', 0.6)] },
+  sugun: { 6: ['사거리 4.5칸', pSet('range', 4.5)], 12: ['치명타 확률 25%', pSet('crit', 0.25)] },
+  yangban: { 6: ['둘에 한 번꼴로 엽전', pSet('coinP', 0.5)], 12: ['치명타 확률 20%', pSet('crit', 0.2)] },
+  janggu: { 6: ['더 빨리 두드려요 · 0.8초마다', pSet('cd', 0.8)], 12: ['치명타 확률 20% · 2.5배', T => { T.crit = 0.2; T.critMul = 2.5; }] },
+  jing: { 6: ['느려짐 35%', pSet('slow', 0.35)], 12: ['울림 둘레 1.6칸', pSet('aoe', 1.6)] },
+  sapsal: { 6: ['기절 0.55초', pSet('stunT', 0.55)], 12: ['덮치는 둘레 0.85칸', pSet('aoe', 0.85)] },
+  singijeon: { 6: ['불화살 일곱 발', pSet('bolts', 7)], 12: ['맞은 둘레를 태워요', pSet('burn', 0.3)] },
+  seonbi: { 6: ['둘레 공속 +32%', pSet('aura', 0.32)], 12: ['둘레 공속 +40%', pSet('aura', 0.4)] },
+  gaksi: { 6: ['빛줄기가 굵어져요', pSet('beamW', 0.5)], 12: ['치명타 확률 25%', pSet('crit', 0.25)] },
+  sangmo: { 6: ['상모 끈 둘레 2.5칸', pSet('range', 2.5)], 12: ['휩쓴 도깨비가 20% 느려져요', T => { T.slow = 0.2; T.slowT = 1.0; }] },
+  mudang: { 6: ['부정 +30%', pSet('curse', 0.3)], 12: ['부정 둘레 1.8칸', pSet('aoe', 1.8)] },
+  gwakjaewoo: { 6: ['기절 0.55초', pSet('stunT', 0.55)], 12: ['공격력 +20%', pMul('dmg', 1.2)] },
+  bangsangsi: { 6: ['금빛 창 다섯 개', pSet('bolts', 5)], 12: ['치명타가 4배', pSet('critMul', 4)] },
+  haetae: { 6: ['덮치는 둘레 1.2칸', pSet('aoe', 1.2)], 12: ['기절 0.8초', pSet('stunT', 0.8)] },
+  yisunsin: { 6: ['화살 아홉 발', pSet('arrows', 9)], 12: ['치명타 확률 25%', pSet('crit', 0.25)] },
+  euljimundeok: { 6: ['느려짐 50%', pSet('slow', 0.5)], 12: ['2.6초 동안 느려져요', pSet('slowT', 2.6)] },
+  // 신화: 5 각성, 10 신물
+  samulpae: { 5: ['장단이 빨라져요 · 0.48초마다', pSet('cd', 0.48)], 10: ['신물 태극 꽹과리 · 일반·희귀 공격력 +30%', pSet('gAura', 0.3)] },
+  uibyeongdae: { 5: ['봉기가 빨라져요 · 0.52초마다', pSet('cd', 0.52)], 10: ['신물 홍의 깃발 · 영웅 공격력 +30%', pSet('gAura', 0.3)] },
+  geobukseon: { 5: ['화포 둘레 1.3칸', pSet('aoe', 1.3)], 10: ['신물 귀선도 · 두 번째마다 불을 뿜어요', pSet('breath', 2)] },
+  choimuseon: { 5: ['주화 다섯 발', pSet('bolts', 5)], 10: ['신물 화약 비법서 · 불바다가 더 뜨거워요', pSet('field', 0.5)] },
+  bari: { 5: ['방울이 여덟 마리까지 튕겨요', pSet('chain', 8)], 10: ['신물 생명수 · 체력 22% 아래면 저승으로', pSet('execute', 0.22)] },
+  cheoyong: { 5: ['보스에게 3.5배', pSet('bossMul', 3.5)], 10: ['신물 처용 탈 · 보스에게 4배', pSet('bossMul', 4)] },
+  yeongno: { 5: ['세 번째마다 삼켜요', pSet('devour', 3)], 10: ['신물 영노 비늘 · 보스 체력 3.5%를 베어 물어요', pSet('bite', 0.035)] },
+  gangrim: { 5: ['명부에 오른 보스 피해 +30%', pSet('book', 0.3)], 10: ['신물 적패지 · 체력 22% 아래면 저승으로', pSet('execute', 0.22)] },
+  saja: { 5: ['덮치는 둘레 1.9칸', pSet('aoe', 1.9)], 10: ['신물 사자 탈 · 기절 1초', pSet('stunT', 1.0)] },
+  daejanggun: { 5: ['최대 체력 4%를 깎아요', pSet('pct', 0.04)], 10: ['신물 장승 말뚝 · 느려짐 55%', pSet('slow', 0.55)] },
+  yongwang: { 5: ['둘레 궁극기 충전 +45%', pSet('ultAura', 0.45)], 10: ['신물 용궁 진주 · 더 멀리 밀어내요', pSet('kb', 0.5)] },
+  kkokdusoe: { 5: ['접시 넷', pSet('plates', 4)], 10: ['신물 버나 · 엽전이 더 자주 떨어져요', pSet('coinP', 0.14)] },
+  gimseondal: { 5: ['잡을 때마다 엽전 12부터', pSet('killCoin', 12)], 10: ['신물 대동강 문서 · 이자 7%', pSet('interest', 0.07)] },
+  jangbogo: { 5: ['20초마다 무역선', pSet('trade', 20)], 10: ['신물 청해진 깃발 · 화포 둘레 1.25칸', pSet('aoe', 1.25)] },
+  honggildong: { 5: ['분신 셋과 네 번 베어요', pSet('clones', 4)], 10: ['신물 활빈당 깃발 · 보스에게서 네 번에 한 번 훔쳐요', pSet('steal', 0.25)] },
+  seolmundae: { 5: ['바위 둘레 1.7칸', pSet('aoe', 1.7)], 10: ['신물 흙치마 · 3초 동안 느려져요', pSet('slowT', 3)] },
+  bihyeong: { 5: ['여섯 초마다 호령', pSet('command', 6)], 10: ['신물 귀교 돌 · 도깨비불 다섯', pSet('orbs', 5)] },
+  cheongryong: { 5: ['세 초마다 번개', pSet('storm', 3)], 10: ['신물 청룡 비늘 · 공격력 +15%', pMul('dmg', 1.15)] },
+  jujak: { 5: ['불 둘레 1.6칸', pSet('aoe', 1.6)], 10: ['신물 불새 깃 · 더 오래 태워요', pSet('burn', 0.8)] },
+  baekho: { 5: ['할퀸 도깨비 피해 +30%', pSet('mark', 0.3)], 10: ['신물 백호 발톱 · 기절 0.9초', pSet('stunT', 0.9)] },
+  hyeonmu: { 5: ['일곱 초마다 큰 물결', pSet('shell', 7)], 10: ['신물 현무 등껍질 · 물방울 여섯', pSet('orbs', 6)] },
+  hwangryong: { 5: ['모든 동료 공격력 +20%', pSet('allAura', 0.2)], 10: ['신물 황룡 수염 · 보스에게 2.5배', pSet('bossMul', 2.5)] },
+  haedal: { 5: ['햇살 일곱 줄기', pSet('orbs', 7)], 10: ['신물 동아줄 · 공격력 +15%', pMul('dmg', 1.15)] },
+  hokburi: { 5: ['여덟 초마다 노래', pSet('song', 8)], 10: ['신물 도깨비 방망이 · 아홉 마리까지 튕겨요', pSet('chain', 9)] },
+  namukkun: { 5: ['보스에게 3.5배', pSet('bossMul', 3.5)], 10: ['신물 금도끼 · 도끼 둘레 1칸', pSet('splash', 1.0)] },
+  simcheong: { 5: ['여섯 초마다 인당수', pSet('tide', 6)], 10: ['신물 연꽃 · 보스에게 3배', pSet('bossMul', 3)] },
+};
+const lvTop = T => (T.tier >= 4 ? MYTH_TOP : LV_TOP);
+/* what each level brings, for the 도감 */
+function lvPerks(T) {
+  const P = PERKS[T.id] || {};
+  if (T.tier >= 4) return [[5, '각성 · ' + (P[5] ? P[5][0] : '공격력 +10%')], [10, P[10] ? P[10][0] : '신물 · 공격력 +15%'], [15, '승천 · 여의주를 얻으면 열려요 (준비 중)']];
+  return [[3, '공격력 +10%'], [6, P[6] ? P[6][0] : '공격력 +10%'], [9, '공격 속도 +10%'], [12, P[12] ? P[12][0] : '공격력 +15%']];
+}
+const TYPES_BASE = TYPES.map(T => Object.assign({}, T));
+/* put each type back to its base numbers, then add the perks of the level it has reached */
+function applyLevels(lvFn) {
+  TYPES.forEach((T, i) => {
+    const B = TYPES_BASE[i];
+    for (const k of Object.keys(T)) if (!(k in B)) delete T[k];
+    Object.assign(T, B);
+    const lv = lvFn ? lvFn(T.id) : 1, P = PERKS[T.id]; if (!P) return;
+    for (const at of Object.keys(P)) if (lv >= +at) P[at][1](T);
+  });
+}
 const FOES = [
   { name: '청도깨비', speed: 1.0, hpMul: 1, desc: '방망이를 든 흔한 도깨비' },
   { name: '홍도깨비', speed: 1.18, hpMul: 1, desc: '뿔이 둘 달린 성질 급한 도깨비' },
@@ -213,38 +301,32 @@ const BOSS_DEF = {
   yeomra: { name: '염라대왕', speed: 0.45, r: 0.6, hpF: 0.8, note: '망령을 불러내고 가장 센 동료를 심판해요' },
 };
 const STAGES = [
-  { id: 'hahoe', name: '하회마을', theme: 'village', hp: 0.78, spd: 1.0, special: 0, bosses: { 10: 'beom', 20: 'gumiho', 30: 'imugi', 40: 'bulgasari', 50: 'geumdwaeji', 60: 'daejeok', 70: 'heukryong', 80: 'yeomra' }, rule: '도깨비가 처음 몰려든 고을이에요', reward: 1 },
-  { id: 'jeoja', name: '저잣거리', theme: 'market', hp: 1.09, spd: 1.06, special: 4, bosses: { 10: 'gumiho', 20: 'beom', 30: 'geumdwaeji', 40: 'bulgasari', 50: 'imugi', 60: 'heukryong', 70: 'daejeok', 80: 'yeomra' }, rule: '날쌘 야광귀가 섞여 와요', reward: 1.3 },
-  { id: 'sanseong', name: '산성', theme: 'fortress', hp: 1.93, spd: 1.0, special: 5, bosses: { 10: 'beom', 20: 'imugi', 30: 'gumiho', 40: 'daejeok', 50: 'bulgasari', 60: 'geumdwaeji', 70: 'yeomra', 80: 'heukryong' }, rule: '쇠도깨비는 일반·희귀 동료 공격을 반만 받아요', reward: 1.6 },
-  { id: 'jinyeong', name: '수군 진영', theme: 'sea', hp: 1.89, spd: 1.03, special: 6, bosses: { 10: 'imugi', 20: 'geumdwaeji', 30: 'daejeok', 40: 'bulgasari', 50: 'gumiho', 60: 'beom', 70: 'yeomra', 80: 'heukryong' }, rule: '물귀신은 한 번 쓰러져도 다시 일어나요', reward: 2 },
-  { id: 'jeoseung', name: '저승길', theme: 'underworld', hp: 1.86, spd: 1.05, special: 7, bosses: { 10: 'geumdwaeji', 20: 'daejeok', 30: 'heukryong', 40: 'gumiho', 50: 'imugi', 60: 'bulgasari', 70: 'daejeok', 80: 'yeomra' }, rule: '망령이 쓰러지면 작은 망령 둘로 나뉘어요', reward: 2.5 },
+  { id: 'hahoe', name: '하회마을', theme: 'village', hp: 0.78, bossF: 1, spd: 1.0, special: 0, bosses: { 10: 'beom', 20: 'gumiho', 30: 'imugi', 40: 'bulgasari', 50: 'geumdwaeji', 60: 'daejeok', 70: 'heukryong', 80: 'yeomra' }, rule: '도깨비가 처음 몰려든 고을이에요', reward: 1 },
+  { id: 'jeoja', name: '저잣거리', theme: 'market', hp: 1.1, bossF: 1, spd: 1.06, special: 4, bosses: { 10: 'gumiho', 20: 'beom', 30: 'geumdwaeji', 40: 'bulgasari', 50: 'imugi', 60: 'heukryong', 70: 'daejeok', 80: 'yeomra' }, rule: '날쌘 야광귀가 섞여 와요', reward: 1.3 },
+  { id: 'sanseong', name: '산성', theme: 'fortress', hp: 1.5, bossF: 1.1, spd: 1.0, special: 5, bosses: { 10: 'beom', 20: 'imugi', 30: 'gumiho', 40: 'daejeok', 50: 'bulgasari', 60: 'geumdwaeji', 70: 'yeomra', 80: 'heukryong' }, rule: '쇠도깨비는 일반·희귀 동료 공격을 반만 받아요', reward: 1.6 },
+  { id: 'jinyeong', name: '수군 진영', theme: 'sea', hp: 1.9, bossF: 1.3, spd: 1.03, special: 6, bosses: { 10: 'imugi', 20: 'geumdwaeji', 30: 'daejeok', 40: 'bulgasari', 50: 'gumiho', 60: 'beom', 70: 'yeomra', 80: 'heukryong' }, rule: '물귀신은 한 번 쓰러져도 다시 일어나요', reward: 2 },
+  { id: 'jeoseung', name: '저승길', theme: 'underworld', hp: 2.3, bossF: 1.6, spd: 1.05, special: 7, bosses: { 10: 'geumdwaeji', 20: 'daejeok', 30: 'heukryong', 40: 'gumiho', 50: 'imugi', 60: 'bulgasari', 70: 'daejeok', 80: 'yeomra' }, rule: '망령이 쓰러지면 작은 망령 둘로 나뉘어요', reward: 2.5 },
 ];
-/* each 고을 summons only the companions its mythic recipes need, so recipes stay reachable */
-const STAGE_ROSTER = [
-  { myths: ['bari', 'kkokdusoe', 'cheoyong', 'samulpae', 'daejanggun', 'haedal', 'cheongryong'], extra: ['nongmin', 'bobusang', 'mudang', 'honggildong', 'heodoryeong'] },
-  { myths: ['samulpae', 'saja', 'bihyeong', 'kkokdusoe', 'hokburi', 'jujak'], extra: ['mudong', 'nongmin', 'bobusang', 'honggildong', 'gimseondal'] },
-  { myths: ['uibyeongdae', 'daejanggun', 'seolmundae', 'cheoyong', 'namukkun', 'baekho'], extra: ['samjogo', 'nongmin', 'bobusang', 'honggildong', 'euljimundeok'] },
-  { myths: ['geobukseon', 'uibyeongdae', 'seolmundae', 'samulpae', 'yongwang', 'simcheong', 'hyeonmu'], extra: ['nongmin', 'bobusang', 'mudang', 'jangbogo', 'choimuseon'], boost: { yisunsin: 2 } },
-  { myths: ['bari', 'bihyeong', 'cheoyong', 'saja', 'seolmundae', 'haedal', 'hwangryong'], extra: ['samjogo', 'nongmin', 'bobusang', 'mudang', 'gangrim'] },
-];
-STAGES.forEach((S, i) => {
-  S.myths = STAGE_ROSTER[i].myths;
-  const ids = new Set(STAGE_ROSTER[i].extra);
-  S.myths.forEach(m => MYTHS.find(M => M.id === m).parts.forEach(pt => ids.add(pt)));
-  S.units = TYPES.filter(T => T.tier < 4 && ids.has(T.id)).map(T => T.id);
-  S.pool = [0, 1, 2, 3].map(t => S.units.map(id => TYPE_IX[id]).filter(k => TYPES[k].tier === t));
-  /* a boosted unit counts more than once when the 고을 picks at random */
-  for (const [id, n] of Object.entries(STAGE_ROSTER[i].boost || {})) { const k = TYPE_IX[id]; for (let r = 1; r < n; r++) S.pool[TYPES[k].tier].push(k); }
-  S.fams = FAM_KEYS.filter(f => S.units.some(id => TYPES[TYPE_IX[id]].fam === f));
-  /* legends a recipe here names outright (not the any-legend slot) */
-  S.legNeed = [...new Set(S.myths.flatMap(m => MYTH_BY[m].parts).filter(p => !WILD[p] && TYPES[TYPE_IX[p]] && TYPES[TYPE_IX[p]].tier === 3))].map(id => TYPE_IX[id]);
+/* the same companions in every 고을: 일반·희귀·영웅 five each, 전설 four */
+const ROSTER = ['halmi', 'kkwaenggwari', 'buk', 'dolhareubang', 'sugun', 'yangban', 'janggu', 'jing', 'sapsal', 'singijeon', 'seonbi', 'gaksi', 'sangmo', 'mudang', 'gwakjaewoo', 'bangsangsi', 'haetae', 'yisunsin', 'euljimundeok'];
+const LIVE = TYPES.filter(T => !T.old);
+STAGES.forEach(S => {
+  S.myths = MYTHS.map(M => M.id);
+  S.units = ROSTER;
+  S.pool = [0, 1, 2, 3].map(t => ROSTER.map(id => TYPE_IX[id]).filter(k => TYPES[k].tier === t));
 });
 const hasUnitT = k => G.units.some(u => u && u.t === k) || !!(G.exp && G.exp.run && G.exp.run.units && G.exp.run.units.some(u => u && u.t === k));
-/* a legend some recipe here still needs and you have none of comes up more often, so one missing part can't stall a whole run */
+/* legends named by a recipe you can make right now */
+function legNeed() {
+  const out = new Set();
+  for (const M of MYTHS) { if (M.secret || !mythOpen(M.id)) continue; for (const p of M.parts) { const k = TYPE_IX[p]; if (k != null && TYPES[k].tier === 3) out.add(k); } }
+  return [...out];
+}
+/* a legend an open recipe still needs and you have none of comes up more often, so one missing part can't stall a whole run */
 const poolOf = tier => {
   const S = STAGES[(G && G.stage) || 0], P = S.pool[tier];
   if (tier !== 3 || !G || !G.units) return P;
-  const miss = S.legNeed.filter(k => !hasUnitT(k));
+  const miss = legNeed().filter(k => !hasUnitT(k));
   return miss.length ? P.concat(miss) : P;
 };
 const STACK_CAP = [3, 3, 3, 1, 1, 1, 1], capOf = t => STACK_CAP[TYPES[t].tier];
@@ -259,16 +341,22 @@ const ULTS = {
   cheoyong: { name: '처용무', t: 15, desc: '붉은 물결 다섯 줄을 부채꼴로 보내요. 보스에겐 세 배' },
   bihyeong: { name: '도깨비불 폭풍', t: 16, desc: '도깨비불 열두 개를 한꺼번에 날려요' },
   haedal: { name: '동아줄', t: 20, desc: '하늘에서 동아줄이 내려와 가장 센 도깨비를 크게 치고 마당 전체를 2초 멈춰 세워요' },
-  hokburi: { name: '혹 떼기', t: 22, desc: '가장 체력이 많은 도깨비의 혹을 떼어 체력을 크게 깎고 혼 2개와 엽전을 받아요' },
+  hokburi: { name: '혹 떼기', t: 22, desc: '가장 체력이 많은 도깨비의 혹을 떼어 체력을 크게 깎고 혼 1개와 엽전을 받아요' },
   namukkun: { name: '산신령의 선물', t: 20, desc: '금도끼 여섯 자루가 가장 센 도깨비들에게 떨어져요. 보스에겐 세 배, 엽전도 받아요' },
   cheongryong: { name: '비구름', t: 18, desc: '먹구름을 몰고 와 번개 열두 줄기를 내리꽂고 도깨비를 모두 느리게 해요' },
   jujak: { name: '불사조', t: 18, desc: '날개를 펼쳐 마당의 도깨비를 모두 치고 한참 태워요' },
   baekho: { name: '산군의 포효', t: 18, desc: '포효로 마당의 도깨비를 모두 1.5초 멈춰 세우고 5초 동안 받는 피해를 30% 늘려요' },
   hyeonmu: { name: '거북 등껍질', t: 18, desc: '큰 물결로 마당의 도깨비를 모두 치고 멀리 밀어내요' },
-  hwangryong: { name: '여의주 천둥', t: 18, desc: '여의주가 터지며 마당의 도깨비를 모두 크게 쳐요' },
+  hwangryong: { name: '여의주 천둥', t: 18, desc: '여의주가 터지며 마당의 도깨비를 모두 크게 쳐요. 보스에겐 2.5배' },
   simcheong: { name: '연꽃 환생', t: 20, desc: '연꽃이 피어나 6초 동안 모든 동료가 60% 빨리 때리고 도깨비는 모두 크게 느려져요' },
   geobukseon: { name: '일제 포격', t: 16, desc: '화포 열두 발을 마당 곳곳에 퍼부어요' },
-  uibyeongdae: { name: '의병 봉기', t: 19, desc: '6초 동안 장수 동료 공격력이 50% 올라요' },
+  uibyeongdae: { name: '의병 봉기', t: 19, desc: '6초 동안 영웅 동료 공격력이 50% 올라요' },
+  choimuseon: { name: '화통도감', t: 17, desc: '주화 열 발을 도깨비가 몰린 곳마다 퍼부어 불바다를 만들어요' },
+  yeongno: { name: '아흔아홉 양반', t: 18, desc: '작은 도깨비를 여섯까지 한꺼번에 삼키고 보스는 남은 체력의 6%를 베어 물어요' },
+  gangrim: { name: '명부 등재', t: 18, desc: '보스와 도전 귀신을 명부에 올려 8초 동안 받는 피해를 40% 늘리고, 체력이 30% 아래인 작은 도깨비를 모두 저승으로 데려가요' },
+  gimseondal: { name: '대동강 물장사', t: 20, desc: '도깨비가 가장 많이 몰린 곳에 강물을 쏟아 크게 치고 가진 엽전의 10%를 한 번 더 벌어요' },
+  jangbogo: { name: '청해진 무역선', t: 20, desc: '무역선 함대가 화포 여덟 발을 퍼붓고 엽전을 가득 실어 와요' },
+  honggildong: { name: '분신 여덟', t: 16, desc: '분신 여덟이 가장 센 도깨비들을 크게 베고, 보스를 벨 때마다 엽전을 훔쳐요' },
   seolmundae: { name: '한라산', t: 19, desc: '커다란 산을 떨어뜨려 넓은 곳을 크게 치고 기절시켜요' },
   yongwang: { name: '용궁 소용돌이', t: 18, desc: '도깨비가 가장 많이 몰린 곳에 소용돌이를 일으켜 둘레 도깨비를 크게 치고 2.5초 동안 붙잡아요. 보스에겐 두 배' },
 };
@@ -296,22 +384,29 @@ const CAVE_TIME = 30, CAVE_CD = 15, EXP_MAX = 5;
 const BAL = {
   hpBase: 40, hpGrowth: 1.205, hpGrowth2: 1.10, bossMul: { 10: 16, 20: 18, 30: 13, 40: 7, 50: 7, 60: 6.5, 70: 6, 80: 5.5 },
   startCoins: 400, summonBase: 100, summonStep: 20, coinsDiv: 8, coinsPer: 1, coinUnit: 10,
-  upBonus: 0.2, upBase: 200, upStep: 200, luckCost: [600, 1200, 2000, 3200, 4800], gutBias: 0.5,
-  perWave: 24, waveExtra: 0.5, cap: 100, spawnGap: 0.45, gutCost: 3, honPerWave: 1, lvBonus: 0.15,
+  upBonus: 0.2, upBase: [100, 200, 300, 400], upStep: [100, 150, 220, 300], luckCost: [600, 1200, 2000, 3200, 4800],
+  perWave: 24, waveExtra: 0.5, cap: 100, spawnGap: 0.45, honPerWave: 1, lvBonus: 0.15, mythLvBonus: 0.12,
 };
 const SUMMON_BASE = [0.87, 0.11, 0.02, 0];
 const SUMMON_LUCK = [-0.03, 0.02, 0.008, 0.002], SUMMON_LUCK2 = [-0.025, 0.015, 0.008, 0.002];
 /* 소환 운 1~5단계는 엽전, 6~10단계는 혼으로 올려요 */
 const LUCK_COIN = 5, LUCK_HON = [4, 5, 6, 8, 10];
-const GUT_ODDS = [[-1, 0.35], [1, 0.40], [2, 0.19], [3, 0.06]];
-/* 큰굿: no 희귀, more 영웅 and 전설. 신명 부적: every unit attacks faster for a while */
-const BIG_GUT = { cost: 7, odds: [[-1, 0.30], [2, 0.52], [3, 0.18]] };
+/* three 굿: each either calls one companion of its grade or fails. every failure fills 정성 by its weight,
+   and once 정성 is full the next 굿 always works (지성이면 감천). 신명 부적: every unit attacks faster for a while */
+const GUTS = [
+  { id: 'jaesu', name: '재수굿', tier: 1, p: 0.6, cost: 1, pity: 1, note: '복을 비는 작은 굿' },
+  { id: 'daedong', name: '대동굿', tier: 2, p: 0.2, cost: 1, pity: 2, note: '온 마을이 함께하는 큰 굿' },
+  { id: 'byeolsin', name: '별신굿', tier: 3, p: 0.1, cost: 2, pity: 4, note: '몇 해에 한 번 벌이는 마을 큰 잔치' },
+];
+const PITY_MAX = 20;
 const CHARM = { cost: 4, t: 20, spd: 1.4 };
 const LUCK_MAX = 10, WAVE_TIME = 20, LAST_WAVE = 80, BREAK_WAVE = 40;
 let UP_MAX = 40;
 let BOSS_TIME = 60;
-const UP_NAMES = ['탈', '사물놀이', '수호', '장수', '소환 운'];
-const upGroup = T => FAM_IX[T.fam];
+/* in-run 강화 goes by grade: 일반·희귀 together, then 영웅, 전설 and 신화 */
+const UP_NAMES = ['일반·희귀', '영웅', '전설', '신화', '소환 운'], UP_SHORT = ['일반', '영웅', '전설', '신화', '운'];
+const UP_TIER = [0, 0, 1, 2, 3, 3, 3], upGroup = T => UP_TIER[T.tier];
+const UP_COLOR = [TIERS[1].color, TIERS[2].color, TIERS[3].color, TIERS[4].color];
 
 /* the first 40 마당 climb steeply; after that the curve eases so a grown yard can push on to 80 */
 const hpAt = w => BAL.hpBase * Math.pow(BAL.hpGrowth, Math.min(w, BREAK_WAVE) - 1) * Math.pow(BAL.hpGrowth2, Math.max(0, w - BREAK_WAVE)) * STAGES[G.stage || 0].hp;
@@ -319,8 +414,7 @@ const killCoins = w => BAL.coinUnit * (1 + BAL.coinsPer * Math.floor((w - 1) / B
 /* the first twenty calls are cheap so the yard grows fast early; from the fortieth on it is the old price again */
 const summonCost = () => { const n = G.summons, b = BAL.summonBase, st = BAL.summonStep; return n < 20 ? b + st * 0.5 * n : n < 40 ? b + st * 10 + st * 1.5 * (n - 20) : b + st * n; };
 const luckByHon = () => G.up[LUCK] >= LUCK_COIN;
-const upCost = g => g === LUCK ? (luckByHon() ? LUCK_HON[Math.min(G.up[LUCK] - LUCK_COIN, LUCK_HON.length - 1)] : BAL.luckCost[G.up[LUCK]]) : BAL.upBase + BAL.upStep * G.up[g];
-function mainFam() { let b = -1, bv = 0; for (let k = 0; k < 4; k++) if (G.up[k] > bv) { bv = G.up[k]; b = k; } return b; }
+const upCost = g => g === LUCK ? (luckByHon() ? LUCK_HON[Math.min(G.up[LUCK] - LUCK_COIN, LUCK_HON.length - 1)] : BAL.luckCost[G.up[LUCK]]) : BAL.upBase[g] + BAL.upStep[g] * G.up[g];
 function summonOdds() {
   const L1 = Math.min(G.up[LUCK], LUCK_COIN), L2 = Math.max(0, G.up[LUCK] - LUCK_COIN), o = SUMMON_BASE.map((p, i) => Math.max(0, p + SUMMON_LUCK[i] * L1 + SUMMON_LUCK2[i] * L2));
   const s = o.reduce((a, b) => a + b, 0); return o.map(p => p / s);
@@ -332,23 +426,25 @@ let G = null;
 let HIT_UID = 0;
 /* 친구랑 같이: the network layer (h_coop) fills in partner data and sync(); the rules here only read it.
    each player runs their own yard; a boss has one health pool that both damage */
-const COOP = { on: false, hpMul: 1.8, bossW: 0, bossDmg: 0, pApplied: 0, sync: null };
+const COOP = { on: false, hpMul: 1.5, bossW: 0, bossDmg: 0, pApplied: 0, sync: null };
 const UID_CELL = {};
 let FX_ON = true;
 function emit(e) { if (FX_ON && G.ev.length < 900) G.ev.push(e); }
 function noop() {}
 let toast = noop, onEnd = noop;
 /* 유물 bonuses for one run; the lobby fills these from the save */
-function noRelics() { return { atk: 0, myth: 0, boss: 0, coins0: 0, hon0: 0, ult: 0, bossTime: 0, kill: 0, exp: 0, gut: 0, fam: { tal: 0, samul: 0, suho: 0, jang: 0 } }; }
+/* gr: attack bonus by 강화 group (일반·희귀, 영웅, 전설) */
+function noRelics() { return { atk: 0, myth: 0, boss: 0, coins0: 0, hon0: 0, ult: 0, bossTime: 0, kill: 0, exp: 0, gut: 0, crit: 0, gr: [0, 0, 0] }; }
 function makeState(phase, speed = 1) {
   return {
     phase, wave: 0, waveT: 0, spawnLeft: 0, spawnT: 0, coins: BAL.startCoins, hon: 0, summons: 0, stage: 0,
     units: Array(NCELL).fill(null), foes: [], shots: [], pend: [], addQ: [], up: [0, 0, 0, 0, 0],
     speed, paused: false, sel: -1, time: 0, boss: null, nextId: 1, endReason: '',
-    ev: [], spd: Array(NCELL).fill(1), dmgN: Array(NCELL).fill(1), rngB: Array(NCELL).fill(0), auraDirty: true, famMul: { tal: 1, samul: 1, suho: 1, jang: 1 },
+    ev: [], spd: Array(NCELL).fill(1), dmgN: Array(NCELL).fill(1), rngB: Array(NCELL).fill(0), auraDirty: true, gradeMul: [1, 1, 1, 1], pity: 0, fields: [],
     rel: noRelics(), bossTimeMax: BOSS_TIME,
-    lvMul: TYPES.map(() => 1), lvSpd: TYPES.map(() => 1), chalCd: CHALS.map(C => C.cd * 0.3), famBuff: {}, killBy: {}, earnBy: {}, charmT: 0, lotusT: 0, sky: null, skyT: 0, exp: { floor: 1, cd: 0, run: null, wins: 0 },
-    stats: { kills: 0, merges: 0, guts: 0, bossKills: 0, crafts: 0, crafted: {}, seen: {}, foeSeen: {}, summons: 0, chalWins: 0, chalHard: 0, chalTop: 0, silverBonus: 0, caveTop: 0 },
+    lvMul: TYPES.map(() => 1), lvSpd: TYPES.map(() => 1), chalCd: CHALS.map(C => C.cd * 0.3), tierBuff: {}, killBy: {}, earnBy: {}, charmT: 0, lotusT: 0, sky: null, skyT: 0, exp: { floor: 1, cd: 0, run: null, wins: 0 },
+    stats: { kills: 0, merges: 0, guts: 0, bossKills: 0, crafts: 0, crafted: {}, seen: {}, foeSeen: {}, summons: 0, chalWins: 0, chalHard: 0, chalTop: 0, silverBonus: 0, caveTop: 0, missions: 0 },
+    miss: null, missT: 0,
   };
 }
 function newGame(lvMul, lvSpd, stage, rel) {
@@ -356,13 +452,13 @@ function newGame(lvMul, lvSpd, stage, rel) {
   G.stage = clamp(stage || 0, 0, STAGES.length - 1);
   if (lvMul) G.lvMul = lvMul.slice();
   if (lvSpd) G.lvSpd = lvSpd.slice();
-  if (rel) { G.rel = Object.assign(noRelics(), rel, { fam: Object.assign(noRelics().fam, rel.fam || {}) }); G.coins += G.rel.coins0; G.hon += G.rel.hon0; }
+  if (rel) { G.rel = Object.assign(noRelics(), rel, { gr: [0, 1, 2].map(k => (rel.gr && rel.gr[k]) || 0) }); G.coins += G.rel.coins0; G.hon += G.rel.hon0; }
   G.bossTimeMax = BOSS_TIME + G.rel.bossTime;
   nextWave();
 }
 function nextWave() {
   G.wave++;
-  if (G.wave > 1) G.hon += BAL.honPerWave;
+  if (G.wave > 1) { G.hon += BAL.honPerWave; payInterest(); }
   const B = bossAt(G.wave), S = STAGES[G.stage];
   if (B) {
     G.waveT = G.bossTimeMax || BOSS_TIME; G.spawnLeft = 0;
@@ -374,6 +470,14 @@ function nextWave() {
     else if (G.wave === 3 && S.special) emit({ k: 'banner', main: `${FOES[S.special].name} 출현`, sub: FOES[S.special].desc });
     else if (G.wave === BREAK_WAVE + 1) emit({ k: 'banner', main: `제 ${G.wave} 마당`, sub: '여기부터 깊은 마당이에요. 온갖 도깨비가 섞여 와요' });
     else if (G.wave % 10 === 1) emit({ k: 'banner', main: `제 ${G.wave} 마당`, sub: `${FOES[Math.min(3, Math.floor((G.wave - 1) / 10))].name} 무리가 몰려와요` });
+  }
+}
+/* 김선달: each one on the yard pays a share of the coins you hold, up to a cap that grows with the 마당 */
+function payInterest() {
+  for (let i = 0; i < NCELL; i++) {
+    const u = G.units[i], T = u && TYPES[u.t]; if (!T || !T.interest) continue;
+    const c = Math.min(Math.floor(G.coins * T.interest), 100 + 30 * G.wave);
+    if (c > 0) { G.coins += c; earnFor(u.id, c); G.stats.income = (G.stats.income || 0) + c; emit({ k: 'coin', x: cellX(i), y: cellY(i) - 0.3, v: c, big: true }); }
   }
 }
 function placeFoe(f) {
@@ -401,10 +505,66 @@ function spawnFoe() {
 }
 function spawnBoss(B) {
   if (COOP.on) { COOP.bossW = G.wave; COOP.bossDmg = 0; COOP.pApplied = 0; }
-  const f = newFoe(0, hpAt(G.wave) * BAL.bossMul[G.wave] * (B.hpF || 1) * (COOP.on ? COOP.hpMul : 1), B.speed * STAGES[G.stage].spd, B.r, { boss: B.key, big: true, name: B.name, reward: BAL.coinUnit * (20 + G.wave * 3), skT: 4, skT2: 6, rage: false, wob: 0, hidden: 0 });
+  const f = newFoe(0, hpAt(G.wave) * BAL.bossMul[G.wave] * (B.hpF || 1) * (STAGES[G.stage].bossF || 1) * (COOP.on ? COOP.hpMul : 1), B.speed * STAGES[G.stage].spd, B.r, { boss: B.key, big: true, name: B.name, reward: BAL.coinUnit * (20 + G.wave * 3), skT: 4, skT2: 6, rage: false, wob: 0, hidden: 0 });
   placeFoe(f); G.foes.push(f); G.boss = f;
   G.stats.foeSeen['b_' + B.key] = 1;
   emit({ k: 'bossSpawn', key: B.key });
+}
+
+/* ================= 판 안 임무 =================
+   three at a time. the first seven teach the run in order: summon, merge, 굿, 강화, 영웅, 전설, 신화.
+   after that they come from a pool, and the rewards grow with the 마당 */
+const tierOnYard = t => (G.units.some(u => u && TYPES[u.t].tier >= t) ? 1 : 0);
+const upSum = () => G.up[0] + G.up[1] + G.up[2] + G.up[3];
+const MISS_TEACH = [
+  { id: 'sum', short: '소환', text: '동료 10번 소환하기', cur: () => G.stats.summons, add: 10, coins: 150 },
+  { id: 'merge', short: '합성', text: '같은 동료 셋을 모아 합성하기', cur: () => G.stats.merges, add: 1, coins: 200 },
+  { id: 'gut', short: '굿', text: '혼으로 굿 벌이기', cur: () => G.stats.guts, add: 1, hon: 2 },
+  { id: 'up', short: '강화', text: '아래 등급 강화 3번 하기', cur: upSum, add: 3, coins: 300 },
+  { id: 'hero', short: '영웅', text: '영웅 동료 모으기 · 희귀 셋 합성이나 대동굿', cur: () => tierOnYard(2), add: 1, abs: true, hon: 2 },
+  { id: 'leg', short: '전설', text: '전설 동료 모으기 · 영웅 셋 합성이나 별신굿', cur: () => tierOnYard(3), add: 1, abs: true, hon: 3 },
+  { id: 'myth', short: '신화', text: '신화 조합하기 · 신화 버튼에서 재료를 확인해요', cur: () => G.stats.crafts, add: 1, coins: 600, hon: 2 },
+];
+const MISS_POOL = [
+  { id: 'kill', short: '처치', text: n => `도깨비 ${n}마리 더 잡기`, cur: () => G.stats.kills, add: () => 120 + G.wave * 4, coins: 250 },
+  { id: 'boss', short: '보스', text: () => '다음 보스 잡기', cur: () => G.stats.bossKills, add: 1, hon: 3 },
+  { id: 'chal', short: '도전', text: () => '도전 귀신 하나 잡기', cur: () => G.stats.chalWins, add: 1, coins: 300, hon: 1 },
+  { id: 'merge2', short: '합성', text: n => `합성 ${n}번 더 하기`, cur: () => G.stats.merges, add: 4, coins: 250 },
+  { id: 'craft2', short: '신화', text: () => '신화 하나 더 조합하기', cur: () => G.stats.crafts, add: 1, hon: 3 },
+  { id: 'sum2', short: '소환', text: n => `동료 ${n}번 더 소환하기`, cur: () => G.stats.summons, add: 12, coins: 200 },
+  { id: 'up2', short: '강화', text: n => `등급 강화 ${n}번 더 하기`, cur: upSum, add: 3, coins: 300 },
+  { id: 'gut2', short: '굿', text: n => `굿 ${n}번 더 벌이기`, cur: () => G.stats.guts, add: 3, coins: 300 },
+  { id: 'cave', short: '출정', text: () => '도깨비굴 한 층 깨기', cur: () => (G.exp ? G.exp.wins : 0), add: 1, coins: 300, hon: 1 },
+];
+const missDef = id => MISS_TEACH.find(m => m.id === id) || MISS_POOL.find(m => m.id === id);
+function missNew(D) {
+  const add = typeof D.add === 'function' ? D.add() : D.add;
+  return { id: D.id, from: D.abs ? 0 : D.cur(), goal: add, w: G.wave };
+}
+function missInit() { G.miss = { list: MISS_TEACH.slice(0, 3).map(missNew), next: 3 }; }
+function missText(m) { const D = missDef(m.id); return typeof D.text === 'function' ? D.text(m.goal) : D.text; }
+function missProg(m) { const D = missDef(m.id); return Math.min(m.goal, Math.max(0, D.cur() - m.from)); }
+function missReward(m) { const D = missDef(m.id), k = 1 + Math.floor(m.w / 10) * 0.5; return { coins: D.coins ? Math.round(D.coins * k / 10) * 10 : 0, hon: D.hon || 0 }; }
+function missPick() {
+  const M = G.miss;
+  if (M.next < MISS_TEACH.length) return missNew(MISS_TEACH[M.next++]);
+  const busy = new Set(M.list.map(m => m.id));
+  const opts = MISS_POOL.filter(D => !busy.has(D.id) && (D.id !== 'cave' || G.wave >= 3) && (D.id !== 'chal' || G.wave >= 4));
+  return missNew(pick(opts.length ? opts : MISS_POOL));
+}
+function missTick(dt) {
+  if (!G.miss) missInit();
+  G.missT = (G.missT || 0) - dt; if (G.missT > 0) return;
+  G.missT = 0.4;
+  const M = G.miss;
+  for (let k = 0; k < M.list.length; k++) {
+    const m = M.list[k]; if (!missDef(m.id) || missProg(m) < m.goal) continue;
+    const rw = missReward(m);
+    G.coins += rw.coins; G.hon += rw.hon; G.stats.missions = (G.stats.missions || 0) + 1;
+    emit({ k: 'mission', text: missText(m), coins: rw.coins, hon: rw.hon });
+    toast(`임무 완료! ${missText(m)} · ${[rw.coins ? `엽전 +${fmtC(rw.coins)}` : '', rw.hon ? `혼 +${rw.hon}` : ''].filter(Boolean).join(' · ')}`);
+    M.list[k] = missPick();
+  }
 }
 
 /* ================= actions ================= */
@@ -445,26 +605,27 @@ function summon() {
   emit({ k: 'summon', cell: i, tier });
   return true;
 }
-function gutOdds(big) {
-  const shift = Math.min(0.25, G && G.rel ? G.rel.gut : 0), src = big ? BIG_GUT.odds : GUT_ODDS, up = big ? 2 : 1;
-  return src.map(([g, p]) => [g, g < 0 ? p - shift : g === up ? p + shift : p]);
-}
-function gamble(big) {
+function gutP(Gd) { return Math.min(0.95, Gd.p * (1 + Math.min(0.5, G && G.rel ? G.rel.gut : 0))); }
+/* k: which 굿 (0 재수굿, 1 대동굿, 2 별신굿) */
+function gamble(k) {
   if (G.phase !== 'play') return false;
-  const cost = big ? BIG_GUT.cost : BAL.gutCost;
-  if (G.hon < cost) { toast('혼이 모자라요. 마당을 넘기거나 보스를 잡으면 모여요'); return false; }
+  const Gd = GUTS[k | 0] || GUTS[0];
+  if (G.hon < Gd.cost) { toast('혼이 모자라요. 마당을 넘기거나 보스를 잡으면 모여요'); return false; }
   const empty = emptyCells();
-  if (!empty.length) { toast('굿판은 빈 칸이 하나 있어야 벌일 수 있어요'); return false; }
-  G.hon -= cost; G.stats.guts++;
-  let r = Math.random(), tier = -1;
-  for (const [g, q] of gutOdds(big)) { if ((r -= q) < 0) { tier = g; break; } }
-  if (tier < 0) { emit({ k: 'gutfail', cell: pick(empty) }); toast('부정 탔다… 꽝'); return true; }
-  let pool = poolOf(tier);
-  const mf = mainFam();
-  if (mf >= 0 && Math.random() < BAL.gutBias) { const p2 = pool.filter(t => TYPES[t].fam === FAM_KEYS[mf]); if (p2.length) pool = p2; }
-  const t = pick(pool), i = addUnit(t);
-  emit({ k: 'gut', cell: i, tier });
-  toast(tier >= 3 ? `신이 내렸다! ${TIERS[tier].name} ${TYPES[t].name}` : `굿 효험! ${TIERS[tier].name} ${TYPES[t].name}`);
+  if (!empty.length) { toast('굿은 빈 칸이 하나 있어야 벌일 수 있어요'); return false; }
+  G.hon -= Gd.cost; G.stats.guts++;
+  G.stats.gutKind = G.stats.gutKind || [0, 0, 0]; G.stats.gutKind[k | 0]++;
+  const sure = (G.pity || 0) >= PITY_MAX;
+  if (!sure && Math.random() >= gutP(Gd)) {
+    G.pity = Math.min(PITY_MAX, (G.pity || 0) + Gd.pity);
+    emit({ k: 'gutfail', cell: pick(empty) });
+    toast(G.pity >= PITY_MAX ? '부정 탔다… 꽝. 그래도 정성이 가득 찼어요. 다음 굿은 꼭 돼요' : '부정 탔다… 꽝');
+    return true;
+  }
+  if (sure) G.pity = 0;
+  const t = pick(poolOf(Gd.tier)), i = addUnit(t);
+  emit({ k: 'gut', cell: i, tier: Gd.tier, sure });
+  toast(`${sure ? '지성이면 감천!' : Gd.tier >= 3 ? '신이 내렸다!' : '굿 효험!'} ${TIERS[Gd.tier].name} ${TYPES[t].name}`);
   return true;
 }
 function charm() {
@@ -484,7 +645,7 @@ function upgrade(g) {
   G.up[g]++;
   emit({ k: 'upgrade', g });
   if (g === LUCK) { const o = summonOdds(); toast(`소환 운 ${G.up[LUCK]}단계 · 희귀 ${Math.round(o[1] * 100)}% 영웅 ${(o[2] * 100).toFixed(1)}% 전설 ${(o[3] * 100).toFixed(1)}%`); }
-  else toast(`${FAMS[FAM_KEYS[g]].name} 동료 공격력 +${Math.round(BAL.upBonus * 100 * G.up[g])}%${mainFam() === g ? ' · 굿판에서 더 잘 나와요' : ''}`);
+  else toast(`${UP_NAMES[g]} 동료 공격력 +${Math.round(BAL.upBonus * 100 * G.up[g])}%`);
   return true;
 }
 function sell(i) {
@@ -575,8 +736,7 @@ function startExp(cells) {
   return true;
 }
 function nearestMissingPart() {
-  const S = STAGES[G.stage];
-  const sts = MYTHS.filter(M => S.myths.includes(M.id) && !M.tale && !M.beast).map(M => ({ M, st: recipeState(M) })).filter(o => !o.st.ready).sort((a, b) => b.st.have / b.M.parts.length - a.st.have / a.M.parts.length);
+  const sts = MYTHS.filter(M => mythOpen(M.id) && !M.tale && !M.beast && !M.secret).map(M => ({ M, st: recipeState(M) })).filter(o => !o.st.ready).sort((a, b) => b.st.have / b.M.parts.length - a.st.have / a.M.parts.length);
   if (!sts.length) return -1;
   const o = sts[0]; const k = o.st.cells.findIndex(c => c < 0); return k >= 0 ? o.M.partIx[k] : -1;
 }
@@ -615,8 +775,8 @@ function expTick(dt) {
 /* recipe helpers */
 /* how much a unit is still wanted by this 고을's other recipes: 0 spare, 1 the only copy of a needed part (never taken by an any-slot) */
 function wildNeed(t) {
-  const id = TYPES[t].id, S = STAGES[G.stage || 0];
-  if (!S.myths.some(m => MYTH_BY[m] && MYTH_BY[m].parts.includes(id))) return 0;
+  const id = TYPES[t].id;
+  if (!MYTHS.some(M => mythOpen(M.id) && M.parts.includes(id))) return 0;
   let copies = 0; for (const u of G.units) if (u && u.t === t) copies++;
   return copies > 1 ? 0.5 : 1;
 }
@@ -656,29 +816,34 @@ function craft(mythId, prefer = -1) {
 /* ================= combat ================= */
 function computeAura() {
   G.auraDirty = false;
-  const cnt = { tal: 0, samul: 0, suho: 0, jang: 0 };
-  for (let i = 0; i < NCELL; i++) { const u = G.units[i]; if (u && TYPES[u.t].famAura) cnt[TYPES[u.t].fam]++; }
-  for (const k of FAM_KEYS) G.famMul[k] = 1 + 0.2 * Math.min(2, cnt[k]);
+  /* 사물놀이패 lifts 일반·희귀, 팔도 의병 lifts 영웅; two of the same kind count, a third does not */
+  const cnt = [0, 0, 0, 0], amt = [0, 0, 0, 0];
+  for (let i = 0; i < NCELL; i++) { const u = G.units[i], T = u && TYPES[u.t]; if (T && T.gAura) for (const t of T.gAuraT) { cnt[t]++; amt[t] = Math.max(amt[t], T.gAura); } }
+  if (!G.gradeMul) G.gradeMul = [1, 1, 1, 1];
+  for (let t = 0; t < 4; t++) G.gradeMul[t] = 1 + amt[t] * Math.min(2, cnt[t]);
   let am = 0; for (let i = 0; i < NCELL; i++) { const u = G.units[i]; if (u && TYPES[u.t].allAura) am = Math.max(am, TYPES[u.t].allAura); }
   G.allMul = 1 + am;
   for (let i = 0; i < NCELL; i++) {
     let n = 0, m = 0, r = 0, bo = 0;
-    for (const j of NEIGH[i]) { const u = G.units[j]; if (!u) continue; const T = TYPES[u.t]; if (T.aura) n++; if (T.dmgAura) m++; if (T.rngAura) r++; if (T.bossAura) bo++; }
-    G.spd[i] = 1 + 0.25 * Math.min(2, n);
+    let na = 0, ba = 0;
+    for (const j of NEIGH[i]) { const u = G.units[j]; if (!u) continue; const T = TYPES[u.t]; if (T.aura) { n++; na = Math.max(na, T.aura); } if (T.dmgAura) m++; if (T.rngAura) r++; if (T.bossAura) { bo++; ba = Math.max(ba, T.bossAura); } }
+    G.spd[i] = 1 + na * Math.min(2, n);
     G.dmgN[i] = 1 + 0.2 * Math.min(2, m);
     if (!G.rngB) G.rngB = Array(NCELL).fill(0);
     G.rngB[i] = 0.5 * Math.min(2, r);
     if (!G.bossN) G.bossN = Array(NCELL).fill(1);
-    G.bossN[i] = 1 + 0.15 * Math.min(2, bo);
+    G.bossN[i] = 1 + ba * Math.min(2, bo);
     let ua = 0; for (const j of NEIGH[i]) { const u = G.units[j]; if (u && TYPES[u.t].ultAura) ua = Math.max(ua, TYPES[u.t].ultAura); }
     if (!G.ultN) G.ultN = Array(NCELL).fill(1);
     G.ultN[i] = 1 + ua;
   }
 }
 function rngOf(T, i) { return T.range > 50 ? T.range : T.range + ((i >= 0 && G.rngB && G.rngB[i]) || 0); }
-function relMul(T) { const r = G.rel; return r ? (1 + r.atk + (r.fam[T.fam] || 0)) * (T.tier >= 4 ? 1 + r.myth : 1) : 1; }
-const upOf = T => T.tier >= TALE_TIER ? Math.max(G.up[0], G.up[1], G.up[2], G.up[3]) : G.up[FAM_IX[T.fam]];
-function dmgOf(t, i) { const T = TYPES[t], fb = G.famBuff && G.famBuff[T.fam]; return (G.allMul || 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * G.famMul[T.fam] * ((i >= 0 && G.dmgN[i]) || 1) * (fb && fb.t > 0 ? fb.mul : 1) * relMul(T); }
+function relMul(T) { const r = G.rel; if (!r) return 1; const g = upGroup(T); return (1 + r.atk + (g < 3 && r.gr ? r.gr[g] || 0 : 0)) * (T.tier >= 4 ? 1 + r.myth : 1); }
+const upOf = T => G.up[upGroup(T)];
+const gradeMulOf = T => (T.tier < 4 && G.gradeMul ? G.gradeMul[T.tier] : 1);
+const tierBuffOf = T => { const b = G.tierBuff && G.tierBuff[T.tier]; return b && b.t > 0 ? b.mul : 1; };
+function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
 function topClusters(rad, n) {
   const out = [], used = new Set(), r2 = rad * rad;
   for (let k = 0; k < n; k++) {
@@ -718,7 +883,39 @@ function castUlt(u, i, T) {
     }
     case 'bihyeong': { const list = pickMany(x, y, 9, 12); for (let k = 0; k < 12; k++) { const f = list[k % list.length]; if (f) fireShot('onibi', x, y, f, T, base * 2, false); } break; }
     case 'geobukseon': for (let k = 0; k < 12; k++) { const f = pick(live); G.pend.push({ t: 0.15 + k * 0.11, x: f.x + rand(-0.3, 0.3), y: f.y + rand(-0.2, 0.2), dmg: base * 1.2, crit: false, src: T, kind: 'ultBall' }); } break;
-    case 'uibyeongdae': G.famBuff.jang = { mul: 1.5, t: 6 }; for (const f of inRange(x, y, 3)) { damage(f, base * 2, T, false); if (G.phase !== 'play') return true; } break;
+    case 'uibyeongdae': if (!G.tierBuff) G.tierBuff = {}; G.tierBuff[2] = { mul: 1.5, t: 6 }; for (const f of inRange(x, y, 3)) { damage(f, base * 2, T, false); if (G.phase !== 'play') return true; } break;
+    case 'choimuseon': {
+      const cs = topClusters(1.4, 5); if (!cs.length) return false; ev.pts = cs;
+      for (let k = 0; k < 10; k++) { const c = cs[k % cs.length]; G.pend.push({ t: 0.12 + k * 0.1, x: c.x + rand(-0.4, 0.4), y: c.y + rand(-0.3, 0.3), dmg: base * 1.6, crit: false, src: T, kind: 'rocketRain' }); }
+      break;
+    }
+    case 'yeongno': {
+      const small = live.filter(f => !f.big).sort((a, b) => b.hp - a.hp).slice(0, 6); ev.pts = small.map(f => ({ x: f.x, y: f.y }));
+      for (const f of small) { emit({ k: 'devour', x: f.x, y: f.y }); kill(f, true); G.stats.devour = (G.stats.devour || 0) + 1; if (G.phase !== 'play') return true; }
+      for (const f of live) if (f.big && !f.dead) { damage(f, Math.min(f.hp * 0.06, base * 30) + base * 3, T, true); if (G.phase !== 'play') return true; }
+      break;
+    }
+    case 'gangrim':
+      for (const f of live) {
+        if (f.big) { f.bookT = 8; f.bookAmt = Math.max(f.bookAmt || 0, 0.4); continue; }
+        if (f.hp < f.max * 0.3) { emit({ k: 'execute', x: f.x, y: f.y }); kill(f, true); if (G.phase !== 'play') return true; }
+      }
+      break;
+    case 'gimseondal': {
+      const c = topClusters(2.0, 1)[0]; if (!c) return false; ev.tx = c.x; ev.ty = c.y;
+      for (const f of inRange(c.x, c.y, 2.0)) { damage(f, base * 4, T, true); if (G.phase !== 'play') return true; if (!f.dead) slowFoe(f, 0.4, 2); }
+      const coin = Math.min(Math.floor(G.coins * 0.1), 300 + 60 * G.wave); if (coin > 0) giveCoin(x, y - 0.3, coin, true);
+      break;
+    }
+    case 'jangbogo':
+      for (let k = 0; k < 8; k++) { const f = pick(live); G.pend.push({ t: 0.15 + k * 0.12, x: f.x + rand(-0.3, 0.3), y: f.y + rand(-0.2, 0.2), dmg: base * 1.5, crit: false, src: T, kind: 'ultBall' }); }
+      giveCoin(x, y - 0.4, killCoins(G.wave) * 8, true);
+      break;
+    case 'honggildong': {
+      const list = live.slice().sort((a, b) => (b.boss ? 1e15 : 0) + b.hp - ((a.boss ? 1e15 : 0) + a.hp)).slice(0, 8); ev.pts = [];
+      for (let k = 0; k < 8; k++) { const f = list[k % list.length]; if (!f || f.dead) continue; ev.pts.push({ x: f.x, y: f.y }); damage(f, base * 3, T, true); if (G.phase !== 'play') return true; if (f.boss) giveCoin(f.x, f.y, killCoins(G.wave) * 2); }
+      break;
+    }
     case 'haedal': {
       const tgt = live.reduce((b, f) => (f.boss && !b.boss) || ((!!f.boss === !!b.boss) && f.hp > b.hp) ? f : b, live[0]); ev.tx = tgt.x; ev.ty = tgt.y;
       damage(tgt, base * 15, T, true); if (G.phase !== 'play') return true;
@@ -727,8 +924,8 @@ function castUlt(u, i, T) {
     }
     case 'hokburi': {
       const tgt = live.reduce((b, f) => f.hp > b.hp ? f : b, live[0]); ev.tx = tgt.x; ev.ty = tgt.y;
-      damage(tgt, tgt.hp * (tgt.big ? 0.06 : 0.6) + base * 5, T, true); if (G.phase !== 'play') return true;
-      G.hon += 2; giveCoin(x, y, BAL.coinUnit * (5 + Math.floor(G.wave / 4)));
+      damage(tgt, Math.min(tgt.hp * (tgt.big ? 0.06 : 0.6), base * 30) + base * 5, T, true); if (G.phase !== 'play') return true;
+      G.hon += 1; giveCoin(x, y, BAL.coinUnit * (5 + Math.floor(G.wave / 4)));
       break;
     }
     case 'namukkun': {
@@ -743,7 +940,7 @@ function castUlt(u, i, T) {
       for (const f of live) if (!f.dead) slowFoe(f, 0.4, 3);
       break;
     }
-    case 'jujak': for (const f of live) { damage(f, base * 3, T, false); if (G.phase !== 'play') return true; if (!f.dead) { const prev = f.burnT > 0 ? f.burnDps : 0; f.burnT = 4; f.burnUid = HIT_UID; f.burnDps = Math.max(prev, base * 0.8); } } break;
+    case 'jujak': for (const f of live) { damage(f, base * 2, T, false); if (G.phase !== 'play') return true; if (!f.dead) { const prev = f.burnT > 0 ? f.burnDps : 0; f.burnT = 4; f.burnUid = HIT_UID; f.burnDps = Math.max(prev, base * 0.5); } } break;
     case 'baekho': for (const f of live) { stunFoe(f, 1.5); f.markAmt = f.markT > 0 ? Math.max(f.markAmt || 0, 0.3) : 0.3; f.markT = Math.max(f.markT, 5); } break;
     case 'hyeonmu': for (const f of live) { damage(f, base * 4, T, false); if (G.phase !== 'play') return true; if (!f.dead) knock(f, 1.5); } break;
     case 'yongwang': {
@@ -751,7 +948,7 @@ function castUlt(u, i, T) {
       for (const f of inRange(c.x, c.y, 2.2)) { damage(f, base * 5 * (f.boss ? 2 : 1), T, true); if (G.phase !== 'play') return true; if (!f.dead) stunFoe(f, f.big ? 1 : 2.5); }
       break;
     }
-    case 'hwangryong': for (const f of live) { damage(f, base * 5 * (f.boss ? 2 : 1), T, true); if (G.phase !== 'play') return true; } break;
+    case 'hwangryong': for (const f of live) { damage(f, base * 3 * (f.boss ? 2.5 : 1), T, true); if (G.phase !== 'play') return true; } break;
     case 'simcheong': G.lotusT = 6; for (const f of live) slowFoe(f, 0.6, 3); break;
     case 'seolmundae': { const c = topClusters(2.4, 1)[0]; if (!c) return false; ev.tx = c.x; ev.ty = c.y; G.pend.push({ t: 0.8, x: c.x, y: c.y, dmg: base * 6, crit: true, src: T, kind: 'mountain' }); break; }
   }
@@ -761,7 +958,7 @@ function castUlt(u, i, T) {
 function unitDmg(u, critBonus) {
   const T = TYPES[u.t];
   let amt = dmgOf(u.t, u.ci == null ? -1 : u.ci);
-  const crit = Math.random() < (T.crit || 0.05) + (critBonus || 0);
+  const crit = Math.random() < (T.crit || 0.05) + (critBonus || 0) + (G.rel ? G.rel.crit || 0 : 0);
   if (crit) amt *= (T.critMul || 2);
   return { amt, crit };
 }
@@ -806,11 +1003,14 @@ function damage(f, amt, src, crit) {
   if (f.dead || f.hidden > 0) return 0;
   if (f.markT > 0) amt *= 1 + f.markAmt;
   if (f.curseT > 0) amt *= 1 + f.curseAmt;
+  if (f.bookT > 0) amt *= 1 + f.bookAmt;
   if (f.boss && G.rel && G.rel.boss) amt *= 1 + G.rel.boss;
   if ((f.boss || f.chal) && HIT_UID && G.bossN) { const c = UID_CELL[HIT_UID]; if (c != null && G.bossN[c] > 1) amt *= G.bossN[c]; }
   const res = (f.boss === 'bulgasari' || f.armor) && src.tier <= 1;
   if (res) amt *= 0.5;
   if (f.boss && COOP.on) COOP.bossDmg += Math.min(amt, Math.max(0, f.hp));
+  /* balance bots only: who did the damage */
+  if (G.tally && HIT_UID) { const c = UID_CELL[HIT_UID], u = c != null && G.units[c]; if (u) { const k = TYPES[u.t].id; G.tally[k] = (G.tally[k] || 0) + Math.min(amt, Math.max(0, f.hp)); } }
   f.hp -= amt; f.flash = 0.09;
   if (!src.dot && (crit || src.tier >= 4 || f.big)) emit({ k: 'num', x: f.x, y: f.y, v: amt, crit: !!crit, res, boss: !!f.big });
   if (f.hp <= 0) kill(f);
@@ -870,7 +1070,7 @@ function attack(u, i, T, tgt) {
         pts.push({ x: cur.x, y: cur.y - 0.25 }); seen.add(cur);
         const cx = cur.x, cy = cur.y;
         if (T.execute && !cur.big && cur.hp < cur.max * T.execute) { emit({ k: 'execute', x: cx, y: cy }); kill(cur, true); }
-        else damage(cur, amt * Math.pow(0.88, k), src, crit && k === 0);
+        else { damage(cur, amt * Math.pow(0.88, k) * (cur.boss && T.bossMul ? T.bossMul : 1), src, crit && k === 0); if (T.book && cur.big && !cur.dead) { cur.bookT = Math.max(cur.bookT || 0, 3); cur.bookAmt = Math.max(cur.bookT > 3 ? cur.bookAmt || 0 : 0, T.book); } }
         let next = null, nd = 1.8 * 1.8;
         for (const o of G.foes) { if (o.dead || seen.has(o)) continue; const d2 = (o.x - cx) ** 2 + (o.y - cy) ** 2; if (d2 < nd) { nd = d2; next = o; } }
         cur = next;
@@ -895,7 +1095,7 @@ function attack(u, i, T, tgt) {
       const list = inRange(x, y, RG);
       for (const f of list) {
         let a = amt;
-        if (T.pct) a += f.max * (f.big ? T.pct * 0.2 : T.pct);
+        if (T.pct) a += Math.min(f.max * (f.big ? T.pct * 0.2 : T.pct), amt * 3);
         damage(f, a, src, crit);
         if (T.slow && !f.dead) slowFoe(f, T.slow, T.slowT);
         if (T.mark && !f.dead) { if (!(f.markT > 0)) f.markAmt = 0; f.markT = Math.max(f.markT, T.markT); f.markAmt = Math.max(f.markAmt, T.mark); }
@@ -935,6 +1135,7 @@ function attack(u, i, T, tgt) {
         const r = k === 0 ? { amt, crit } : unitDmg(u);
         pts.push({ x: f.x, y: f.y });
         if (T.coinP && !f.big && !f.mini && Math.random() < T.coinP) giveCoin(f.x, f.y, killCoins(G.wave));
+        if (T.steal && f.boss && Math.random() < T.steal) { giveCoin(f.x, f.y, killCoins(G.wave) * 2); emit({ k: 'steal', x: f.x, y: f.y }); }
         damage(f, r.amt, src, r.crit);
         if (G.phase !== 'play') return;
       }
@@ -964,8 +1165,8 @@ function attack(u, i, T, tgt) {
     }
     case 'devour': {
       if (u.n % T.devour === 0) {
-        if (!tgt.big) { emit({ k: 'devour', x: tgt.x, y: tgt.y }); kill(tgt, true); }
-        else { damage(tgt, amt * 2, src, true); emit({ k: 'bite', x: tgt.x, y: tgt.y, big: 1 }); }
+        if (!tgt.big) { emit({ k: 'devour', x: tgt.x, y: tgt.y }); kill(tgt, true); G.stats.devour = (G.stats.devour || 0) + 1; }
+        else { damage(tgt, T.bite ? Math.max(amt * 2, Math.min(tgt.hp * T.bite, amt * 12)) : amt * 2, src, true); emit({ k: 'bite', x: tgt.x, y: tgt.y, big: 1 }); }
       } else { damage(tgt, amt, src, crit); emit({ k: 'bite', x: tgt.x, y: tgt.y, big: 0 }); }
       break;
     }
@@ -1051,7 +1252,28 @@ function attack(u, i, T, tgt) {
     }
   }
 }
+/* 불바다: burning ground that hurts every 도깨비 standing in it */
+function addField(x, y, r, t, dps) {
+  if (!G.fields) G.fields = [];
+  if (G.fields.length >= 14) G.fields.shift();
+  G.fields.push({ x, y, r, t, max: t, dps, uid: HIT_UID });
+}
+function fieldTick(dt) {
+  if (!G.fields || !G.fields.length) return;
+  for (const F of G.fields) {
+    F.t -= dt; if (F.t <= 0) continue;
+    HIT_UID = F.uid || 0;
+    for (const f of inRange(F.x, F.y, F.r)) { damage(f, F.dps * dt, DOT); if (G.phase !== 'play') { HIT_UID = 0; return; } }
+    HIT_UID = 0;
+  }
+  G.fields = G.fields.filter(F => F.t > 0);
+}
 function resolvePend(p) {
+  if (p.kind === 'rocketRain') {
+    for (const f of inRange(p.x, p.y, 0.8)) { damage(f, p.dmg, p.src, false); if (G.phase !== 'play') return; }
+    emit({ k: 'boom', x: p.x, y: p.y, r: 0.8 }); addField(p.x, p.y, 0.8, 3.5, p.dmg * 0.3);
+    return;
+  }
   if (p.kind === 'hit2') { if (!p.f.dead) { damage(p.f, p.dmg, p.src, false); emit({ k: 'tap', x: p.f.x, y: p.f.y, n: 2 }); } return; }
   const T = p.src;
   if (p.kind === 'ultBall' || p.kind === 'mountain') {
@@ -1071,7 +1293,7 @@ function resolvePend(p) {
     return;
   }
   for (const f of inRange(p.x, p.y, T.aoe)) {
-    damage(f, p.dmg, T, p.crit);
+    damage(f, p.dmg * (f.boss && T.bossMul ? T.bossMul : 1), T, p.crit);
     if (!f.dead) stunFoe(f, T.stunT);
     if (T.mark && !f.dead) { f.markAmt = f.markT > 0 ? Math.max(f.markAmt || 0, T.mark) : T.mark; f.markT = Math.max(f.markT, T.markT || 2); }
     if (G.phase !== 'play') return;
@@ -1100,6 +1322,7 @@ function hit(s) {
       for (const o of inRange(fx, fy, sr)) { if (o !== f) damage(o, s.dmg * 0.4, T, false); if (G.phase !== 'play') return; }
       /* 최무선's 주화 burst into flame where they land */
       if (T.burn) { for (const o of inRange(fx, fy, sr)) if (!o.dead) { const prev = o.burnT > 0 ? o.burnDps : 0; o.burnT = 3; o.burnUid = HIT_UID; o.burnDps = Math.max(prev, s.dmg * T.burn); } emit({ k: 'boom', x: fx, y: fy, r: sr }); }
+      if (T.field) addField(fx, fy, sr, 3, s.dmg * T.field);
       break;
     }
     case 'sunfire': damage(f, s.dmg, T, s.crit); if (!f.dead) { const prev = f.burnT > 0 ? f.burnDps : 0; f.burnT = 3; f.burnUid = HIT_UID; f.burnDps = Math.max(prev, s.dmg * T.burn); } break;
@@ -1223,6 +1446,14 @@ function unitTick(u, i, dt) {
     u.inc = (u.inc == null ? T.incCd * (0.5 + Math.random() * 0.5) : u.inc) - dt;
     if (u.inc <= 0) { u.inc += T.incCd; giveCoin(cellX(i), cellY(i) - 0.2, T.income * (u.c || 1), true); G.stats.income = (G.stats.income || 0) + T.income * (u.c || 1); }
   }
+  if (T.trade) {
+    u.trade = (u.trade == null ? T.trade * 0.6 : u.trade) - dt;
+    if (u.trade <= 0) {
+      u.trade = T.trade; const c = killCoins(G.wave) * 6;
+      G.hon += 1; giveCoin(cellX(i), cellY(i) - 0.3, c, true); G.stats.income = (G.stats.income || 0) + c;
+      emit({ k: 'ship', cell: i, hon: 1, coins: c });
+    }
+  }
   if (T.command) {
     u.cmd += dt;
     if (u.cmd >= T.command && G.foes.length) {
@@ -1236,7 +1467,7 @@ function unitTick(u, i, dt) {
     u.storm = (u.storm == null ? T.storm * 0.5 : u.storm) - dt;
     if (u.storm <= 0 && G.foes.length) {
       u.storm = T.storm; const base = dmgOf(u.t, i), live = G.foes.filter(f => !f.dead && !(f.hidden > 0)), pts = [];
-      for (let k = 0; k < 4 && live.length; k++) { const f = live.splice(Math.floor(Math.random() * live.length), 1)[0]; pts.push({ x: f.x, y: f.y }); damage(f, base * 2, T, true); if (G.phase !== 'play') return; }
+      for (let k = 0; k < 6 && live.length; k++) { const f = live.splice(Math.floor(Math.random() * live.length), 1)[0]; pts.push({ x: f.x, y: f.y }); damage(f, base * 2, T, true); if (G.phase !== 'play') return; }
       emit({ k: 'storm', pts });
     }
   }
@@ -1262,7 +1493,7 @@ function unitTick(u, i, dt) {
     u.tide = (u.tide == null ? T.tide * 0.6 : u.tide) - dt;
     if (u.tide <= 0 && G.foes.length) {
       u.tide = T.tide; const base = dmgOf(u.t, i);
-      for (const f of G.foes.slice()) { if (f.dead || f.hidden > 0) continue; damage(f, base * (f.big ? 10 : 5), T, false); if (G.phase !== 'play') return; if (!f.dead) { knock(f, 1.0); slowFoe(f, 0.4, 2); } }
+      for (const f of G.foes.slice()) { if (f.dead || f.hidden > 0) continue; damage(f, base * (f.big ? 6 : 3), T, false); if (G.phase !== 'play') return; if (!f.dead) { knock(f, 1.0); slowFoe(f, 0.4, 2); } }
       emit({ k: 'tide', cell: i });
     }
   }
@@ -1292,12 +1523,14 @@ function update(dt) {
     while (G.spawnT <= 0 && G.spawnLeft > 0) { spawnFoe(); G.spawnLeft--; G.spawnT += BAL.spawnGap; }
   }
   bossTick(dt);
+  missTick(dt);
   for (let i = 0; i < CHALS.length; i++) if (G.chalCd[i] > 0) G.chalCd[i] = Math.max(0, G.chalCd[i] - dt);
-  for (const k in G.famBuff) { const b = G.famBuff[k]; if (b.t > 0) b.t -= dt; }
+  if (G.tierBuff) for (const k in G.tierBuff) { const b = G.tierBuff[k]; if (b.t > 0) b.t -= dt; }
   if (G.charmT > 0) G.charmT -= dt;
   if (G.lotusT > 0) G.lotusT -= dt;
   if (G.skyT > 0) { G.skyT -= dt; if (G.skyT <= 0) G.sky = null; }
   expTick(dt);
+  fieldTick(dt); if (G.phase !== 'play') return;
   for (const f of G.foes) {
     if (f.dead) continue;
     if (f.chal) { f.chalT -= dt; if (f.chalT <= 0) { f.dead = true; emit({ k: 'chalFail', id: f.chal, x: f.x, y: f.y }); toast(`${f.name}가 달아났어요`); continue; } }
@@ -1305,6 +1538,7 @@ function update(dt) {
     if (f.burnT > 0) { f.burnT -= dt; HIT_UID = f.burnUid || 0; damage(f, f.burnDps * dt, DOT); HIT_UID = 0; if (f.dead) continue; }
     if (f.markT > 0) f.markT -= dt;
     if (f.curseT > 0) f.curseT -= dt;
+    if (f.bookT > 0) f.bookT -= dt;
     let v = f.speed;
     if (f.slowT > 0) { f.slowT -= dt; v *= 1 - f.slowAmt; }
     if (f.revT > 0) { f.revT -= dt; v = -0.6 * Math.abs(v); }

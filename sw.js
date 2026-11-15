@@ -2,7 +2,7 @@
    The game is one big page, so it is kept in a cache and served from there when the phone has no signal.
    With a signal the page is always asked from the network first, so a new version shows up on the next launch.
    The friend-play server, fonts aside, and the other game in this repository (observer-dodge) are never touched. */
-const VER = 'cbd0e5d3da';
+const VER = '908469b5fa';
 const CACHE = 'jd-' + VER;
 const FONTS = 'jd-fonts';
 const CORE = ['./', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];

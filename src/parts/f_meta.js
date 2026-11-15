@@ -1,12 +1,14 @@
 /* ================= progression: levels, stages, daily quests, attendance, market, saving ================= */
 const SAVE_KEY = 'talnori-save-v4';
-const LV_MAX = 10;
-const PCS_NEED = [0, 2, 3, 5, 8, 12, 18, 25, 35, 50];
-const MYTH_PCS = [0, 1, 2, 3, 4, 6, 8, 10, 13, 16];
-const SILVER_NEED = [0, 100, 250, 500, 900, 1500, 2400, 3600, 5200, 7500];
-const AWAKE = { 5: '공격 속도 +10%', 10: '공격력 +15%' };
+/* companions climb to Lv 12 with their own pieces and 은전; mythics climb to Lv 15 with 향 and 은전 */
+const PCS_NEED = [0, 2, 3, 5, 8, 12, 18, 25, 35, 50, 70, 95];
+const SILVER_NEED = [0, 100, 250, 500, 900, 1500, 2400, 3600, 5200, 7500, 10500, 14500];
+const HYANG_NEED = [0, 10, 15, 20, 30, 40, 55, 70, 90, 110, 140, 170, 210, 250, 300];
+const MSILVER_NEED = [0, 300, 600, 1000, 1500, 2200, 3000, 4000, 5200, 6600, 8200, 10000, 12000, 14500, 17500];
+/* companions who left the roster in the big 동료 개편 (save format 6) */
+const RETIRED = TYPES.filter(T => T.old).map(T => T.id);
 /* save format: v stays 1 forever; fmt counts migrations so every future update can upgrade old saves step by step */
-const SAVE_FMT = 5;
+const SAVE_FMT = 6;
 const MIGRATIONS = {
   1: s => { if (!s.x10) s.silver = (s.silver || 0) * 10; s.x10 = 1; },   // currency ×10
   /* stages grew from 40 to 80 마당: old clears become 40-마당 records, unlocked 고을 stay open */
@@ -15,9 +17,30 @@ const MIGRATIONS = {
   /* 신화 해금 arrived: mythics you already made stay open, and 고을 길 steps you already took pay their 두루마리 */
   4: s => { s.mopen = {}; for (const id in s.made || {}) if (s.made[id] > 0) s.mopen[id] = 1; s.scroll = 0; for (const k in s.road || {}) { const step = +k.split('-')[1]; if (s.road[k] && step % 2 === 0) s.scroll++; } },
   2: s => { s.clear40 = Object.assign({}, s.stageClear || {}); s.stageClear = {}; s.bossBest = {}; for (const k in s.stageBest || {}) s.bossBest[k] = Math.min(80, Math.floor(((s.stageBest[k] || 1) - 1) / 10) * 10); },
+  /* 동료 개편: one roster for every 고을 and 26 mythics.
+     - mythics that were free in a 고을 you had reached stay open
+     - retired companions give back their pieces and the pieces spent on their levels as 만능 조각, and the 은전 spent on them
+     - mythic pieces turn into 향 (10 each), the new mythic level currency */
+  5: s => {
+    const OLD_FREE = [['samulpae', 'bari', 'cheoyong'], ['samulpae', 'saja', 'kkokdusoe'], ['uibyeongdae', 'daejanggun', 'cheoyong'], ['geobukseon', 'uibyeongdae', 'samulpae'], ['bari', 'cheoyong', 'saja']];
+    s.mopen = s.mopen || {}; s.lv = s.lv || {}; s.pcs = s.pcs || {};
+    for (let i = 0; i <= Math.min(OLD_FREE.length - 1, s.stageMax || 0); i++) for (const id of OLD_FREE[i]) s.mopen[id] = 1;
+    let wild = 0, silver = 0, hyang = 0, n = 0;
+    for (const id of RETIRED) {
+      const lv = Math.min(11, s.lv[id] || 1), p = s.pcs[id] || 0;
+      if (lv > 1 || p > 0) n++;
+      wild += p; for (let l = 1; l < lv; l++) { wild += PCS_NEED[l]; silver += SILVER_NEED[l]; }
+      delete s.lv[id]; delete s.pcs[id];
+    }
+    for (const T of TYPES) if (T.tier >= 4 && s.pcs[T.id]) { hyang += s.pcs[T.id] * 10; delete s.pcs[T.id]; }
+    /* 고을 길 steps already taken pay the 향 they now carry */
+    for (const k in s.road || {}) if (s.road[k]) { const [st, step] = k.split('-').map(Number); if (step >= 1 && step <= 8) hyang += Math.round(ROAD_HYANG[step - 1] * (1 + 0.4 * st)); }
+    s.wild = (s.wild || 0) + wild; s.silver = (s.silver || 0) + silver; s.hyang = (s.hyang || 0) + hyang;
+    s.refund = { n, wild, silver, hyang };
+  },
 };
 function defaultSave() {
-  return { v: 1, fmt: SAVE_FMT, x10: 1, silver: 0, jade: 0, lv: {}, pcs: {}, made: {}, seen: {}, foes: {}, ach: {}, relics: {}, rlv: {}, rcp: {}, rpity: 0, wild: 0, road: {}, mopen: {}, scroll: 0,
+  return { v: 1, fmt: SAVE_FMT, x10: 1, silver: 0, jade: 0, lv: {}, pcs: {}, made: {}, seen: {}, foes: {}, ach: {}, relics: {}, rlv: {}, rcp: {}, rpity: 0, wild: 0, road: {}, mopen: {}, scroll: 0, hyang: 0, guide: 0,
     stats: { games: 0, kills: 0, best: 0, wins: 0, crafts: 0, chalWins: 0, chalHard: 0, bossKills: 0, pouches: 0, silverEarned: 0, jadeEarned: 0, income: 0, chalTop: 0, caveTop: 0, caveWins: 0 },
     stageMax: 0, stageSel: 0, stageBest: {}, stageClear: {}, clear40: {}, bossBest: {}, att: { day: '', n: 0 }, market: null, quests: null, weekly: null, qbonus: '', saved: 0 };
 }
@@ -32,12 +55,14 @@ function migrate(s) {
   for (const k of ['lv', 'pcs', 'made', 'seen', 'foes', 'ach', 'stageBest', 'stageClear', 'clear40', 'bossBest', 'relics', 'rlv', 'rcp', 'road', 'mopen']) if (!out[k] || typeof out[k] !== 'object') out[k] = {};
   if (typeof out.jade !== 'number') out.jade = 0;
   if (typeof out.scroll !== 'number') out.scroll = 0;
+  if (typeof out.hyang !== 'number') out.hyang = 0;
+  if (typeof out.guide !== 'number') out.guide = 0;
   revealIn(out);
   return out;
 }
 /* getting a piece of a unit you never met (from a pouch or the end of a game) puts it in the 도감 with the usual finder's reward */
 function revealIn(s) {
-  const ids = TYPES.filter(T => T.tier < 4 && !s.seen[T.id] && (s.pcs[T.id] || 0) > 0).map(T => T.id);
+  const ids = LIVE.filter(T => T.tier < 4 && !s.seen[T.id] && (s.pcs[T.id] || 0) > 0).map(T => T.id);
   for (const id of ids) s.seen[id] = 1;
   s.silver = (s.silver || 0) + ids.length * 100;
   return ids;
@@ -58,6 +83,7 @@ function mergeSaves(a, b) {
   m.stageMax = Math.max(m.stageMax || 0, other.stageMax || 0);
   for (const k in other.stats) m.stats[k] = Math.max(m.stats[k] || 0, other.stats[k] || 0);
   if ((other.att && other.att.n || 0) > (m.att.n || 0)) m.att = Object.assign({}, other.att);
+  m.guide = Math.max(a.guide || 0, b.guide || 0);
   m.saved = Math.max(a.saved || 0, b.saved || 0);
   return m;
 }
@@ -146,28 +172,38 @@ function importSave(s) { SAVE = mergeSaves(s, SAVE); persist(); onSaveLoaded(); 
 /* levels */
 const lvOf = id => SAVE.lv[id] || 1;
 const pcsOf = id => SAVE.pcs[id] || 0;
-function lvMulArr() { return TYPES.map(T => { const l = lvOf(T.id); return (1 + BAL.lvBonus * (l - 1)) * (l >= 10 ? 1.15 : 1); }); }
-function lvSpdArr() { return TYPES.map(T => lvOf(T.id) >= 5 ? 0.9 : 1); }
+/* companions: +15% a level, and Lv 3 adds 10% more. mythics: +12% a level. Lv 9 companions attack 10% faster */
+function lvMulOf(T) { const l = lvOf(T.id); return T.tier >= 4 ? 1 + BAL.mythLvBonus * (l - 1) : (1 + BAL.lvBonus * (l - 1)) * (l >= 3 ? 1.1 : 1); }
+function lvMulArr() { return TYPES.map(lvMulOf); }
+function lvSpdArr() { return TYPES.map(T => T.tier < 4 && lvOf(T.id) >= 9 ? 0.9 : 1); }
 function needFor(id) {
-  const lv = lvOf(id); if (lv >= LV_MAX) return null;
-  const myth = TYPES[TYPE_IX[id]].tier >= 4;
-  return { pcs: myth ? MYTH_PCS[lv] : PCS_NEED[lv], silver: SILVER_NEED[lv] * (TYPES[TYPE_IX[id]].tier >= TALE_TIER ? 3 : TYPES[TYPE_IX[id]].tier >= BEAST_TIER ? 2.5 : myth ? 2 : 1) };
+  const T = TYPES[TYPE_IX[id]], lv = lvOf(id); if (lv >= lvTop(T)) return null;
+  return T.tier >= 4 ? { pcs: 0, hyang: HYANG_NEED[lv], silver: MSILVER_NEED[lv] } : { pcs: PCS_NEED[lv], silver: SILVER_NEED[lv] };
 }
 const wildOk = id => TYPES[TYPE_IX[id]].tier < 4;
 /* own pieces first; 만능 조각 (bought with 옥) cover what is missing for 일반 to 전설 */
 function wildUse(id) { const n = needFor(id); if (!n || !wildOk(id)) return 0; return Math.max(0, n.pcs - pcsOf(id)); }
-function canLevel(id, own) { const n = needFor(id); if (!n || SAVE.silver < n.silver) return false; if (pcsOf(id) >= n.pcs) return true; return !own && wildOk(id) && pcsOf(id) + (SAVE.wild || 0) >= n.pcs; }
+/* a mythic can be leveled once it is open for you; a hidden one once you have found it */
+const mythLevelable = id => { const M = MYTH_BY[id]; return !!M && (M.secret ? !!SAVE.made[id] : mythOpenSelf(id)); };
+function canLevel(id, own) {
+  const n = needFor(id); if (!n || SAVE.silver < n.silver) return false;
+  if (TYPES[TYPE_IX[id]].tier >= 4 && !mythLevelable(id)) return false;
+  if (n.hyang) return (SAVE.hyang || 0) >= n.hyang;
+  if (pcsOf(id) >= n.pcs) return true;
+  return !own && wildOk(id) && pcsOf(id) + (SAVE.wild || 0) >= n.pcs;
+}
 function levelUp(id) {
   const n = needFor(id); if (!n || !canLevel(id)) return false;
-  const w = Math.min(wildUse(id), SAVE.wild || 0); SAVE.wild = (SAVE.wild || 0) - w;
-  SAVE.pcs[id] = pcsOf(id) + w - n.pcs; SAVE.silver -= n.silver; SAVE.lv[id] = lvOf(id) + 1;
+  if (n.hyang) SAVE.hyang -= n.hyang;
+  else { const w = Math.min(wildUse(id), SAVE.wild || 0); SAVE.wild = (SAVE.wild || 0) - w; SAVE.pcs[id] = pcsOf(id) + w - n.pcs; }
+  SAVE.silver -= n.silver; SAVE.lv[id] = lvOf(id) + 1;
+  applyLevels(lvOf);
   persist(); return true;
 }
 const PIECE_W = [1, 0.6, 0.35, 0.2];
 /* pouch pieces lean toward the 고을 you have picked, so leveling for the next 고을 doesn't drown among everyone else */
 function randomPieceId(minTier = 0) {
-  const S = STAGES[SAVE.stageSel || 0], here = S ? TYPES.filter(T => T.tier < 4 && T.tier >= minTier && S.units.includes(T.id)) : [];
-  const pool = here.length && Math.random() < 0.6 ? here : TYPES.filter(T => T.tier < 4 && T.tier >= minTier);
+  const pool = LIVE.filter(T => T.tier < 4 && T.tier >= minTier);
   let tot = 0; for (const T of pool) tot += PIECE_W[T.tier];
   let r = Math.random() * tot; for (const T of pool) { if ((r -= PIECE_W[T.tier]) < 0) return T.id; }
   return pool[0].id;
@@ -192,14 +228,14 @@ const QUEST_POOL = [
   { id: 'm20', text: '합성 20번 하기', stat: 'merges', goal: 20, silver: 300 },
   { id: 'c1', text: '신화 1번 조합하기', stat: 'crafts', goal: 1, silver: 400 },
   { id: 'c3', text: '신화 3번 조합하기', stat: 'crafts', goal: 3, silver: 700 },
-  { id: 'g3', text: '굿판 3번 벌이기', stat: 'guts', goal: 3, silver: 300 },
+  { id: 'g3', text: '굿 3번 벌이기', stat: 'guts', goal: 3, silver: 300 },
   { id: 'b1', text: '보스 1마리 잡기', stat: 'bossKills', goal: 1, silver: 400 },
   { id: 'b2', text: '보스 2마리 잡기', stat: 'bossKills', goal: 2, silver: 700 },
   { id: 'sm', text: '사물놀이패 조합하기', stat: 'made_samulpae', goal: 1, silver: 500 },
   { id: 'p2', text: '두 판 놀기', stat: 'games', goal: 2, silver: 250 },
   { id: 'd2', text: '도전 귀신 2마리 잡기', stat: 'chalWins', goal: 2, silver: 400 },
   { id: 'd5', text: '도전 귀신 5마리 잡기', stat: 'chalWins', goal: 5, silver: 700 },
-  { id: 'j1', text: '장수 계열로 신화 조합하기', stat: 'made_jang', goal: 1, silver: 500 },
+  { id: 'j1', text: '경제 신화 조합하기', stat: 'made_eco', goal: 1, silver: 500 },
 ];
 function todayKey() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
 function daySeed(k, salt) { let h = salt || 0; for (const ch of k) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return seeded(h % 2147483646 + 1); }
@@ -231,7 +267,7 @@ const WEEK_POOL = [
   { id: 'wx10', text: '도깨비굴 10층 깨기 · 여러 판 합쳐서', stat: 'caveWins', goal: 10, silver: 1500, jade: 25 },
   { id: 'wg7', text: '일곱 판 놀기', stat: 'games', goal: 7, silver: 1200, jade: 20 },
   { id: 'ww60', text: '한 판에 제 60 마당 넘기기', stat: 'wave', goal: 61, silver: 2500, jade: 40, max: true },
-  { id: 'wi3k', text: '농민과 보부상으로 엽전 3,000 벌기', stat: 'income', goal: 3000, silver: 1200, jade: 20 },
+  { id: 'wi3k', text: '경제 신화로 엽전 3,000 벌기', stat: 'income', goal: 3000, silver: 1200, jade: 20 },
 ];
 function weekKey() { const d = new Date(), back = (d.getDay() + 6) % 7; d.setDate(d.getDate() - back); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
 function ensureWeekly() {
@@ -282,16 +318,17 @@ const POUCHES = {
   silk: { name: '비단 복주머니', jade: 30, min: 12, max: 20, guarantee: 3 },
 };
 const JACKPOT = 0.08;
+const POUCH_HYANG = { small: 2, big: 5, silk: 10 };
 function pouchCount(P) { return P.min + Math.round((Math.random() + Math.random()) / 2 * (P.max - P.min)); }
 function rollPouch(kind) {
   const P = POUCHES[kind], jackpot = Math.random() < JACKPOT, n = Math.min(32, pouchCount(P) * (jackpot ? 2 : 1)), cards = [];
   for (let i = 0; i < n; i++) {
     let id;
-    if (Math.random() < 0.04) id = pick(MYTHS.filter(M => !M.tale && !M.beast && (!M.secret || SAVE.made[M.id]))).id;
-    else id = randomPieceId(P.guarantee && i === n - 1 && !cards.some(c => TYPES[TYPE_IX[c]].tier >= P.guarantee) ? P.guarantee : 0);
+    id = randomPieceId(P.guarantee && i === n - 1 && !cards.some(c => TYPES[TYPE_IX[c]].tier >= P.guarantee) ? P.guarantee : 0);
     cards.push(id);
   }
   for (const id of cards) SAVE.pcs[id] = pcsOf(id) + 1;
+  cards.hyang = POUCH_HYANG[kind] * (jackpot ? 2 : 1); SAVE.hyang = (SAVE.hyang || 0) + cards.hyang;
   cards.newSeen = revealIn(SAVE);
   SAVE.stats.pouches = (SAVE.stats.pouches || 0) + 1;
   cards.jackpot = jackpot;
@@ -330,10 +367,10 @@ const RELICS = [
   { id: 'cheongja', g: 2, name: '고려청자 매병', era: '고려', desc: '모든 동료 공격력', per: 0.04, key: 'atk', pct: true },
   { id: 'geumgwan', g: 2, name: '신라 금관', era: '신라', desc: '신화 공격력', per: 0.06, key: 'myth', pct: true },
   { id: 'hyangno', g: 2, name: '백제 금동대향로', era: '백제', desc: '보스에게 주는 피해', per: 0.06, key: 'boss', pct: true },
-  { id: 'hahoetal', g: 1, name: '하회탈', era: '고려', desc: '탈 계열 공격력', per: 0.06, fam: 'tal', pct: true },
-  { id: 'sinjong', g: 1, name: '성덕대왕신종', era: '신라', desc: '사물놀이 계열 공격력', per: 0.06, fam: 'samul', pct: true },
-  { id: 'sasindo', g: 1, name: '고구려 사신도', era: '고구려', desc: '수호 계열 공격력', per: 0.06, fam: 'suho', pct: true },
-  { id: 'janggeom', g: 1, name: '이순신 장검', era: '조선', desc: '장수 계열 공격력', per: 0.06, fam: 'jang', pct: true },
+  { id: 'hahoetal', g: 1, name: '하회탈', era: '고려', desc: '일반·희귀 공격력', per: 0.06, gr: 0, pct: true },
+  { id: 'sinjong', g: 1, name: '성덕대왕신종', era: '신라', desc: '영웅 공격력', per: 0.06, gr: 1, pct: true },
+  { id: 'sasindo', g: 1, name: '고구려 사신도', era: '고구려', desc: '전설 공격력', per: 0.06, gr: 2, pct: true },
+  { id: 'janggeom', g: 1, name: '이순신 장검', era: '조선', desc: '치명타 확률', per: 0.02, key: 'crit', pct: true },
   { id: 'honcheon', g: 1, name: '혼천의', era: '조선', desc: '궁극기 충전 속도', per: 0.06, key: 'ult', pct: true },
   { id: 'cheugugi', g: 0, name: '측우기', era: '조선', desc: '시작 엽전', per: 60, key: 'coins0' },
   { id: 'haerye', g: 0, name: '훈민정음 해례본', era: '조선', desc: '시작 혼', per: 1, key: 'hon0' },
@@ -341,7 +378,7 @@ const RELICS = [
   { id: 'sangpyeong', g: 0, name: '상평통보', era: '조선', desc: '도깨비 처치 엽전', per: 0.05, key: 'kill', pct: true },
   { id: 'dalhang', g: 0, name: '백자 달항아리', era: '조선', desc: '판이 끝날 때 은전', per: 0.08, key: 'silver', pct: true },
   { id: 'jagyeok', g: 0, name: '자격루', era: '조선', desc: '출정 제한 시간', per: 3, key: 'exp', unit: '초' },
-  { id: 'cheomseong', g: 0, name: '첨성대', era: '신라', desc: '굿판 꽝 확률', per: 0.03, key: 'gut', pct: true, minus: true },
+  { id: 'cheomseong', g: 0, name: '첨성대', era: '신라', desc: '굿이 될 확률', per: 0.03, key: 'gut', pct: true },
 ];
 const RELIC_IX = {}; RELICS.forEach((r, i) => { RELIC_IX[r.id] = i; });
 /* 유물 grades: a box rolls the grade first, then a treasure of that grade */
@@ -361,7 +398,7 @@ function relicUp(id) {
 function relicText(r, lv) { const v = r.per * lv; return `${r.desc} ${r.minus ? '-' : '+'}${r.pct ? Math.round(v * 100) + '%' : fmtC(v) + (r.unit || '')}`; }
 function relicBonuses() {
   const o = noRelics();
-  for (const r of RELICS) { const lv = relicLv(r.id); if (!lv) continue; const v = r.per * lv; if (r.fam) o.fam[r.fam] += v; else if (r.key in o) o[r.key] += v; }
+  for (const r of RELICS) { const lv = relicLv(r.id); if (!lv) continue; const v = r.per * lv; if (r.gr != null) o.gr[r.gr] += v; else if (r.key in o) o[r.key] += v; }
   return o;
 }
 function relicSilverBonus() { return RELICS[RELIC_IX.dalhang].per * relicLv('dalhang'); }
@@ -403,11 +440,12 @@ const ROAD = [
   { silver: 2000, jade: 30 }, { silver: 2500, jade: 35, pouch: 'big', scroll: 1 }, { silver: 3000, jade: 40 }, { silver: 5000, jade: 60, relic: 2, scroll: 1 },
 ];
 const roadMul = st => 1 + 0.4 * st;
+const ROAD_HYANG = [10, 15, 20, 25, 30, 40, 50, 80];
 function roadState(st, k) {
   if (SAVE.road[st + '-' + k]) return 'claimed';
   return (SAVE.bossBest[st] || 0) >= k * 10 ? 'ready' : 'locked';
 }
-function roadReward(st, k) { const Rw = ROAD[k - 1], m = roadMul(st); return { silver: Math.round(Rw.silver * m / 10) * 10, jade: Math.round(Rw.jade * m), pouch: Rw.pouch || null, relic: Rw.relic || 0, scroll: Rw.scroll || 0 }; }
+function roadReward(st, k) { const Rw = ROAD[k - 1], m = roadMul(st); return { silver: Math.round(Rw.silver * m / 10) * 10, jade: Math.round(Rw.jade * m), hyang: Math.round(ROAD_HYANG[k - 1] * m), pouch: Rw.pouch || null, relic: Rw.relic || 0, scroll: Rw.scroll || 0 }; }
 function roadReady(st) { let n = 0; for (let s2 = 0; s2 < STAGES.length; s2++) { if (st != null && s2 !== st) continue; for (let k = 1; k <= 8; k++) if (roadState(s2, k) === 'ready') n++; } return n; }
 function claimRoad(st, k) {
   if (roadState(st, k) !== 'ready') return null;
@@ -415,6 +453,7 @@ function claimRoad(st, k) {
   SAVE.road[st + '-' + k] = 1;
   gain(w.silver, w.jade);
   if (w.scroll) SAVE.scroll = (SAVE.scroll || 0) + w.scroll;
+  SAVE.hyang = (SAVE.hyang || 0) + w.hyang;
   const out = Object.assign({}, w, { cards: w.pouch ? rollPouch(w.pouch) : null, relics: w.relic ? grantRelics(w.relic) : null });
   persist(); return out;
 }
@@ -423,9 +462,9 @@ function claimRoad(st, k) {
 const MARKET_PRICE = [60, 100, 180, 300];
 function ensureMarket() {
   const k = todayKey();
-  if (SAVE.market && SAVE.market.day === k) return SAVE.market;
-  const rnd = daySeed(k, 7 + (SAVE.mktN || 0) * 31), seen = TYPES.filter(T => T.tier < 4 && SAVE.seen[T.id]);
-  const pool = t => { const a = (seen.length >= 6 ? seen : TYPES).filter(T => T.tier === t); return a.length ? a : TYPES.filter(T => T.tier === t); };
+  if (SAVE.market && SAVE.market.day === k && SAVE.market.offers.every(O => TYPE_IX[O.id] != null && !TYPES[TYPE_IX[O.id]].old && TYPES[TYPE_IX[O.id]].tier < 4)) return SAVE.market;
+  const rnd = daySeed(k, 7 + (SAVE.mktN || 0) * 31), seen = LIVE.filter(T => T.tier < 4 && SAVE.seen[T.id]);
+  const pool = t => { const a = (seen.length >= 6 ? seen : LIVE).filter(T => T.tier === t); return a.length ? a : LIVE.filter(T => T.tier === t); };
   const slots = [[rnd() < 0.5 ? 0 : 1, 5], [rnd() < 0.5 ? 1 : 2, 3], [rnd() < 0.6 ? 2 : 3, 2]];
   const offers = slots.map(([t, n]) => { const P = pool(t), T = P[Math.floor(rnd() * P.length)]; return { id: T.id, n, price: Math.round(MARKET_PRICE[t] * n * 0.9 / 10) * 10, bought: false }; });
   SAVE.market = { day: k, offers };
@@ -438,10 +477,32 @@ function buyOffer(i) {
   persist(); return O;
 }
 
+/* 길잡이: a short chain for new players, one step at a time. the last step pays 신화 두루마리 to open a mythic of your choice */
+const GUIDE = [
+  { text: '첫 판 놀기', test: s => s.stats.games >= 1, silver: 300 },
+  { text: '제 10 마당 보스 잡기', test: s => (s.stats.best || 0) >= 11, silver: 500, hyang: 10 },
+  { text: '한 판에서 신화 조합하기', test: s => (s.stats.crafts || 0) >= 1, hyang: 20 },
+  { text: '도감에서 동료 하나 레벨 올리기', test: s => Object.keys(s.lv || {}).some(id => (s.lv[id] || 1) >= 2), silver: 600 },
+  { text: '제 20 마당 보스 잡기', test: s => (s.stats.best || 0) >= 21, jade: 20, hyang: 10 },
+  { text: '굿 열 번 벌이기 · 여러 판 합쳐서', test: s => (s.stats.guts || 0) >= 10, hyang: 20 },
+  { text: '제 30 마당 넘기기', test: s => (s.stats.best || 0) >= 31, silver: 1000 },
+  { text: '제 40 마당 넘기기', test: s => (s.stats.best || 0) >= 41, scroll: 2, jade: 20 },
+];
+const guideStep = () => GUIDE[SAVE.guide || 0] || null;
+const guideReady = () => { const S = guideStep(); return !!S && S.test(SAVE); };
+function claimGuide() {
+  const S = guideStep(); if (!S || !S.test(SAVE)) return null;
+  SAVE.guide = (SAVE.guide || 0) + 1;
+  gain(S.silver || 0, S.jade || 0);
+  if (S.hyang) SAVE.hyang = (SAVE.hyang || 0) + S.hyang;
+  if (S.scroll) SAVE.scroll = (SAVE.scroll || 0) + S.scroll;
+  persist(); return S;
+}
+
 /* achievements: paid in 은전 and 옥. numeric ones show how far along you are */
 const stat = (s, k) => (s.stats && s.stats[k]) || 0;
 const NUM = (id, text, key, goal, silver, jade) => ({ id, text, test: s => stat(s, key) >= goal, prog: s => [Math.min(goal, stat(s, key)), goal], silver, jade });
-const lvCount = (s, min, myth) => TYPES.filter(T => (myth ? T.tier >= 4 : true) && (s.lv[T.id] || 1) >= min).length;
+const lvCount = (s, min, myth) => LIVE.filter(T => (myth ? T.tier >= 4 : T.tier < 4) && (s.lv[T.id] || 1) >= min).length;
 const ACHS = [
   { id: 'first', text: '첫 판 놀기', test: s => s.stats.games >= 1, silver: 200, jade: 5 },
   ...[[10, 300, 5], [20, 600, 5], [30, 1000, 10], [40, 1500, 10], [50, 2000, 15], [60, 2500, 20], [70, 3000, 25]].map(([w, sv, jd]) => ({ id: 'w' + w, text: `제 ${w} 마당 넘기기`, test: s => s.stats.best >= w + 1, prog: s => [Math.max(0, Math.min(w, (s.stats.best || 1) - 1)), w], silver: sv, jade: jd })),
@@ -457,7 +518,8 @@ const ACHS = [
   NUM('craft10', '신화 10번 조합하기', 'crafts', 10, 800, 10),
   NUM('craft50', '신화 50번 조합하기', 'crafts', 50, 2500, 25),
   ...MYTHS.filter(M => !M.tale && !M.beast).map(M => ({ id: 'made_' + M.id, text: M.secret ? '숨은 신화 하나 찾기' + (M.id === 'bihyeong' ? ' · 도깨비의 왕' : ' · 바다를 만든 할망') : `${TYPES[M.ix].name} 처음 조합하기`, test: s => (s.made[M.id] || 0) >= 1, silver: M.secret ? 1500 : 500, jade: M.secret ? 20 : 5 })),
-  { id: 'mythAll', text: '신화를 모두 조합하기', test: s => MYTHS.filter(M => !M.tale && !M.beast).every(M => s.made[M.id]), prog: s => [MYTHS.filter(M => !M.tale && !M.beast && s.made[M.id]).length, MYTHS.filter(M => !M.tale && !M.beast).length], silver: 3000, jade: 30 },
+  { id: 'mythAll', text: '신수와 전래동화 말고 신화 열일곱을 모두 조합하기', test: s => MYTHS.filter(M => !M.tale && !M.beast).every(M => s.made[M.id]), prog: s => [MYTHS.filter(M => !M.tale && !M.beast && s.made[M.id]).length, MYTHS.filter(M => !M.tale && !M.beast).length], silver: 3000, jade: 30 },
+  { id: 'myth26', text: '신화 스물여섯을 모두 조합하기', test: s => MYTHS.every(M => s.made[M.id]), prog: s => [MYTHS.filter(M => s.made[M.id]).length, MYTHS.length], silver: 20000, jade: 150 },
   ...MYTHS.filter(M => M.beast).map(M => ({ id: 'made_' + M.id, text: `신수 ${TYPES[M.ix].name} 부르기`, test: s => (s.made[M.id] || 0) >= 1, silver: 3000, jade: 25 })),
   { id: 'beastAll', text: '신수 다섯을 모두 부르기', test: s => MYTHS.filter(M => M.beast).every(M => s.made[M.id]), prog: s => [MYTHS.filter(M => M.beast && s.made[M.id]).length, MYTHS.filter(M => M.beast).length], silver: 10000, jade: 60 },
   ...MYTHS.filter(M => M.tale).map(M => ({ id: 'made_' + M.id, text: `전래동화 ${TYPES[M.ix].name} 깨우기`, test: s => (s.made[M.id] || 0) >= 1, silver: 5000, jade: 40 })),
@@ -474,8 +536,10 @@ const ACHS = [
   { id: 'lv5x10', text: '동료 10명을 5레벨 이상으로 키우기', test: s => lvCount(s, 5) >= 10, prog: s => [Math.min(10, lvCount(s, 5)), 10], silver: 2000, jade: 20 },
   { id: 'mythLv5', text: '신화 하나를 5레벨까지 키우기', test: s => lvCount(s, 5, true) >= 1, silver: 1500, jade: 15 },
   { id: 'lv10', text: '동료 하나를 10레벨까지 키우기', test: s => Object.values(s.lv).some(l => l >= 10), silver: 2000, jade: 20 },
-  { id: 'seen20', text: '동료 20명 만나기', test: s => TYPES.filter(T => s.seen[T.id]).length >= 20, prog: s => [Math.min(20, TYPES.filter(T => s.seen[T.id]).length), 20], silver: 500, jade: 5 },
-  { id: 'seen', text: '일반부터 전설까지 모두 만나기', test: s => TYPES.filter(T => T.tier < 4).every(T => s.seen[T.id]), prog: s => [TYPES.filter(T => T.tier < 4 && s.seen[T.id]).length, TYPES.filter(T => T.tier < 4).length], silver: 1000, jade: 15 },
+  { id: 'lv12', text: '동료 하나를 12레벨까지 키우기', test: s => lvCount(s, 12) >= 1, silver: 4000, jade: 30 },
+  { id: 'mythLv10', text: '신화 하나를 10레벨까지 키워 신물 얻기', test: s => lvCount(s, 10, true) >= 1, silver: 5000, jade: 40 },
+  { id: 'seen20', text: '동료와 신화 20명 만나기', test: s => LIVE.filter(T => s.seen[T.id]).length >= 20, prog: s => [Math.min(20, LIVE.filter(T => s.seen[T.id]).length), 20], silver: 500, jade: 5 },
+  { id: 'seen', text: '일반부터 전설까지 열아홉 동료 모두 만나기', test: s => LIVE.filter(T => T.tier < 4).every(T => s.seen[T.id]), prog: s => [LIVE.filter(T => T.tier < 4 && s.seen[T.id]).length, LIVE.filter(T => T.tier < 4).length], silver: 1000, jade: 15 },
   { id: 'foes', text: '도깨비 도감 모두 채우기', test: s => FOE_KEYS.every(k => (s.foes || {})[k]), prog: s => [FOE_KEYS.filter(k => (s.foes || {})[k]).length, FOE_KEYS.length], silver: 1500, jade: 15 },
   { id: 'relic3', text: '유물 3종 모으기', test: s => RELICS.filter(r => (s.rlv || {})[r.id]).length >= 3, prog: s => [Math.min(3, RELICS.filter(r => (s.rlv || {})[r.id]).length), 3], silver: 800, jade: 10 },
   { id: 'relic8', text: '유물 8종 모으기', test: s => RELICS.filter(r => (s.rlv || {})[r.id]).length >= 8, prog: s => [Math.min(8, RELICS.filter(r => (s.rlv || {})[r.id]).length), 8], silver: 1500, jade: 20 },
@@ -484,7 +548,7 @@ const ACHS = [
   NUM('silver50k', '은전 모두 50,000 벌기', 'silverEarned', 50000, 1000, 10),
   NUM('pouch10', '복주머니 10번 열기', 'pouches', 10, 500, 5),
   NUM('pouch50', '복주머니 50번 열기', 'pouches', 50, 1500, 15),
-  NUM('income5k', '농민과 보부상으로 엽전 5,000 벌기', 'income', 5000, 800, 10),
+  NUM('income5k', '경제 신화로 엽전 5,000 벌기', 'income', 5000, 800, 10),
   { id: 'att7', text: '출석 도장 7번 찍기', test: s => (s.att && s.att.n || 0) >= 7, prog: s => [Math.min(7, s.att && s.att.n || 0), 7], silver: 500, jade: 10 },
   { id: 'att30', text: '출석 도장 30번 찍기', test: s => (s.att && s.att.n || 0) >= 30, prog: s => [Math.min(30, s.att && s.att.n || 0), 30], silver: 2000, jade: 30 },
   NUM('games10', '열 판 놀기', 'games', 10, 500, 5),
@@ -502,7 +566,7 @@ function claimable() {
   if (bonusReady()) n++;
   ACHS.forEach(A => { if (!SAVE.ach[A.id] && A.test(SAVE)) n++; });
   if (attReady()) n++;
-  return n + roadReady();
+  return n + roadReady() + (guideReady() ? 1 : 0);
 }
 
 /* enemy codex keys */
@@ -517,7 +581,7 @@ function foeInfo(key) {
 function finishGame() {
   const st = G.stats, wave = G.wave, win = G.phase === 'win', S = STAGES[G.stage], reached = win ? LAST_WAVE + 1 : wave;
   const roadBefore = roadReady();
-  SAVE.stats.games++; SAVE.stats.kills += st.kills; SAVE.stats.crafts += st.crafts;
+  SAVE.stats.games++; SAVE.stats.kills += st.kills; SAVE.stats.crafts += st.crafts; SAVE.stats.guts = (SAVE.stats.guts || 0) + (st.guts || 0);
   SAVE.stats.best = Math.max(SAVE.stats.best, reached);
   SAVE.stageBest[G.stage] = Math.max(SAVE.stageBest[G.stage] || 0, reached);
   SAVE.bossBest[G.stage] = Math.max(SAVE.bossBest[G.stage] || 0, win ? LAST_WAVE : Math.floor((wave - 1) / 10) * 10);
@@ -539,9 +603,11 @@ function finishGame() {
   for (const k in st.foeSeen) SAVE.foes[k] = 1;
   const newMyth = [];
   for (const id in st.crafted) { if (!SAVE.made[id]) newMyth.push(id); SAVE.made[id] = (SAVE.made[id] || 0) + st.crafted[id]; }
-  const seenIds = Object.keys(st.seen).filter(id => TYPES[TYPE_IX[id]].tier < 4);
+  const seenIds = Object.keys(st.seen).filter(id => TYPE_IX[id] != null && TYPES[TYPE_IX[id]].tier < 4 && !TYPES[TYPE_IX[id]].old);
   const pieces = grantPieces(Math.round((2 + Math.floor(wave / 4) + G.stage) * 1.3), seenIds);
-  for (const id in st.crafted) { pieces[id] = (pieces[id] || 0) + st.crafted[id]; SAVE.pcs[id] = pcsOf(id) + st.crafted[id]; }
+  /* 향 for mythic levels: how far you got, bosses, and mythics you made */
+  const hyang = Math.floor(wave / 5) + st.bossKills * 2 + st.crafts * 2 + (firstClear ? 30 : 0) + G.stage * 2 + (st.missions || 0);
+  SAVE.hyang = (SAVE.hyang || 0) + hyang;
   const revealed = revealIn(SAVE); SAVE.silver -= revealed.length * 100; newSeen.push(...revealed);
   const base = Math.round((10 + wave * 4 + st.bossKills * 15 + st.crafts * 10 + (win ? 120 : 0)) * 10 * S.reward / 10) * 10;
   const relicBonus = Math.round(base * relicSilverBonus() / 10) * 10;
@@ -550,17 +616,17 @@ function finishGame() {
   const jade = (st.jade || 0) + (firstClear ? 30 : 0);
   gain(silver, jade);
   ensureQuests(); ensureWeekly();
-  const madeJang = Object.keys(st.crafted).filter(id => TYPES[TYPE_IX[id]].fam === 'jang').reduce((a, id) => a + st.crafted[id], 0);
-  const add = { kills: st.kills, merges: st.merges, crafts: st.crafts, guts: st.guts, bossKills: st.bossKills, games: 1, made_samulpae: st.crafted.samulpae || 0, chalWins: st.chalWins, made_jang: madeJang, income: st.income || 0, caveWins: G.exp ? G.exp.wins : 0 };
+  const madeEco = Object.keys(st.crafted).filter(id => TYPES[TYPE_IX[id]].role === 'eco').reduce((a, id) => a + st.crafted[id], 0);
+  const add = { kills: st.kills, merges: st.merges, crafts: st.crafts, guts: st.guts, bossKills: st.bossKills, games: 1, made_samulpae: st.crafted.samulpae || 0, chalWins: st.chalWins, made_eco: madeEco, income: st.income || 0, caveWins: G.exp ? G.exp.wins : 0 };
   const questDone = [];
   const bump = (list, def) => { for (const q of list) { const Q = def(q.id); if (!Q || q.claimed) continue; const before = q.prog; q.prog = Q.max ? Math.max(q.prog, reached) : q.prog + (add[Q.stat] || 0); if (q.prog >= Q.goal && before < Q.goal) questDone.push(Q.text); } };
   bump(SAVE.quests.list, questDef); bump(SAVE.weekly.list, weekDef);
   persist();
-  return { silver, jade, base, relicBonus, pieces, newMyth, newSeen, newFoes, questDone, win, wave, chalSilver: st.silverBonus, firstClear, clearBonus, unlocked, roadNew: roadReady() - roadBefore };
+  return { silver, jade, hyang, base, relicBonus, pieces, newMyth, newSeen, newFoes, questDone, win, wave, chalSilver: st.silverBonus, firstClear, clearBonus, unlocked, roadNew: roadReady() - roadBefore };
 }
 
 /* helpers */
-function levelableCount() { return TYPES.filter(T => canLevel(T.id, true) && (T.tier < 4 ? SAVE.seen[T.id] : !(MYTHS.find(M => M.id === T.id) || {}).secret || SAVE.made[T.id])).length; }
-function codexCount() { return TYPES.filter(T => SAVE.seen[T.id]).length; }
+function levelableCount() { return LIVE.filter(T => canLevel(T.id, true) && (T.tier < 4 ? SAVE.seen[T.id] : true)).length; }
+function codexCount() { return LIVE.filter(T => SAVE.seen[T.id]).length; }
 function foeCount() { return FOE_KEYS.filter(k => SAVE.foes[k]).length; }
 

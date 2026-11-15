@@ -705,11 +705,11 @@ function drawUnitBase(g, v, T) {
   const x = wx(cellX(v.cell)), y = wy(cellY(v.cell) + 0.12), rx = R.CS * 0.38, ry = R.CS * 0.2, tr = TIERS[T.tier];
   g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.5 : 0.36); g.strokeStyle = tr.color; g.lineWidth = Math.max(1.5, R.CS * 0.045);
   g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill(); g.stroke();
-  if (T.tier === BEAST_TIER) {
+  if (T.grp === 'beast') {
     const cols = ['#2f6ad8', '#e2402e', '#f4f0e6', '#1f1a17', '#f2c43a'], sp = R.time * 1.2;
     g.strokeStyle = rgba(tr.light, 0.85); g.lineWidth = Math.max(2, R.CS * 0.05); g.beginPath(); g.ellipse(x, y, rx * 1.16, ry * 1.16, 0, 0, TAU); g.stroke();
     for (let k = 0; k < 5; k++) { const a = sp + k * TAU / 5; g.fillStyle = cols[k]; g.strokeStyle = OL; g.lineWidth = 1; g.beginPath(); g.arc(x + Math.cos(a) * rx * 1.16, y + Math.sin(a) * ry * 1.16, Math.max(2.2, R.CS * 0.05), 0, TAU); g.fill(); g.stroke(); }
-  } else if (T.tier >= TALE_TIER) {
+  } else if (T.grp === 'tale') {
     const cols = ['#e2402e', '#f2c43a', '#3fae6a', '#3a6ad8', '#b06aff', '#ff7ab8'], n = cols.length, sp = R.time * 0.8;
     g.lineWidth = Math.max(2.4, R.CS * 0.07);
     for (let k = 0; k < n; k++) { g.strokeStyle = cols[k]; g.beginPath(); g.ellipse(x, y, rx * 1.14, ry * 1.14, 0, sp + k * TAU / n, sp + (k + 1) * TAU / n); g.stroke(); }
@@ -763,7 +763,7 @@ function drawUnit(g, v) {
     g.fillStyle = m >= 0.97 ? '#ffd36a' : '#5ab0ff'; if (m > 0.02) { g.beginPath(); RR(g, bx, by, w * m, h, h / 2); g.fill(); }
   }
   if (G.charmT > 0 && Math.random() < R.dtv * 2.5) part(v.x + rand(-0.25, 0.25), v.y + 0.2, 0.25, 0, 0, 0.8, '#ffd36a', 0.04, 0.5, { g: -0.9, drag: 1 });
-  const fb = G.famBuff && G.famBuff[T.fam];
+  const fb = G.tierBuff && G.tierBuff[T.tier];
   if (fb && fb.t > 0 && Math.random() < R.dtv * 6) part(v.x + rand(-0.25, 0.25), v.y + 0.3, 0.3, 0, 0, 1, '#ff7a5a', 0.05, 0.6, { g: -0.6, drag: 1 });
   if (D.orbs) drawOrbs(g, sx, yy - R.CS * 0.55, v);
   if (sil) { g.fillStyle = 'rgba(70,40,110,.5)'; for (let j = 0; j < 3; j++) { const a = R.time * 4 + j * TAU / 3; g.beginPath(); g.arc(sx + Math.cos(a) * R.CS * 0.25, yy - R.CS * 1.05 + Math.sin(a) * R.CS * 0.06, R.CS * 0.05, 0, TAU); g.fill(); } }
@@ -997,6 +997,16 @@ function drawNames(g) {
     g.fillStyle = TIERS[T.tier].light; g.fillText(T.name, x, y + 1);
   }
 }
+/* 최무선's 불바다: flickering fire on the ground, fading as it burns out */
+function drawFields(g) {
+  for (const F of G.fields) {
+    const k = clamp(F.t / F.max, 0, 1), x = wx(F.x), y = wy(F.y), rx = F.r * R.CS, ry = rx * 0.5;
+    const gr = g.createRadialGradient(x, y, 0, x, y, rx);
+    gr.addColorStop(0, `rgba(255,200,90,${0.42 * k})`); gr.addColorStop(0.6, `rgba(255,110,40,${0.3 * k})`); gr.addColorStop(1, 'rgba(200,50,20,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill();
+    if (Math.random() < R.dtv * 10 * k) part(F.x + rand(-F.r, F.r) * 0.7, F.y + rand(-F.r, F.r) * 0.35, 0.1, 0, 0, rand(0.4, 0.8), pick(['#ffd36a', '#ff8a3a', '#ff5a2a']), 0.045, 0.6, { g: -1.2, drag: 1 });
+  }
+}
 /* ---------- frame ---------- */
 const DRAWLIST = [];
 function renderFrame(dt) {
@@ -1013,6 +1023,7 @@ function renderFrame(dt) {
   drawHelpers(g);
   for (let i = 0; i < NCELL; i++) { const u = G.units[i]; if (u) { const v = UVIS.get(u.id); if (v && v.cell === i) drawUnitBase(g, v, TYPES[u.t]); } }
   if (G.phase === 'play' && G.exp && G.exp.run) drawExpCell(g, G.exp.run);
+  if (G.fields && G.fields.length) drawFields(g);
   foeSprites();
   DRAWLIST.length = 0;
   for (const v of UVIS.values()) if (G.units[v.cell] && G.units[v.cell].id === v.id) DRAWLIST.push({ y: (v.leap ? 99 : v.y + 0.3), k: 0, o: v });

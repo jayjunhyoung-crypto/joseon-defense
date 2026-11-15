@@ -68,6 +68,14 @@ button:disabled{cursor:default}
 .bossrow.is-on{color:var(--hanji)}
 .bossrow.is-on .bossbar{display:block}
 .bossrow .bt{white-space:nowrap}
+.missrow{display:flex;gap:5px;min-width:0}
+.mp{flex:1 1 0;min-width:0;position:relative;overflow:hidden;background:rgba(20,16,28,.72);border:1px solid var(--line);border-radius:8px;padding:3px 6px;font-size:11px;line-height:1.2;white-space:nowrap;color:var(--hanji-dim);display:flex;align-items:center;gap:4px}
+.mp b{color:var(--hanji);font-weight:600}
+.mp .mr{margin-left:auto;display:flex;align-items:center;gap:2px;color:#f2c94a}
+.mp .mr .coin-ico{width:9px;height:9px}.mp .mr .coin-ico::after{width:3px;height:3px}.mp .mr .hon-ico{width:8px;height:8px;margin-left:3px}
+.mp .mbar{position:absolute;left:0;bottom:0;height:2px;background:#7fe0a8;transition:width .3s}
+.mp.is-new{animation:missIn .6s ease-out}
+@keyframes missIn{0%{box-shadow:0 0 0 2px #ffd36a;transform:scale(1.06)}100%{box-shadow:0 0 0 0 transparent;transform:none}}
 
 /* banner & toast */
 .banner{position:fixed;left:0;right:0;top:36%;z-index:4;text-align:center;pointer-events:none;opacity:0}
@@ -444,6 +452,21 @@ body.in-lobby .hud,body.in-lobby .deck{opacity:0;visibility:hidden;pointer-event
 .gut .btn-sm{display:flex;align-items:center;gap:4px}
 .gut.is-on{box-shadow:inset 0 0 0 2px #ffd36a}
 .gnote{font-size:12px;color:var(--hanji-dim);margin:2px 2px 0;line-height:1.45}
+.pity{background:var(--panel-2);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.pity .pt{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.pity b{font-size:14px}.pity small{font-size:11px;color:var(--hanji-dim)}
+.pity .bar{height:7px;border-radius:4px;background:var(--panel-3);overflow:hidden}.pity .bar i{display:block;height:100%;background:linear-gradient(90deg,#e0a63a,#ffd36a);border-radius:4px;transition:width .3s}
+.pity.is-full{box-shadow:inset 0 0 0 1.5px #ffd36a}.pity.is-full small{color:#ffd36a}
+.perks{display:flex;flex-direction:column;gap:1px;margin-top:3px;font-size:11px;line-height:1.35}
+.pk-on{color:#9ff0c0}.pk-off{color:var(--hanji-dim);opacity:.8}
+.subsect{font-size:12px;margin:8px 2px 2px;color:var(--g);letter-spacing:.04em}
+.rchips{position:sticky;top:0;z-index:1;background:var(--panel);padding:2px 0 6px;margin:0;display:flex;gap:5px;flex-wrap:wrap}
+.hyang-ico{display:inline-block;width:9px;height:12px;vertical-align:-1px;margin-right:2px;background:linear-gradient(#c58a4a,#7a4a24) 50% 100%/2px 8px no-repeat,radial-gradient(circle at 50% 28%,#ffd9a0 0 1.6px,transparent 2.4px)}
+details.mythrow{display:block}details.mythrow .ing{margin:2px 3px 2px 0}
+details.mythrow>summary{cursor:pointer;font-size:13px;color:var(--hanji);list-style:none;padding:4px 0}
+details.mythrow>summary::-webkit-details-marker{display:none}
+details.mythrow>summary::before{content:'▸ ';color:var(--hanji-dim)}details.mythrow[open]>summary::before{content:'▾ '}
+.rwnote{margin:8px 0 0;font-size:12px;line-height:1.5;text-align:left}
+.pc.lk{color:#e0a63a}
 .up .uc .hon-ico{width:8px;height:8px;margin-inline:1px}
 .ucard{position:fixed;z-index:5;width:min(45vw,214px);box-sizing:border-box;background:rgba(24,20,34,.94);border:1px solid var(--line);border-radius:14px;padding:9px 10px 10px;font-size:11.5px;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.45);pointer-events:none;color:var(--hanji)}
 .ucard.left{left:8px}.ucard.right{right:8px}
@@ -570,7 +593,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 @media (prefers-reduced-motion:reduce){.gauge-fill,.toast,.act{transition:none}.banner.show{animation-name:bannerFade}@keyframes bannerFade{0%,100%{opacity:0}10%,80%{opacity:1}}.act-myth.is-ready,.act-chal.is-ready,.stamp.is-today,.pouch.is-wobble,.pouch-hint{animation:none}.ov-pouch.is-open .rays{animation:none}}
 </style>
 
-<canvas id="cv" aria-label="조선 디펜스 마당. 동료를 끌어서 옮기거나 같은 계열 같은 등급 동료 위에 놓아 합치세요"></canvas>
+<canvas id="cv" aria-label="조선 디펜스 마당. 동료를 끌어서 옮기거나 같은 동료 위에 놓아 한 칸에 쌓으세요"></canvas>
 <div id="vignette" aria-hidden="true"></div>
 <div id="sidebg" aria-hidden="true"></div>
 
@@ -591,6 +614,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
       <button class="ib" id="pauseBtn" type="button" aria-label="잠깐 멈추기"></button>
     </div>
     <div class="bossrow" id="bossRow"><span class="bn" id="bossName"></span><div class="bossbar" title="하얀 눈금보다 체력이 왼쪽이면 시간 안에 잡을 수 있어요"><div id="bossFill"></div><i id="bossPace"></i></div><span class="bt num" id="bossTime"></span></div>
+    <div class="missrow" id="missRow" hidden></div>
   </div>
 </header>
 
@@ -603,7 +627,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
       <button class="act act-summon" id="summonBtn" type="button"><span class="big">소환</span><span class="cost"><i class="coin-ico"></i><span class="num" id="summonCost">10</span></span></button>
       <button class="act act-myth" id="mythBtn" type="button"><span class="big">신화</span><span class="cost" id="mythSub">조합표</span><span class="badge num" id="mythBadge" hidden>0</span></button>
       <button class="act act-chal" id="chalBtn" type="button"><span class="big">도전</span><span class="cost" id="chalSub">귀신 부르기</span><span class="badge num" id="chalBadge" hidden>0</span></button>
-      <button class="act act-gut" id="gutBtn" type="button"><span class="big">굿판</span><span class="cost"><i class="gutfam" id="gutFam" hidden></i><i class="hon-ico"></i><span class="num" id="gutCost">3</span></span></button>
+      <button class="act act-gut" id="gutBtn" type="button"><span class="big">굿</span><span class="cost"><i class="gutfam" id="gutFam" hidden></i><i class="hon-ico"></i><span class="num" id="gutCost">0</span></span></button>
     </div>
     <div class="ups" id="ups"></div>
   </div>
@@ -622,7 +646,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 
 <section class="rsheet" id="gsheet" hidden>
   <div class="rsheet-in">
-    <div class="rhead"><div class="rh"><h2>굿판과 부적</h2><small>혼을 써서 동료를 부르거나 부적을 붙여요. 창은 열어둔 채로 계속 누를 수 있어요</small></div><span class="purse gpurse" title="혼"><i class="hon-ico"></i><span class="num" id="gHon">0</span></span><button class="btn-sm" id="gClose" type="button">닫기</button></div>
+    <div class="rhead"><div class="rh"><h2>굿과 부적</h2><small>혼을 써서 동료를 부르거나 부적을 붙여요. 창은 열어둔 채로 계속 누를 수 있어요</small></div><span class="purse gpurse" title="혼"><i class="hon-ico"></i><span class="num" id="gHon">0</span></span><button class="btn-sm" id="gClose" type="button">닫기</button></div>
     <div class="rlist" id="glist"></div>
   </div>
 </section>

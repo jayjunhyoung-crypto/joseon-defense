@@ -20,3 +20,8 @@ Please defense Joseon!
 
 ## 고친 뒤에
 게임 코드는 src/ 안에 나눠져 있어요. 고친 다음 `python3 tools/build.py`를 돌리면 index.html이 새로 만들어지고 버전 표시도 새로 찍혀요.
+
+## 밸런스 봇
+`python3 tools/build.py --sim`을 돌리면 tools/sim/core.js가 생겨요. 그다음
+- `node tools/sim/bots.js 0 8 free` 하회마을에서 소환만 하는 봇, 신화 봇, 도전까지 하는 봇을 여덟 판씩 돌려요. 끝의 free는 처음부터 열린 신화 넷만 쓴다는 뜻이고 all이면 26개 모두 써요. `LV=5 MLV=3`을 앞에 붙이면 동료 5레벨 신화 3레벨로 돌려요
+- `node tools/sim/bench.js 10` 신화 하나씩 60초 동안 무리와 보스에 얼마나 세게 치는지 처용과 견줘요
