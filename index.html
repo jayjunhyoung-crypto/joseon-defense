@@ -379,6 +379,39 @@ button:disabled{cursor:default}
 .load-text small{display:block;font-family:var(--f-ui);font-size:14px;color:var(--hanji-dim);margin-top:10px;line-height:1.5}
 body.in-lobby .hud,body.in-lobby .deck{opacity:0;visibility:hidden;pointer-events:none}
 .hud,.deck{transition:opacity .5s}
+/* ---------- a quiet default screen: the round, the crowd and a few icons on top; purses, small tools and five buttons below ---------- */
+.hud-hidden{display:none}
+.wbadge{position:relative;flex:none;width:40px;height:40px;display:grid;place-items:center;cursor:pointer}
+.wbadge svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.wbadge .wr-bg{fill:rgba(22,19,31,.7);stroke:rgba(255,255,255,.12);stroke-width:3}
+.wbadge .wr{fill:none;stroke:#ffd36a;stroke-width:3;stroke-linecap:round;stroke-dasharray:106.8;transition:stroke-dashoffset .25s linear}
+.wbadge.is-boss .wr{stroke:#ef5a3a}
+.wbadge .num{position:relative;font-size:17px;color:var(--hanji)}
+.hud .row{gap:6px}
+.bossrow .bn,.bossrow .bt{display:none}
+.bossrow{height:8px}
+.bossrow:not(.is-on){display:none}
+.deck-in{position:relative}
+.deck .info{position:absolute;left:0;right:0;bottom:calc(100% + 6px)}
+.deck .info[hidden]{display:none}
+.tools{display:flex;align-items:center;gap:8px;min-height:30px}
+.tools .spacer{flex:1}
+.tools .purse{font-size:16px}
+.tools .pcol{flex-direction:row;align-items:center;gap:5px}
+.tools .mgun{margin-top:0}
+.tb{position:relative;flex:none;width:32px;height:32px;border-radius:50%;background:rgba(22,19,31,.62);color:var(--hanji);display:grid;place-items:center;font-size:16px;box-shadow:inset 0 0 0 1px var(--line)}
+.tb svg{width:16px;height:16px;fill:currentColor}
+.tb .scroll-ico{width:18px;height:18px;border-radius:4px}
+.tb .scroll-ico::before{top:6px;left:4px;right:4px}
+.tb .scroll-ico::after{top:10px;left:4px;right:7px}
+.tb .tdot{position:absolute;top:1px;right:1px;width:9px;height:9px;border-radius:50%;background:#ef5a3a;box-shadow:0 0 0 2px rgba(22,19,31,.9)}
+.tb.fxbtn.off::after{left:24%;right:24%}
+.actions{grid-template-columns:1fr 1fr 1.5fr 1fr 1fr}
+.act .cost:empty{display:none}
+#mythSub,#chalSub,#gutFam{display:none}
+.act-up{background:linear-gradient(#4a6a9a,#33507a);color:#eef4ff}
+.act-gut .cost{display:none}
+.rsheet .ups{padding:2px 2px 6px}
 @media (min-width:900px) and (min-aspect-ratio:5/4){.lobby{align-items:flex-end;justify-content:flex-end;padding:24px 32px 0;background:linear-gradient(90deg,rgba(22,19,31,.55),rgba(22,19,31,0) 34%)}.ltop{position:absolute;left:4vw;top:8vh;text-align:left}.sheet{height:min(70vh,560px)}}
 @media (max-width:380px){.up{font-size:11px}.up .lv{gap:3px}.wave{font-size:28px}.big{font-size:17px}.act .cost{font-size:12px}.up .unm{font-size:10px}.tab{font-size:13px}.stamp .r{font-size:9px}}
 @media (max-height:700px){.lobby .sub{display:none}}
@@ -635,7 +668,7 @@ canvas,img{-webkit-touch-callout:none}
 /* wide screens (a laptop, an iPad on its side): the yard takes the full height on the left, buttons live in a column on the right */
 :root{--side:392px}
 #sidebg{display:none}
-body.wide:not(.in-lobby) #sidebg{display:block;position:fixed;top:0;right:0;bottom:0;width:var(--side);z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(22,19,31,0),rgba(22,19,31,.9) 18px,rgba(22,19,31,.97));border-left:1px solid rgba(230,178,74,.12)}
+body.wide:not(.in-lobby) #sidebg{display:none;position:fixed;top:0;right:0;bottom:0;width:var(--side);z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(22,19,31,0),rgba(22,19,31,.9) 18px,rgba(22,19,31,.97));border-left:1px solid rgba(230,178,74,.12)}
 body.wide .hud{left:auto;width:var(--side);box-sizing:border-box;background:none;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 12px 22px}
 body.wide .deck{left:auto;width:var(--side);box-sizing:border-box;background:none;padding:14px 18px calc(env(safe-area-inset-bottom,0px) + 16px) 22px}
 body.wide .hud-in,body.wide .deck-in{max-width:none}
@@ -655,6 +688,12 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 .ib.fxbtn{position:relative}
 .coopbox canvas{border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer}
 .coopbox .btn-sm{font-size:11px;padding:4px 8px}
+.coopbox .cbtn{width:36px;height:36px}
+.coopbox .cbtn svg{width:22px;height:22px}
+.coopbox .cbtn .cbadge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:#ef5a3a;color:#fff;font-size:11px;line-height:16px;font-style:normal;text-align:center}
+.coopbox .jgbtn.is-on .cbadge{background:#5a8ad6}
+.coopbox .jgbtn.is-call{animation:jgcall 1s ease-in-out infinite}
+.act{justify-content:center}
 .coopbox.only-gift{flex-direction:row;align-items:center}
 .jgbtn{background:linear-gradient(#5a3e8c,#3e2a66);color:#f1e6ff}
 .jgbtn.is-call{animation:jgcall 1s ease-in-out infinite;background:linear-gradient(#8a5ad6,#5a3e8c)}
@@ -695,21 +734,14 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 <header class="hud" id="hud">
   <div class="hud-in">
     <div class="row">
-      <span class="wave" id="waveLabel">제 1 마당</span>
-      <span class="chip-t num" id="timer">20초</span><span class="pow" id="powChip" title="전투력 · 지금 마당 동료들이 1초에 주는 피해를 더한 값"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 1.5l1 1-6.8 6.8 1.1 1.1-1 1-1.2-1.2L4.4 12.4l.9.9-.9.9-2.6-2.6.9-.9.9.9 2.2-2.2-1.2-1.2 1-1 1.1 1.1z"/></svg><span class="num" id="pow">0</span></span>
-      <span class="spacer"></span>
-      <span class="purse" title="엽전"><i class="coin-ico"></i><span class="pcol"><span class="num" id="coins">0</span><span class="mgun" id="mgun" hidden></span></span></span>
-      <span class="purse" title="혼"><i class="hon-ico"></i><span class="num" id="hon">0</span></span>
-    </div>
-    <div class="row">
-      <div class="gauge" role="meter" aria-label="마당 위 도깨비 수" aria-valuemin="0" aria-valuemax="100" id="gauge"><div class="gauge-fill" id="gaugeFill"></div><span class="gauge-text num" id="gaugeText">도깨비 0 / 100</span></div>
-      <button class="ib" id="codexBtn" type="button" aria-label="도감 보기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.5C2 1.7 2.7 1 3.5 1H8v13H3.5A1.5 1.5 0 0 1 2 12.5zM9 1h3.5c.8 0 1.5.7 1.5 1.5v10c0 .8-.7 1.5-1.5 1.5H9z"/></svg></button>
-      <button class="ib" id="soundBtn" type="button" aria-label="설정" aria-haspopup="dialog"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8zm6.3 3.3V7.1l-1.8-.4a4.8 4.8 0 0 0-.5-1.3l1-1.6-1.3-1.3-1.6 1a4.8 4.8 0 0 0-1.3-.5L8.9 1.2H7.1l-.4 1.8a4.8 4.8 0 0 0-1.3.5l-1.6-1-1.3 1.3 1 1.6a4.8 4.8 0 0 0-.5 1.3l-1.8.4v1.8l1.8.4c.1.5.3.9.5 1.3l-1 1.6 1.3 1.3 1.6-1c.4.2.8.4 1.3.5l.4 1.8h1.8l.4-1.8c.5-.1.9-.3 1.3-.5l1.6 1 1.3-1.3-1-1.6c.2-.4.4-.8.5-1.3z"/></svg></button>
-      <button class="ib fxbtn" id="fxBtn" type="button" aria-label="화려한 효과 켜고 끄기" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 1l1.2 3.3L10.5 5.5 7.2 6.7 6 10 4.8 6.7 1.5 5.5l3.3-1.2zM12 8.5l.7 1.8 1.8.7-1.8.7L12 13.5l-.7-1.8-1.8-.7 1.8-.7zM4 11l.5 1.3 1.3.5-1.3.5L4 14.6l-.5-1.3-1.3-.5 1.3-.5z"/></svg></button>
+      <span class="wbadge" id="wbadge" title="마당과 남은 시간"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" class="wr-bg"/><circle cx="20" cy="20" r="17" class="wr" id="wring"/></svg><span class="num" id="waveLabel">1</span></span>
+      <div class="gauge" role="meter" aria-label="마당 위 도깨비 수" aria-valuemin="0" aria-valuemax="100" id="gauge"><div class="gauge-fill" id="gaugeFill"></div><span class="gauge-text num" id="gaugeText">0/100</span></div>
       <button class="ib" id="speedBtn" type="button" aria-label="배속 바꾸기">×1</button>
       <button class="ib" id="pauseBtn" type="button" aria-label="잠깐 멈추기"></button>
+      <button class="ib" id="soundBtn" type="button" aria-label="설정" aria-haspopup="dialog"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8zm6.3 3.3V7.1l-1.8-.4a4.8 4.8 0 0 0-.5-1.3l1-1.6-1.3-1.3-1.6 1a4.8 4.8 0 0 0-1.3-.5L8.9 1.2H7.1l-.4 1.8a4.8 4.8 0 0 0-1.3.5l-1.6-1-1.3 1.3 1 1.6a4.8 4.8 0 0 0-.5 1.3l-1.8.4v1.8l1.8.4c.1.5.3.9.5 1.3l-1 1.6 1.3 1.3 1.6-1c.4.2.8.4 1.3.5l.4 1.8h1.8l.4-1.8c.5-.1.9-.3 1.3-.5l1.6 1 1.3-1.3-1-1.6c.2-.4.4-.8.5-1.3z"/></svg></button>
     </div>
     <div class="bossrow" id="bossRow"><span class="bn" id="bossName"></span><div class="bossbar" title="하얀 눈금보다 체력이 왼쪽이면 시간 안에 잡을 수 있어요"><div id="bossFill"></div><i id="bossPace"></i></div><span class="bt num" id="bossTime"></span></div>
+    <span class="hud-hidden" aria-hidden="true"><span class="chip-t num" id="timer"></span><span class="pow" id="powChip" title="전투력 · 지금 마당 동료들이 1초에 주는 피해를 더한 값"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 1.5l1 1-6.8 6.8 1.1 1.1-1 1-1.2-1.2L4.4 12.4l.9.9-.9.9-2.6-2.6.9-.9.9.9 2.2-2.2-1.2-1.2 1-1 1.1 1.1z"/></svg><span class="num" id="pow">0</span></span></span>
   </div>
 </header>
 
@@ -717,14 +749,23 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 
 <footer class="deck" id="deck">
   <div class="deck-in">
-    <div class="info" id="info"></div>
-    <div class="actions">
-      <button class="act act-summon" id="summonBtn" type="button"><span class="big">소환</span><span class="cost"><i class="coin-ico"></i><span class="num" id="summonCost">10</span></span></button>
-      <button class="act act-myth" id="mythBtn" type="button"><span class="big">신화</span><span class="cost" id="mythSub">조합표</span><span class="badge num" id="mythBadge" hidden>0</span></button>
-      <button class="act act-chal" id="chalBtn" type="button"><span class="big">도전</span><span class="cost" id="chalSub">귀신 부르기</span><span class="badge num" id="chalBadge" hidden>0</span></button>
-      <button class="act act-gut" id="gutBtn" type="button"><span class="big">굿</span><span class="cost"><i class="gutfam" id="gutFam" hidden></i><i class="hon-ico"></i><span class="num" id="gutCost">0</span></span></button>
+    <div class="info" id="info" hidden></div>
+    <div class="tools">
+      <span class="purse" title="엽전"><i class="coin-ico"></i><span class="pcol"><span class="num" id="coins">0</span><span class="mgun" id="mgun" hidden></span></span></span>
+      <span class="purse" title="혼"><i class="hon-ico"></i><span class="num" id="hon">0</span></span>
+      <span class="spacer"></span>
+      <button class="tb" id="missBtn" type="button" aria-label="임무 장부"><span class="scroll-ico" aria-hidden="true"></span><i class="tdot" id="missDot" hidden></i></button>
+      <button class="tb" id="helpBtn" type="button" aria-label="도움말">?</button>
+      <button class="tb fxbtn" id="fxBtn" type="button" aria-label="화려한 효과 켜고 끄기" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 1l1.2 3.3L10.5 5.5 7.2 6.7 6 10 4.8 6.7 1.5 5.5l3.3-1.2zM12 8.5l.7 1.8 1.8.7-1.8.7L12 13.5l-.7-1.8-1.8-.7 1.8-.7zM4 11l.5 1.3 1.3.5-1.3.5L4 14.6l-.5-1.3-1.3-.5 1.3-.5z"/></svg></button>
+      <button class="tb" id="codexBtn" type="button" aria-label="도감 보기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.5C2 1.7 2.7 1 3.5 1H8v13H3.5A1.5 1.5 0 0 1 2 12.5zM9 1h3.5c.8 0 1.5.7 1.5 1.5v10c0 .8-.7 1.5-1.5 1.5H9z"/></svg></button>
     </div>
-    <div class="ups" id="ups"></div>
+    <div class="actions">
+      <button class="act act-up" id="upBtn" type="button"><span class="big">강화</span></button>
+      <button class="act act-myth" id="mythBtn" type="button"><span class="big">신화</span><span class="cost" id="mythSub">조합표</span><span class="badge num" id="mythBadge" hidden>0</span></button>
+      <button class="act act-summon" id="summonBtn" type="button"><span class="big">소환</span><span class="cost"><i class="coin-ico"></i><span class="num" id="summonCost">10</span></span></button>
+      <button class="act act-gut" id="gutBtn" type="button"><span class="big">굿</span><span class="cost"><i class="gutfam" id="gutFam" hidden></i><i class="hon-ico"></i><span class="num" id="gutCost">0</span></span></button>
+      <button class="act act-chal" id="chalBtn" type="button"><span class="big">도전</span><span class="cost" id="chalSub">귀신 부르기</span><span class="badge num" id="chalBadge" hidden>0</span></button>
+    </div>
   </div>
 </footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -748,6 +789,12 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 
 <aside class="ucard" id="ucard" hidden aria-live="polite"></aside>
 
+<section class="rsheet" id="usheet" hidden>
+  <div class="rsheet-in">
+    <div class="rhead"><div class="rh"><h2>강화</h2><small>엽전으로 등급마다 공격력을 올려요. 창은 열어둔 채로 계속 누를 수 있어요</small></div><button class="btn-sm" id="uClose" type="button">닫기</button></div>
+    <div class="ups" id="ups"></div>
+  </div>
+</section>
 <section class="rsheet" id="jsheet" hidden>
   <div class="rsheet-in">
     <div class="rhead"><div class="rh"><h2>합동 굿</h2><small>둘이 혼을 올리면 꽝 없이 둘 다 동료를 받아요</small></div><button class="btn-sm" id="jClose" type="button">닫기</button></div>
@@ -1513,7 +1560,7 @@ function missTick(dt) {
     if (rw.b) { rw.b.forEach((v, i) => { G.mb[i] += v; }); G.auraDirty = true; }
     if (rw.luck && G.up[LUCK] < LUCK_MAX) G.up[LUCK] = Math.min(LUCK_MAX, G.up[LUCK] + rw.luck);
     emit({ k: 'mission', id: D.id, text: D.text, coins: rw.coins, hon: rw.hon });
-    toast(`임무 완료! ${D.text} · ${rewardText(rw)}`);
+    /* no toast: the 임무 button gets a red dot and the ledger has the rest */
   }
 }
 
@@ -6287,7 +6334,7 @@ function onEvent(e) {
     }
     case 'ship': { const p = unitPos(e.cell); fxText(p.x, p.y - 1.7, '무역선이 들어왔다!', 'word', 1.1); fxText(p.x, p.y - 1.2, `혼 +${e.hon}`, 'coin', 1.1); fxRing(p.x, p.y, 0.2, 1.4, '#5ab0ff', 4, 0.6); sfx('gong'); break; }
     case 'hon': fxText(e.x, e.y - 0.6, `혼 +${e.v}`, 'coin', 1.1); break;
-    case 'mission': sfx('upgrade'); if (e.coins) flyCoin(0, -3.2, COIN_EL, 3); break;
+    case 'mission': sfx('upgrade'); R.missNew = true; if (e.coins) flyCoin(0, -3.2, COIN_EL, 3); break;
     case 'steal': fxText(e.x, e.y - 1.0, '슬쩍!', 'word', 0.8); burst(e.x, e.y - 0.4, 0.3, 6, ['#f2c94a', '#fff2b0'], 1.4, 0.05, 0.5, { up: 2, g: 1.2 }); break;
     case 'execute': for (let i = 0; i < 5; i++) part(e.x + rand(-0.15, 0.15), e.y, 0.3, 0, 0, rand(0.8, 1.4), '#e8f4ff', 0.06, 1.0, { g: -0.5, drag: 0.6, kind: 'petal' }); break;
     case 'command': {
@@ -7743,7 +7790,7 @@ const HINTS = [
   '재수굿은 희귀 60%, 대동굿은 영웅 20%, 별신굿은 전설 10%예요. 꽝이 나도 정성이 쌓여요',
   '정성이 가득 차면 다음 굿은 꼭 돼요. 별신굿에 쓰면 전설이 나와요',
   '소환 운은 5단계까지 엽전, 6단계부터 10단계까지는 혼으로 올려요',
-  '아래 막대의 임무를 누르면 임무 장부가 열려요. 끝낼 때마다 엽전, 혼, 이번 판 공격력을 받아요',
+  '아래 두루마리 단추가 임무 장부예요. 끝낼 때마다 엽전, 혼, 이번 판 공격력을 받고, 새로 끝낸 게 있으면 빨간 점이 떠요',
   '도깨비를 누르면 남은 체력을 볼 수 있어요',
   '돌하르방 둘레 여덟 칸 동료는 보스와 도전 귀신을 더 세게 때려요. 보스 잡을 동료 옆에 두세요',
   '김선달은 가진 엽전에 이자를 붙여 줘요. 엽전을 조금 모아 두면 더 벌어요',
@@ -7756,6 +7803,7 @@ const HINTS = [
 /* ---------- info bar ---------- */
 function refreshInfo() {
   if (G.phase === 'play' && R.pickExp) {
+    if (el.info.hidden) el.info.hidden = false;
     R.pickSel = R.pickSel.filter(c => G.units[c]);
     const F = caveFloor(), sel = R.pickSel, q = partyRatio(sel), pct = Math.round(q * 100), key = 'pick' + F.n + ':' + sel.join(',') + ':' + pct;
     if (cache.infoKey === key) return;
@@ -7788,15 +7836,12 @@ function refreshInfo() {
   const u = G.sel >= 0 ? G.units[G.sel] : null;
   if (R.foeSel && (R.foeSel.dead || !G.foes.includes(R.foeSel) || u)) R.foeSel = null;
   if (!u && R.foeSel && G.phase === 'play') { foeInfoBar(R.foeSel); return; }
+  /* nothing picked: the bar under the yard goes away */
   if (!u || G.phase !== 'play') {
-    const D = G.phase === 'play' ? missNext() : null, dn = missDoneN(), an = missAllN();
-    const key = 'm' + (D ? D.id + ':' + missProg(D) : '-') + ':' + dn + ':' + an;
-    if (cache.infoKey === key) return;
-    cache.infoKey = key;
-    const rw = D ? rewardText(missReward(D)) : '';
-    el.info.innerHTML = `<button class="inmiss" type="button" data-open="miss" aria-label="임무 장부 열기"><span class="scroll-ico" aria-hidden="true"></span><span class="it"><span class="l1"><b>임무 ${dn}/${an}</b>${D ? ` · ${esc(D.text)}` : ' · 모두 끝냈어요!'}</span><small>${D ? `<span class="num">${fmtC(missProg(D))}/${fmtC(missGoal(D))}</span> · 보상 ${esc(rw)}` : '장부를 눌러 받은 보상을 볼 수 있어요'}</small></span>${D ? `<span class="mbar"><i style="width:${Math.round(missProg(D) / missGoal(D) * 100)}%"></i></span>` : ''}</button><button class="inhelp" type="button" data-open="help" aria-label="도움말">?</button>`;
+    if (!el.info.hidden) { el.info.hidden = true; cache.infoKey = ''; }
     return;
   }
+  if (el.info.hidden) el.info.hidden = false;
   const T = TYPES[u.t], Tr = TIERS[T.tier], cap = capOf(u.t), canM = canMergeAt(G.sel);
   const armed = !!cache.sellArm && cache.sellArm.id === u.id && performance.now() < cache.sellArm.until;
   const key = u.id + ':' + u.c + ':' + killsOf(u) + ':' + earnOf(u) + ':' + G.up.join(',') + ':' + G.spd[G.sel] + ':' + G.dmgN[G.sel] + ':' + gradeMulOf(T) + ':' + armed + ':' + !!R.ucOpen + ':' + (G.mb || []).join(',');
@@ -8690,8 +8735,14 @@ function renderMissSheet(force) {
   }).join('');
 }
 /* the 임무 and 도움말 sheets close when another sheet opens */
-function closeSide() { const a = $('msheet'), b = $('hsheet'), c = $('jsheet'); if (a) a.hidden = true; if (b) b.hidden = true; if (c) c.hidden = true; }
-function openMiss() { closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; hsheet.hidden = true; msheet.hidden = false; renderMissSheet(true); sfx('click'); }
+function closeSide() { for (const id of ['msheet', 'hsheet', 'jsheet', 'usheet']) { const e = $(id); if (e) e.hidden = true; } }
+/* 강화 lives in its own sheet now, opened from the button left of 신화 */
+function openUps() { closeSide(); closeRecipes(); closeChal(); el.gsheet.hidden = true; $('usheet').hidden = false; refreshUps(); sfx('click'); }
+$('upBtn').addEventListener('click', () => { if ($('usheet').hidden) openUps(); else closeSide(); });
+$('uClose').addEventListener('click', closeSide);
+$('missBtn').addEventListener('click', () => { if (msheet.hidden) openMiss(); else closeMiss(); });
+$('helpBtn').addEventListener('click', () => { if (hsheet.hidden) openHelp(); else closeHelp(); });
+function openMiss() { closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = false; R.missNew = false; renderMissSheet(true); sfx('click'); }
 function closeMiss() { msheet.hidden = true; }
 $('mClose').addEventListener('click', closeMiss);
 const HELP = [
@@ -8709,13 +8760,18 @@ function openHelp() {
   const sea = seasonOf(), S = STAGES[G.stage || 0];
   hlist.innerHTML = (S.rule ? `<div class="hduo"><b>${esc(S.name)}</b>${esc(S.rule)}</div>` : '') + (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 도깨비는 각자 바깥 모서리에서 나와 옆길을 타고 가운데 길로 들어와요. 가운데 길은 둘이 같이 쓰는 곳이라 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
     HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
-    `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
+    `<details><summary>화면 읽기</summary><ul><li>왼쪽 위 동그라미는 지금 마당이고, 테두리가 줄어드는 게 남은 시간이에요. 누르면 고을, 절기, 다음 보스가 나와요</li><li>그 옆 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>강화는 아래 강화 단추를 눌러 창을 열어서 해요</li><li>칸을 누르면 아래에 그 동료가 나오고, 이름을 누르면 자세한 설명이 열려요</li><li>아래 작은 단추는 차례로 임무 장부, 도움말, 화려한 효과 켜고 끄기, 도감이에요</li><li>피해 숫자나 안내 글씨를 보고 싶으면 설정에서 맵 위 글자를 켜요</li></ul></details>`;
   hsheet.hidden = false; sfx('click');
 }
 function closeHelp() { hsheet.hidden = true; }
 $('hClose').addEventListener('click', closeHelp);
-/* tap the line under the 도깨비 bar to see what this 절기 does */
-$('bossRow').addEventListener('click', () => { const s = seasonOf(); if (s && G.phase === 'play' && !G.boss) toast(`${s.name} · ${s.line} · ${s.desc}`); });
+/* the round badge holds what the old line under the bar said: the 고을, its 절기 and the next boss, one tap away */
+$('wbadge').addEventListener('click', () => {
+  if (G.phase !== 'play') return;
+  const S = STAGES[G.stage], s = seasonOf(), nb = Math.min(LAST_WAVE, Math.max(10, Math.ceil((Math.max(1, G.wave) + 1) / 10) * 10)), B = bossAt(nb);
+  const boss = G.boss && !G.boss.dead ? `${G.boss.name} ${Math.max(0, Math.ceil(G.waveT))}초 남음` : B && G.wave <= nb ? `다음 보스 ${nb}마당 ${B.name}` : '';
+  toast([`${S.name} ${Math.max(1, G.wave)}마당`, s ? `${s.name} · ${s.desc}` : '', boss].filter(Boolean).join(' · '));
+});
 el.info.addEventListener('click', e => {
   if (e.target.closest('[data-tip]')) return;
   const b = e.target.closest('[data-open]'); if (!b) return;
@@ -8731,9 +8787,13 @@ function uiTick(dt) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) el.toast.classList.remove('is-on'); }
   vig = Math.max(0, vig - dt * 1.2);
   if (G.phase !== 'play') { el.vignette.style.opacity = vig.toFixed(2); return; }
-  setText(el.wave, 'wave', `제 ${Math.max(1, G.wave)} 마당`);
-  setText(el.timer, 'timer', `${Math.max(0, Math.ceil(G.waveT))}초`);
-  setClass(el.timer, 't', 'is-boss', !!G.boss);
+  setText(el.wave, 'wave', String(Math.max(1, G.wave)));
+  {
+    const full = G.boss ? (G.bossTimeMax || BOSS_TIME) : WAVE_TIME, k = clamp(G.waveT / full, 0, 1), off = (106.8 * (1 - k)).toFixed(1);
+    if (cache.wr !== off) { cache.wr = off; $('wring').style.strokeDashoffset = off; }
+    setClass($('wbadge'), 'wb', 'is-boss', !!G.boss);
+    const md = $('missDot'); if (md.hidden === !!R.missNew) md.hidden = !R.missNew;
+  }
   const cT = Math.floor(G.coins);
   if (cache.coinShow == null || cT < cache.coinShow) cache.coinShow = cT; else if (cT > cache.coinShow) cache.coinShow = Math.min(cT, cache.coinShow + Math.max(1, Math.ceil((cT - cache.coinShow) * Math.min(1, dt * 7))));
   setText(el.coins, 'coins', fmtC(cache.coinShow));
@@ -8749,7 +8809,7 @@ function uiTick(dt) {
   if (cache.gw !== w) { cache.gw = w; el.gaugeFill.style.width = w; el.gauge.setAttribute('aria-valuenow', String(n)); }
   setClass(el.gaugeFill, 'g', 'is-warn', p >= 0.5 && p < 0.8);
   setClass(el.gaugeFill, 'g', 'is-danger', p >= 0.8);
-  setText(el.gaugeText, 'gt', `도깨비 ${n} / ${BAL.cap}`);
+  setText(el.gaugeText, 'gt', `${n}/${BAL.cap}`);
   if (G.boss && !G.boss.dead) {
     setClass(el.bossRow, 'br', 'is-on', true);
     setText(el.bossName, 'bn', G.boss.name);
@@ -8839,7 +8899,7 @@ function startGame() {
   newGame(lvMulArr(), lvSpdArr(), st, relicBonuses()); cache.save = 0; cache.coinShow = null;
   /* this run's 절기: from the round with a friend, otherwise any of the 24 */
   const sea = applySeason(R.seaPick != null ? R.seaPick : Math.floor(Math.random() * SEASONS.length)); R.seaPick = null;
-  setTimeout(() => { if (G.phase === 'play' && G.wave <= 1) toast(`이번 판은 ${sea.name} · ${sea.line} · ${sea.desc}`); }, 2600);
+  setTimeout(() => { if (G.phase === 'play' && G.wave <= 1) toast(`${sea.name} · ${sea.desc}`); }, 2600);
   cache.infoKey = ''; cache.vo = -1;
   layout(); refreshInfo(); refreshUps();
   musicMode('play');
@@ -9501,8 +9561,11 @@ function drawPartner() {
     const bw = W - 16; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(8, H - 10, bw, 5); g.fillStyle = '#ef5a3a'; g.fillRect(8, H - 10, bw * p.bh / 100, 5);
   }
 }
+/* both co-op buttons are icons: a coin flying off, and the 굿상 with two candles */
 function renderGiftBtn() {
-  el.coopGift.textContent = `엽전 ${COOP_GIFT} 보내기`;
+  if (el.coopGift.dataset.ico) return;
+  el.coopGift.dataset.ico = '1'; el.coopGift.className = 'tb cbtn'; el.coopGift.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="11" r="6" fill="#f2c94a" stroke="#6a4a10" stroke-width="1.4"/><rect x="6.6" y="9.6" width="2.8" height="2.8" fill="#6a4a10"/><path d="M13 4h5m0 0l-2-2m2 2l-2 2" stroke="#9ff0c0" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  el.coopGift.setAttribute('aria-label', `동료에게 엽전 ${COOP_GIFT} 보내기`); el.coopGift.title = `동료에게 엽전 ${COOP_GIFT} 보내기`;
 }
 
 /* ---------- 랜덤 매칭: meet a stranger who picked the same 고을, with no server of our own ----------
@@ -9761,8 +9824,9 @@ function jointTick(dt) {
 function renderJoint(force) {
   const b = el.coopJoint; if (!b) return;
   const a = JOINT.a, o = JOINT.b, both = a > 0 && o > 0, sec = Math.max(0, Math.ceil(JOINT.t));
-  const label = both ? `합동 굿 · ${sec}초` : a ? `합동 굿 · 혼 ${a}` : o ? `합동 굿 · 동료 혼 ${o}!` : '합동 굿';
-  if (b.textContent !== label) b.textContent = label;
+  if (!b.dataset.ico) { b.dataset.ico = '1'; b.className = 'tb cbtn jgbtn'; b.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="13" width="16" height="4" rx="1.5" fill="#b8402f"/><rect x="5" y="7" width="2.4" height="6" fill="#f3ead2"/><rect x="12.6" y="7" width="2.4" height="6" fill="#f3ead2"/><ellipse cx="6.2" cy="5" rx="1.3" ry="2.2" fill="#ffd36a"/><ellipse cx="13.8" cy="5" rx="1.3" ry="2.2" fill="#ffd36a"/></svg><i class="cbadge" hidden></i>`; b.setAttribute('aria-label', '합동 굿'); b.title = '합동 굿'; }
+  const badge = b.querySelector('.cbadge'), label = both ? String(sec) : a ? String(a) : o ? '!' : '';
+  if (badge.textContent !== label) { badge.textContent = label; badge.hidden = !label; }
   b.classList.toggle('is-call', !a && o > 0); b.classList.toggle('is-on', a > 0);
   if (jsheet.hidden) return;
   const key = [a, o, both ? sec : -1, Math.floor(G.hon), JOINT.n].join(':');
@@ -9841,7 +9905,7 @@ function joinFromLink() {
 }
 
 /* ---------- 폰 앱: install to the home screen, play offline, keep the screen on ---------- */
-const APP_BUILD = '551c187a22';
+const APP_BUILD = '3b254490ba';
 const APP = (() => {
   const ua = navigator.userAgent || '', mq = q => { try { return matchMedia(q).matches; } catch (err) { return false; } };
   const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

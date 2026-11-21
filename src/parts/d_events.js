@@ -120,7 +120,7 @@ function onEvent(e) {
     }
     case 'ship': { const p = unitPos(e.cell); fxText(p.x, p.y - 1.7, '무역선이 들어왔다!', 'word', 1.1); fxText(p.x, p.y - 1.2, `혼 +${e.hon}`, 'coin', 1.1); fxRing(p.x, p.y, 0.2, 1.4, '#5ab0ff', 4, 0.6); sfx('gong'); break; }
     case 'hon': fxText(e.x, e.y - 0.6, `혼 +${e.v}`, 'coin', 1.1); break;
-    case 'mission': sfx('upgrade'); if (e.coins) flyCoin(0, -3.2, COIN_EL, 3); break;
+    case 'mission': sfx('upgrade'); R.missNew = true; if (e.coins) flyCoin(0, -3.2, COIN_EL, 3); break;
     case 'steal': fxText(e.x, e.y - 1.0, '슬쩍!', 'word', 0.8); burst(e.x, e.y - 0.4, 0.3, 6, ['#f2c94a', '#fff2b0'], 1.4, 0.05, 0.5, { up: 2, g: 1.2 }); break;
     case 'execute': for (let i = 0; i < 5; i++) part(e.x + rand(-0.15, 0.15), e.y, 0.3, 0, 0, rand(0.8, 1.4), '#e8f4ff', 0.06, 1.0, { g: -0.5, drag: 0.6, kind: 'petal' }); break;
     case 'command': {

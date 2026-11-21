@@ -371,6 +371,39 @@ button:disabled{cursor:default}
 .load-text small{display:block;font-family:var(--f-ui);font-size:14px;color:var(--hanji-dim);margin-top:10px;line-height:1.5}
 body.in-lobby .hud,body.in-lobby .deck{opacity:0;visibility:hidden;pointer-events:none}
 .hud,.deck{transition:opacity .5s}
+/* ---------- a quiet default screen: the round, the crowd and a few icons on top; purses, small tools and five buttons below ---------- */
+.hud-hidden{display:none}
+.wbadge{position:relative;flex:none;width:40px;height:40px;display:grid;place-items:center;cursor:pointer}
+.wbadge svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.wbadge .wr-bg{fill:rgba(22,19,31,.7);stroke:rgba(255,255,255,.12);stroke-width:3}
+.wbadge .wr{fill:none;stroke:#ffd36a;stroke-width:3;stroke-linecap:round;stroke-dasharray:106.8;transition:stroke-dashoffset .25s linear}
+.wbadge.is-boss .wr{stroke:#ef5a3a}
+.wbadge .num{position:relative;font-size:17px;color:var(--hanji)}
+.hud .row{gap:6px}
+.bossrow .bn,.bossrow .bt{display:none}
+.bossrow{height:8px}
+.bossrow:not(.is-on){display:none}
+.deck-in{position:relative}
+.deck .info{position:absolute;left:0;right:0;bottom:calc(100% + 6px)}
+.deck .info[hidden]{display:none}
+.tools{display:flex;align-items:center;gap:8px;min-height:30px}
+.tools .spacer{flex:1}
+.tools .purse{font-size:16px}
+.tools .pcol{flex-direction:row;align-items:center;gap:5px}
+.tools .mgun{margin-top:0}
+.tb{position:relative;flex:none;width:32px;height:32px;border-radius:50%;background:rgba(22,19,31,.62);color:var(--hanji);display:grid;place-items:center;font-size:16px;box-shadow:inset 0 0 0 1px var(--line)}
+.tb svg{width:16px;height:16px;fill:currentColor}
+.tb .scroll-ico{width:18px;height:18px;border-radius:4px}
+.tb .scroll-ico::before{top:6px;left:4px;right:4px}
+.tb .scroll-ico::after{top:10px;left:4px;right:7px}
+.tb .tdot{position:absolute;top:1px;right:1px;width:9px;height:9px;border-radius:50%;background:#ef5a3a;box-shadow:0 0 0 2px rgba(22,19,31,.9)}
+.tb.fxbtn.off::after{left:24%;right:24%}
+.actions{grid-template-columns:1fr 1fr 1.5fr 1fr 1fr}
+.act .cost:empty{display:none}
+#mythSub,#chalSub,#gutFam{display:none}
+.act-up{background:linear-gradient(#4a6a9a,#33507a);color:#eef4ff}
+.act-gut .cost{display:none}
+.rsheet .ups{padding:2px 2px 6px}
 @media (min-width:900px) and (min-aspect-ratio:5/4){.lobby{align-items:flex-end;justify-content:flex-end;padding:24px 32px 0;background:linear-gradient(90deg,rgba(22,19,31,.55),rgba(22,19,31,0) 34%)}.ltop{position:absolute;left:4vw;top:8vh;text-align:left}.sheet{height:min(70vh,560px)}}
 @media (max-width:380px){.up{font-size:11px}.up .lv{gap:3px}.wave{font-size:28px}.big{font-size:17px}.act .cost{font-size:12px}.up .unm{font-size:10px}.tab{font-size:13px}.stamp .r{font-size:9px}}
 @media (max-height:700px){.lobby .sub{display:none}}
@@ -627,7 +660,7 @@ canvas,img{-webkit-touch-callout:none}
 /* wide screens (a laptop, an iPad on its side): the yard takes the full height on the left, buttons live in a column on the right */
 :root{--side:392px}
 #sidebg{display:none}
-body.wide:not(.in-lobby) #sidebg{display:block;position:fixed;top:0;right:0;bottom:0;width:var(--side);z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(22,19,31,0),rgba(22,19,31,.9) 18px,rgba(22,19,31,.97));border-left:1px solid rgba(230,178,74,.12)}
+body.wide:not(.in-lobby) #sidebg{display:none;position:fixed;top:0;right:0;bottom:0;width:var(--side);z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(22,19,31,0),rgba(22,19,31,.9) 18px,rgba(22,19,31,.97));border-left:1px solid rgba(230,178,74,.12)}
 body.wide .hud{left:auto;width:var(--side);box-sizing:border-box;background:none;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 12px 22px}
 body.wide .deck{left:auto;width:var(--side);box-sizing:border-box;background:none;padding:14px 18px calc(env(safe-area-inset-bottom,0px) + 16px) 22px}
 body.wide .hud-in,body.wide .deck-in{max-width:none}
@@ -647,6 +680,12 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 .ib.fxbtn{position:relative}
 .coopbox canvas{border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer}
 .coopbox .btn-sm{font-size:11px;padding:4px 8px}
+.coopbox .cbtn{width:36px;height:36px}
+.coopbox .cbtn svg{width:22px;height:22px}
+.coopbox .cbtn .cbadge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:#ef5a3a;color:#fff;font-size:11px;line-height:16px;font-style:normal;text-align:center}
+.coopbox .jgbtn.is-on .cbadge{background:#5a8ad6}
+.coopbox .jgbtn.is-call{animation:jgcall 1s ease-in-out infinite}
+.act{justify-content:center}
 .coopbox.only-gift{flex-direction:row;align-items:center}
 .jgbtn{background:linear-gradient(#5a3e8c,#3e2a66);color:#f1e6ff}
 .jgbtn.is-call{animation:jgcall 1s ease-in-out infinite;background:linear-gradient(#8a5ad6,#5a3e8c)}
@@ -687,21 +726,14 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 <header class="hud" id="hud">
   <div class="hud-in">
     <div class="row">
-      <span class="wave" id="waveLabel">제 1 마당</span>
-      <span class="chip-t num" id="timer">20초</span><span class="pow" id="powChip" title="전투력 · 지금 마당 동료들이 1초에 주는 피해를 더한 값"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 1.5l1 1-6.8 6.8 1.1 1.1-1 1-1.2-1.2L4.4 12.4l.9.9-.9.9-2.6-2.6.9-.9.9.9 2.2-2.2-1.2-1.2 1-1 1.1 1.1z"/></svg><span class="num" id="pow">0</span></span>
-      <span class="spacer"></span>
-      <span class="purse" title="엽전"><i class="coin-ico"></i><span class="pcol"><span class="num" id="coins">0</span><span class="mgun" id="mgun" hidden></span></span></span>
-      <span class="purse" title="혼"><i class="hon-ico"></i><span class="num" id="hon">0</span></span>
-    </div>
-    <div class="row">
-      <div class="gauge" role="meter" aria-label="마당 위 도깨비 수" aria-valuemin="0" aria-valuemax="100" id="gauge"><div class="gauge-fill" id="gaugeFill"></div><span class="gauge-text num" id="gaugeText">도깨비 0 / 100</span></div>
-      <button class="ib" id="codexBtn" type="button" aria-label="도감 보기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.5C2 1.7 2.7 1 3.5 1H8v13H3.5A1.5 1.5 0 0 1 2 12.5zM9 1h3.5c.8 0 1.5.7 1.5 1.5v10c0 .8-.7 1.5-1.5 1.5H9z"/></svg></button>
-      <button class="ib" id="soundBtn" type="button" aria-label="설정" aria-haspopup="dialog"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8zm6.3 3.3V7.1l-1.8-.4a4.8 4.8 0 0 0-.5-1.3l1-1.6-1.3-1.3-1.6 1a4.8 4.8 0 0 0-1.3-.5L8.9 1.2H7.1l-.4 1.8a4.8 4.8 0 0 0-1.3.5l-1.6-1-1.3 1.3 1 1.6a4.8 4.8 0 0 0-.5 1.3l-1.8.4v1.8l1.8.4c.1.5.3.9.5 1.3l-1 1.6 1.3 1.3 1.6-1c.4.2.8.4 1.3.5l.4 1.8h1.8l.4-1.8c.5-.1.9-.3 1.3-.5l1.6 1 1.3-1.3-1-1.6c.2-.4.4-.8.5-1.3z"/></svg></button>
-      <button class="ib fxbtn" id="fxBtn" type="button" aria-label="화려한 효과 켜고 끄기" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 1l1.2 3.3L10.5 5.5 7.2 6.7 6 10 4.8 6.7 1.5 5.5l3.3-1.2zM12 8.5l.7 1.8 1.8.7-1.8.7L12 13.5l-.7-1.8-1.8-.7 1.8-.7zM4 11l.5 1.3 1.3.5-1.3.5L4 14.6l-.5-1.3-1.3-.5 1.3-.5z"/></svg></button>
+      <span class="wbadge" id="wbadge" title="마당과 남은 시간"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" class="wr-bg"/><circle cx="20" cy="20" r="17" class="wr" id="wring"/></svg><span class="num" id="waveLabel">1</span></span>
+      <div class="gauge" role="meter" aria-label="마당 위 도깨비 수" aria-valuemin="0" aria-valuemax="100" id="gauge"><div class="gauge-fill" id="gaugeFill"></div><span class="gauge-text num" id="gaugeText">0/100</span></div>
       <button class="ib" id="speedBtn" type="button" aria-label="배속 바꾸기">×1</button>
       <button class="ib" id="pauseBtn" type="button" aria-label="잠깐 멈추기"></button>
+      <button class="ib" id="soundBtn" type="button" aria-label="설정" aria-haspopup="dialog"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8zm6.3 3.3V7.1l-1.8-.4a4.8 4.8 0 0 0-.5-1.3l1-1.6-1.3-1.3-1.6 1a4.8 4.8 0 0 0-1.3-.5L8.9 1.2H7.1l-.4 1.8a4.8 4.8 0 0 0-1.3.5l-1.6-1-1.3 1.3 1 1.6a4.8 4.8 0 0 0-.5 1.3l-1.8.4v1.8l1.8.4c.1.5.3.9.5 1.3l-1 1.6 1.3 1.3 1.6-1c.4.2.8.4 1.3.5l.4 1.8h1.8l.4-1.8c.5-.1.9-.3 1.3-.5l1.6 1 1.3-1.3-1-1.6c.2-.4.4-.8.5-1.3z"/></svg></button>
     </div>
     <div class="bossrow" id="bossRow"><span class="bn" id="bossName"></span><div class="bossbar" title="하얀 눈금보다 체력이 왼쪽이면 시간 안에 잡을 수 있어요"><div id="bossFill"></div><i id="bossPace"></i></div><span class="bt num" id="bossTime"></span></div>
+    <span class="hud-hidden" aria-hidden="true"><span class="chip-t num" id="timer"></span><span class="pow" id="powChip" title="전투력 · 지금 마당 동료들이 1초에 주는 피해를 더한 값"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 1.5l1 1-6.8 6.8 1.1 1.1-1 1-1.2-1.2L4.4 12.4l.9.9-.9.9-2.6-2.6.9-.9.9.9 2.2-2.2-1.2-1.2 1-1 1.1 1.1z"/></svg><span class="num" id="pow">0</span></span></span>
   </div>
 </header>
 
@@ -709,14 +741,23 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 
 <footer class="deck" id="deck">
   <div class="deck-in">
-    <div class="info" id="info"></div>
-    <div class="actions">
-      <button class="act act-summon" id="summonBtn" type="button"><span class="big">소환</span><span class="cost"><i class="coin-ico"></i><span class="num" id="summonCost">10</span></span></button>
-      <button class="act act-myth" id="mythBtn" type="button"><span class="big">신화</span><span class="cost" id="mythSub">조합표</span><span class="badge num" id="mythBadge" hidden>0</span></button>
-      <button class="act act-chal" id="chalBtn" type="button"><span class="big">도전</span><span class="cost" id="chalSub">귀신 부르기</span><span class="badge num" id="chalBadge" hidden>0</span></button>
-      <button class="act act-gut" id="gutBtn" type="button"><span class="big">굿</span><span class="cost"><i class="gutfam" id="gutFam" hidden></i><i class="hon-ico"></i><span class="num" id="gutCost">0</span></span></button>
+    <div class="info" id="info" hidden></div>
+    <div class="tools">
+      <span class="purse" title="엽전"><i class="coin-ico"></i><span class="pcol"><span class="num" id="coins">0</span><span class="mgun" id="mgun" hidden></span></span></span>
+      <span class="purse" title="혼"><i class="hon-ico"></i><span class="num" id="hon">0</span></span>
+      <span class="spacer"></span>
+      <button class="tb" id="missBtn" type="button" aria-label="임무 장부"><span class="scroll-ico" aria-hidden="true"></span><i class="tdot" id="missDot" hidden></i></button>
+      <button class="tb" id="helpBtn" type="button" aria-label="도움말">?</button>
+      <button class="tb fxbtn" id="fxBtn" type="button" aria-label="화려한 효과 켜고 끄기" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 1l1.2 3.3L10.5 5.5 7.2 6.7 6 10 4.8 6.7 1.5 5.5l3.3-1.2zM12 8.5l.7 1.8 1.8.7-1.8.7L12 13.5l-.7-1.8-1.8-.7 1.8-.7zM4 11l.5 1.3 1.3.5-1.3.5L4 14.6l-.5-1.3-1.3-.5 1.3-.5z"/></svg></button>
+      <button class="tb" id="codexBtn" type="button" aria-label="도감 보기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.5C2 1.7 2.7 1 3.5 1H8v13H3.5A1.5 1.5 0 0 1 2 12.5zM9 1h3.5c.8 0 1.5.7 1.5 1.5v10c0 .8-.7 1.5-1.5 1.5H9z"/></svg></button>
     </div>
-    <div class="ups" id="ups"></div>
+    <div class="actions">
+      <button class="act act-up" id="upBtn" type="button"><span class="big">강화</span></button>
+      <button class="act act-myth" id="mythBtn" type="button"><span class="big">신화</span><span class="cost" id="mythSub">조합표</span><span class="badge num" id="mythBadge" hidden>0</span></button>
+      <button class="act act-summon" id="summonBtn" type="button"><span class="big">소환</span><span class="cost"><i class="coin-ico"></i><span class="num" id="summonCost">10</span></span></button>
+      <button class="act act-gut" id="gutBtn" type="button"><span class="big">굿</span><span class="cost"><i class="gutfam" id="gutFam" hidden></i><i class="hon-ico"></i><span class="num" id="gutCost">0</span></span></button>
+      <button class="act act-chal" id="chalBtn" type="button"><span class="big">도전</span><span class="cost" id="chalSub">귀신 부르기</span><span class="badge num" id="chalBadge" hidden>0</span></button>
+    </div>
   </div>
 </footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -740,6 +781,12 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 
 <aside class="ucard" id="ucard" hidden aria-live="polite"></aside>
 
+<section class="rsheet" id="usheet" hidden>
+  <div class="rsheet-in">
+    <div class="rhead"><div class="rh"><h2>강화</h2><small>엽전으로 등급마다 공격력을 올려요. 창은 열어둔 채로 계속 누를 수 있어요</small></div><button class="btn-sm" id="uClose" type="button">닫기</button></div>
+    <div class="ups" id="ups"></div>
+  </div>
+</section>
 <section class="rsheet" id="jsheet" hidden>
   <div class="rsheet-in">
     <div class="rhead"><div class="rh"><h2>합동 굿</h2><small>둘이 혼을 올리면 꽝 없이 둘 다 동료를 받아요</small></div><button class="btn-sm" id="jClose" type="button">닫기</button></div>

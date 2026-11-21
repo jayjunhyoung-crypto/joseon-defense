@@ -376,8 +376,11 @@ function drawPartner() {
     const bw = W - 16; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(8, H - 10, bw, 5); g.fillStyle = '#ef5a3a'; g.fillRect(8, H - 10, bw * p.bh / 100, 5);
   }
 }
+/* both co-op buttons are icons: a coin flying off, and the 굿상 with two candles */
 function renderGiftBtn() {
-  el.coopGift.textContent = `엽전 ${COOP_GIFT} 보내기`;
+  if (el.coopGift.dataset.ico) return;
+  el.coopGift.dataset.ico = '1'; el.coopGift.className = 'tb cbtn'; el.coopGift.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="11" r="6" fill="#f2c94a" stroke="#6a4a10" stroke-width="1.4"/><rect x="6.6" y="9.6" width="2.8" height="2.8" fill="#6a4a10"/><path d="M13 4h5m0 0l-2-2m2 2l-2 2" stroke="#9ff0c0" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  el.coopGift.setAttribute('aria-label', `동료에게 엽전 ${COOP_GIFT} 보내기`); el.coopGift.title = `동료에게 엽전 ${COOP_GIFT} 보내기`;
 }
 
 /* ---------- 랜덤 매칭: meet a stranger who picked the same 고을, with no server of our own ----------
@@ -636,8 +639,9 @@ function jointTick(dt) {
 function renderJoint(force) {
   const b = el.coopJoint; if (!b) return;
   const a = JOINT.a, o = JOINT.b, both = a > 0 && o > 0, sec = Math.max(0, Math.ceil(JOINT.t));
-  const label = both ? `합동 굿 · ${sec}초` : a ? `합동 굿 · 혼 ${a}` : o ? `합동 굿 · 동료 혼 ${o}!` : '합동 굿';
-  if (b.textContent !== label) b.textContent = label;
+  if (!b.dataset.ico) { b.dataset.ico = '1'; b.className = 'tb cbtn jgbtn'; b.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="13" width="16" height="4" rx="1.5" fill="#b8402f"/><rect x="5" y="7" width="2.4" height="6" fill="#f3ead2"/><rect x="12.6" y="7" width="2.4" height="6" fill="#f3ead2"/><ellipse cx="6.2" cy="5" rx="1.3" ry="2.2" fill="#ffd36a"/><ellipse cx="13.8" cy="5" rx="1.3" ry="2.2" fill="#ffd36a"/></svg><i class="cbadge" hidden></i>`; b.setAttribute('aria-label', '합동 굿'); b.title = '합동 굿'; }
+  const badge = b.querySelector('.cbadge'), label = both ? String(sec) : a ? String(a) : o ? '!' : '';
+  if (badge.textContent !== label) { badge.textContent = label; badge.hidden = !label; }
   b.classList.toggle('is-call', !a && o > 0); b.classList.toggle('is-on', a > 0);
   if (jsheet.hidden) return;
   const key = [a, o, both ? sec : -1, Math.floor(G.hon), JOINT.n].join(':');

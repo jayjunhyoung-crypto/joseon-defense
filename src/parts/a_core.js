@@ -667,7 +667,7 @@ function missTick(dt) {
     if (rw.b) { rw.b.forEach((v, i) => { G.mb[i] += v; }); G.auraDirty = true; }
     if (rw.luck && G.up[LUCK] < LUCK_MAX) G.up[LUCK] = Math.min(LUCK_MAX, G.up[LUCK] + rw.luck);
     emit({ k: 'mission', id: D.id, text: D.text, coins: rw.coins, hon: rw.hon });
-    toast(`임무 완료! ${D.text} · ${rewardText(rw)}`);
+    /* no toast: the 임무 button gets a red dot and the ledger has the rest */
   }
 }
 

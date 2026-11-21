@@ -54,7 +54,7 @@ const HINTS = [
   '재수굿은 희귀 60%, 대동굿은 영웅 20%, 별신굿은 전설 10%예요. 꽝이 나도 정성이 쌓여요',
   '정성이 가득 차면 다음 굿은 꼭 돼요. 별신굿에 쓰면 전설이 나와요',
   '소환 운은 5단계까지 엽전, 6단계부터 10단계까지는 혼으로 올려요',
-  '아래 막대의 임무를 누르면 임무 장부가 열려요. 끝낼 때마다 엽전, 혼, 이번 판 공격력을 받아요',
+  '아래 두루마리 단추가 임무 장부예요. 끝낼 때마다 엽전, 혼, 이번 판 공격력을 받고, 새로 끝낸 게 있으면 빨간 점이 떠요',
   '도깨비를 누르면 남은 체력을 볼 수 있어요',
   '돌하르방 둘레 여덟 칸 동료는 보스와 도전 귀신을 더 세게 때려요. 보스 잡을 동료 옆에 두세요',
   '김선달은 가진 엽전에 이자를 붙여 줘요. 엽전을 조금 모아 두면 더 벌어요',
@@ -67,6 +67,7 @@ const HINTS = [
 /* ---------- info bar ---------- */
 function refreshInfo() {
   if (G.phase === 'play' && R.pickExp) {
+    if (el.info.hidden) el.info.hidden = false;
     R.pickSel = R.pickSel.filter(c => G.units[c]);
     const F = caveFloor(), sel = R.pickSel, q = partyRatio(sel), pct = Math.round(q * 100), key = 'pick' + F.n + ':' + sel.join(',') + ':' + pct;
     if (cache.infoKey === key) return;
@@ -99,15 +100,12 @@ function refreshInfo() {
   const u = G.sel >= 0 ? G.units[G.sel] : null;
   if (R.foeSel && (R.foeSel.dead || !G.foes.includes(R.foeSel) || u)) R.foeSel = null;
   if (!u && R.foeSel && G.phase === 'play') { foeInfoBar(R.foeSel); return; }
+  /* nothing picked: the bar under the yard goes away */
   if (!u || G.phase !== 'play') {
-    const D = G.phase === 'play' ? missNext() : null, dn = missDoneN(), an = missAllN();
-    const key = 'm' + (D ? D.id + ':' + missProg(D) : '-') + ':' + dn + ':' + an;
-    if (cache.infoKey === key) return;
-    cache.infoKey = key;
-    const rw = D ? rewardText(missReward(D)) : '';
-    el.info.innerHTML = `<button class="inmiss" type="button" data-open="miss" aria-label="임무 장부 열기"><span class="scroll-ico" aria-hidden="true"></span><span class="it"><span class="l1"><b>임무 ${dn}/${an}</b>${D ? ` · ${esc(D.text)}` : ' · 모두 끝냈어요!'}</span><small>${D ? `<span class="num">${fmtC(missProg(D))}/${fmtC(missGoal(D))}</span> · 보상 ${esc(rw)}` : '장부를 눌러 받은 보상을 볼 수 있어요'}</small></span>${D ? `<span class="mbar"><i style="width:${Math.round(missProg(D) / missGoal(D) * 100)}%"></i></span>` : ''}</button><button class="inhelp" type="button" data-open="help" aria-label="도움말">?</button>`;
+    if (!el.info.hidden) { el.info.hidden = true; cache.infoKey = ''; }
     return;
   }
+  if (el.info.hidden) el.info.hidden = false;
   const T = TYPES[u.t], Tr = TIERS[T.tier], cap = capOf(u.t), canM = canMergeAt(G.sel);
   const armed = !!cache.sellArm && cache.sellArm.id === u.id && performance.now() < cache.sellArm.until;
   const key = u.id + ':' + u.c + ':' + killsOf(u) + ':' + earnOf(u) + ':' + G.up.join(',') + ':' + G.spd[G.sel] + ':' + G.dmgN[G.sel] + ':' + gradeMulOf(T) + ':' + armed + ':' + !!R.ucOpen + ':' + (G.mb || []).join(',');
@@ -1001,8 +999,14 @@ function renderMissSheet(force) {
   }).join('');
 }
 /* the 임무 and 도움말 sheets close when another sheet opens */
-function closeSide() { const a = $('msheet'), b = $('hsheet'), c = $('jsheet'); if (a) a.hidden = true; if (b) b.hidden = true; if (c) c.hidden = true; }
-function openMiss() { closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; hsheet.hidden = true; msheet.hidden = false; renderMissSheet(true); sfx('click'); }
+function closeSide() { for (const id of ['msheet', 'hsheet', 'jsheet', 'usheet']) { const e = $(id); if (e) e.hidden = true; } }
+/* 강화 lives in its own sheet now, opened from the button left of 신화 */
+function openUps() { closeSide(); closeRecipes(); closeChal(); el.gsheet.hidden = true; $('usheet').hidden = false; refreshUps(); sfx('click'); }
+$('upBtn').addEventListener('click', () => { if ($('usheet').hidden) openUps(); else closeSide(); });
+$('uClose').addEventListener('click', closeSide);
+$('missBtn').addEventListener('click', () => { if (msheet.hidden) openMiss(); else closeMiss(); });
+$('helpBtn').addEventListener('click', () => { if (hsheet.hidden) openHelp(); else closeHelp(); });
+function openMiss() { closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = false; R.missNew = false; renderMissSheet(true); sfx('click'); }
 function closeMiss() { msheet.hidden = true; }
 $('mClose').addEventListener('click', closeMiss);
 const HELP = [
@@ -1020,13 +1024,18 @@ function openHelp() {
   const sea = seasonOf(), S = STAGES[G.stage || 0];
   hlist.innerHTML = (S.rule ? `<div class="hduo"><b>${esc(S.name)}</b>${esc(S.rule)}</div>` : '') + (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 도깨비는 각자 바깥 모서리에서 나와 옆길을 타고 가운데 길로 들어와요. 가운데 길은 둘이 같이 쓰는 곳이라 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
     HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
-    `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
+    `<details><summary>화면 읽기</summary><ul><li>왼쪽 위 동그라미는 지금 마당이고, 테두리가 줄어드는 게 남은 시간이에요. 누르면 고을, 절기, 다음 보스가 나와요</li><li>그 옆 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>강화는 아래 강화 단추를 눌러 창을 열어서 해요</li><li>칸을 누르면 아래에 그 동료가 나오고, 이름을 누르면 자세한 설명이 열려요</li><li>아래 작은 단추는 차례로 임무 장부, 도움말, 화려한 효과 켜고 끄기, 도감이에요</li><li>피해 숫자나 안내 글씨를 보고 싶으면 설정에서 맵 위 글자를 켜요</li></ul></details>`;
   hsheet.hidden = false; sfx('click');
 }
 function closeHelp() { hsheet.hidden = true; }
 $('hClose').addEventListener('click', closeHelp);
-/* tap the line under the 도깨비 bar to see what this 절기 does */
-$('bossRow').addEventListener('click', () => { const s = seasonOf(); if (s && G.phase === 'play' && !G.boss) toast(`${s.name} · ${s.line} · ${s.desc}`); });
+/* the round badge holds what the old line under the bar said: the 고을, its 절기 and the next boss, one tap away */
+$('wbadge').addEventListener('click', () => {
+  if (G.phase !== 'play') return;
+  const S = STAGES[G.stage], s = seasonOf(), nb = Math.min(LAST_WAVE, Math.max(10, Math.ceil((Math.max(1, G.wave) + 1) / 10) * 10)), B = bossAt(nb);
+  const boss = G.boss && !G.boss.dead ? `${G.boss.name} ${Math.max(0, Math.ceil(G.waveT))}초 남음` : B && G.wave <= nb ? `다음 보스 ${nb}마당 ${B.name}` : '';
+  toast([`${S.name} ${Math.max(1, G.wave)}마당`, s ? `${s.name} · ${s.desc}` : '', boss].filter(Boolean).join(' · '));
+});
 el.info.addEventListener('click', e => {
   if (e.target.closest('[data-tip]')) return;
   const b = e.target.closest('[data-open]'); if (!b) return;
@@ -1042,9 +1051,13 @@ function uiTick(dt) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) el.toast.classList.remove('is-on'); }
   vig = Math.max(0, vig - dt * 1.2);
   if (G.phase !== 'play') { el.vignette.style.opacity = vig.toFixed(2); return; }
-  setText(el.wave, 'wave', `제 ${Math.max(1, G.wave)} 마당`);
-  setText(el.timer, 'timer', `${Math.max(0, Math.ceil(G.waveT))}초`);
-  setClass(el.timer, 't', 'is-boss', !!G.boss);
+  setText(el.wave, 'wave', String(Math.max(1, G.wave)));
+  {
+    const full = G.boss ? (G.bossTimeMax || BOSS_TIME) : WAVE_TIME, k = clamp(G.waveT / full, 0, 1), off = (106.8 * (1 - k)).toFixed(1);
+    if (cache.wr !== off) { cache.wr = off; $('wring').style.strokeDashoffset = off; }
+    setClass($('wbadge'), 'wb', 'is-boss', !!G.boss);
+    const md = $('missDot'); if (md.hidden === !!R.missNew) md.hidden = !R.missNew;
+  }
   const cT = Math.floor(G.coins);
   if (cache.coinShow == null || cT < cache.coinShow) cache.coinShow = cT; else if (cT > cache.coinShow) cache.coinShow = Math.min(cT, cache.coinShow + Math.max(1, Math.ceil((cT - cache.coinShow) * Math.min(1, dt * 7))));
   setText(el.coins, 'coins', fmtC(cache.coinShow));
@@ -1060,7 +1073,7 @@ function uiTick(dt) {
   if (cache.gw !== w) { cache.gw = w; el.gaugeFill.style.width = w; el.gauge.setAttribute('aria-valuenow', String(n)); }
   setClass(el.gaugeFill, 'g', 'is-warn', p >= 0.5 && p < 0.8);
   setClass(el.gaugeFill, 'g', 'is-danger', p >= 0.8);
-  setText(el.gaugeText, 'gt', `도깨비 ${n} / ${BAL.cap}`);
+  setText(el.gaugeText, 'gt', `${n}/${BAL.cap}`);
   if (G.boss && !G.boss.dead) {
     setClass(el.bossRow, 'br', 'is-on', true);
     setText(el.bossName, 'bn', G.boss.name);
@@ -1150,7 +1163,7 @@ function startGame() {
   newGame(lvMulArr(), lvSpdArr(), st, relicBonuses()); cache.save = 0; cache.coinShow = null;
   /* this run's 절기: from the round with a friend, otherwise any of the 24 */
   const sea = applySeason(R.seaPick != null ? R.seaPick : Math.floor(Math.random() * SEASONS.length)); R.seaPick = null;
-  setTimeout(() => { if (G.phase === 'play' && G.wave <= 1) toast(`이번 판은 ${sea.name} · ${sea.line} · ${sea.desc}`); }, 2600);
+  setTimeout(() => { if (G.phase === 'play' && G.wave <= 1) toast(`${sea.name} · ${sea.desc}`); }, 2600);
   cache.infoKey = ''; cache.vo = -1;
   layout(); refreshInfo(); refreshUps();
   musicMode('play');
