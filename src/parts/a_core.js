@@ -39,14 +39,18 @@ for (let i = 0; i < NCELL; i++) {
 }
 const HX = COLS / 2 + 0.72, HY = ROWS / 2 + 0.72, RC = 0.55, LANE = 0.72;
 /* the partner's yard sits above yours, turned half a circle, so its top road and yours are the same road */
-const flipX = x => -x, flipY = y => -2 * HY - y;
+/* the partner's yard is your yard mirrored up over the shared road, so both crowds walk it the same way */
+const flipX = x => x, flipY = y => -2 * HY - y;
 const SEGS = []; let PERIM = 0;
 function segLine(x0, y0, x1, y1) { const len = Math.hypot(x1 - x0, y1 - y0); SEGS.push({ arc: false, x0, y0, x1, y1, len, s: PERIM, dx: (x1 - x0) / len, dy: (y1 - y0) / len }); PERIM += len; }
 function segArc(cx, cy, a0, a1) { const len = Math.abs(a1 - a0) * RC; SEGS.push({ arc: true, cx, cy, a0, a1, len, s: PERIM }); PERIM += len; }
+/* the lap the way 운빨존많겜 runs it: out of the far bottom-left corner, 통로1 up the left side,
+   통로2 the shared road in the middle (the only stretch your partner can reach), 통로3 down the right,
+   통로4 back along the outer edge to where it came out */
+segLine(-HX, HY - RC, -HX, -HY + RC); segArc(-HX + RC, -HY + RC, PI, 1.5 * PI);
 segLine(-HX + RC, -HY, HX - RC, -HY); segArc(HX - RC, -HY + RC, -PI / 2, 0);
 segLine(HX, -HY + RC, HX, HY - RC); segArc(HX - RC, HY - RC, 0, PI / 2);
 segLine(HX - RC, HY, -HX + RC, HY); segArc(-HX + RC, HY - RC, PI / 2, PI);
-segLine(-HX, HY - RC, -HX, -HY + RC); segArc(-HX + RC, -HY + RC, PI, 1.5 * PI);
 const PT = { x: 0, y: 0, dx: 1, dy: 0 };
 function pathAt(d, o = PT) {
   d = ((d % PERIM) + PERIM) % PERIM;

@@ -11,7 +11,7 @@ const BG = typeof document !== 'undefined' ? document.createElement('canvas') : 
 const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const UNIT_H = 1.12, FOE_H = 0.6;
 /* R.flip draws the partner's yard: its own coordinates turned half a circle above yours */
-const wx = x => R.OX + (R.flip ? -x : x) * R.CS, wy = y => R.OY + (R.flip ? -2 * HY - y : y) * R.CS;
+const wx = x => R.OX + x * R.CS, wy = y => R.OY + (R.flip ? -2 * HY - y : y) * R.CS;
 
 /* ---------- sprite atlas ---------- */
 const ART = {}, FOE_ART = [], BOSS_ART = {}, CHAL_ART = {};
@@ -872,7 +872,7 @@ function drawFoe(g, f) {
   if (f.chal) return drawChal(g, f);
   const art = FOE_ART[f.kind]; if (!art) return;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = (f.face || 1) * (R.flip ? -1 : 1), fr = Math.floor(f.wob / PI) & 1;
+  const face = f.face || 1, fr = Math.floor(f.wob / PI) & 1;
   const rise = Math.min(1, f.age / 0.35);
   const ghost = f.kind === 2 || f.kind === 6 || f.kind === 7;
   const hover = ghost ? 0.08 + Math.sin(f.wob * 0.6) * 0.04 : Math.abs(Math.sin(f.wob)) * 0.05;
@@ -910,7 +910,7 @@ const PB = { x: 0, y: 0, dx: 0, dy: 0 };
 function drawBoss(g, f) {
   const CS = R.CS;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = (f.face || 1) * (R.flip ? -1 : 1), x = wx(f.x), y = wy(f.y + 0.08);
+  const face = f.face || 1, x = wx(f.x), y = wy(f.y + 0.08);
   const bob = Math.abs(Math.sin(f.wob * 0.5)) * CS * 0.04;
   if (f.hidden > 0) {
     g.fillStyle = '#7a5a32'; g.strokeStyle = OL; g.lineWidth = 2;
@@ -966,7 +966,7 @@ function drawBoss(g, f) {
 function drawChal(g, f) {
   const CS = R.CS, art = CHAL_ART[f.chal]; if (!art) return;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = (f.face || 1) * (R.flip ? -1 : 1), x = wx(f.x), y = wy(f.y + 0.08), left = f.chalMax ? f.chalT / f.chalMax : 1;
+  const face = f.face || 1, x = wx(f.x), y = wy(f.y + 0.08), left = f.chalMax ? f.chalT / f.chalMax : 1;
   const grow = f.chal === 'eodum' ? 1 + (1 - left) * 0.35 : 1;
   const rise = Math.min(1, f.age / 0.5), bob = Math.abs(Math.sin(f.wob * 0.5)) * CS * 0.04;
   g.fillStyle = 'rgba(40,25,10,.3)'; g.beginPath(); g.ellipse(x, y, CS * 0.42 * grow, CS * 0.12, 0, 0, TAU); g.fill();
@@ -1006,7 +1006,7 @@ function chalPortraitURL(id, css) {
 function drawShot(g, s) {
   const CS = R.CS, x = wx(s.x), y = wy(s.y), gy = wy(s.gy);
   if (!s.straight && !s.boomer) { g.fillStyle = 'rgba(40,25,10,.18)'; g.beginPath(); g.ellipse(x, gy, CS * 0.06, CS * 0.025, 0, 0, TAU); g.fill(); }
-  const ang = R.flip ? Math.atan2(-s.vy, -s.vx) : Math.atan2(s.vy, s.vx), t = R.time;
+  const ang = R.flip ? Math.atan2(-s.vy, s.vx) : Math.atan2(s.vy, s.vx), t = R.time;
   g.save(); g.translate(x, y);
   if (drawShotExtra(g, s, ang, t)) { g.restore(); return; }
   switch (s.kind) {
@@ -1032,7 +1032,7 @@ function drawPortal(g) {
   drawPortalAt(g);
 }
 function drawPortalAt(g) {
-  const p = pathAt(0.05), x = wx(p.x - 0.18), y = wy(p.y), CS = R.CS;
+  const p = pathAt(0.05), x = wx(p.x - p.dx * 0.18), y = wy(p.y - p.dy * 0.18), CS = R.CS;
   g.fillStyle = 'rgba(40,20,70,.55)'; g.beginPath(); g.ellipse(x, y, CS * 0.42, CS * 0.2, 0, 0, TAU); g.fill();
   for (let j = 0; j < 3; j++) { g.strokeStyle = `rgba(${150 - j * 20},${110 + j * 30},255,${0.7 - j * 0.15})`; g.lineWidth = 2.5; g.beginPath(); g.ellipse(x, y, CS * (0.18 + j * 0.09), CS * (0.08 + j * 0.045), 0, R.time * (2 + j) , R.time * (2 + j) + 4); g.stroke(); }
   if (Math.random() < R.dtv * 6) part(p.x - 0.18 + rand(-0.2, 0.2), p.y, 0.05, 0, 0, rand(0.5, 1), '#b48cff', 0.05, 0.9, { g: -0.3, drag: 0.5 });
@@ -1090,8 +1090,8 @@ function drawPartnerSide(g) {
     for (let i = 0; i < NCELL; i++) {
       const u = P.units[i]; if (!u) continue;
       let v = PVIS.get(u.id);
-      if (!v) { v = { id: u.id, ph: rand(0, 10), n: u.n, last: -9, face: cellX(i) < 0 ? 1 : -1, pose: newPose(), poses: [] }; PVIS.set(u.id, v); }
-      if (u.n !== v.n) { v.n = u.n; v.last = R.time; v.lastK = ((u.n || 1) - 1) % (u.c || 1); if (u.dir) v.face = -u.dir; }
+      if (!v) { v = { id: u.id, ph: rand(0, 10), n: u.n, last: -9, face: cellX(i) < 0 ? -1 : 1, pose: newPose(), poses: [] }; PVIS.set(u.id, v); }
+      if (u.n !== v.n) { v.n = u.n; v.last = R.time; v.lastK = ((u.n || 1) - 1) % (u.c || 1); if (u.dir) v.face = u.dir; }
       seen.add(u.id); v.u = u; v.cell = i;
       PLIST.push({ y: cellY(i) + 0.3, k: 0, o: v });
     }

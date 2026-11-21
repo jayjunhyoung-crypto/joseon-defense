@@ -58,6 +58,7 @@ const HINTS = [
   '김선달은 가진 엽전에 이자를 붙여 줘요. 엽전을 조금 모아 두면 더 벌어요',
   '장보고의 무역선은 혼을 실어 와요. 굿을 더 자주 벌일 수 있어요',
   '전설 둘을 모으면 신수를, 신화를 모으면 전래동화를 깨울 수 있어요',
+  '도깨비는 왼쪽 아래 구멍에서 나와 왼쪽 길을 타고 가운데 길로 들어가요. 둘이 같이 때리는 가운데 길에 붙은 맨 윗줄이 제일 바빠요. 기절시키는 동료는 입구 말고 가운데 길 쪽에 두세요',
 ];
 
 /* ---------- info bar ---------- */
@@ -1001,13 +1002,13 @@ const HELP = [
   ['신화', [8, 4, 9, 11, 21, 31, 29, 30]],
   ['굿', [23, 24]],
   ['도전과 출정', [16, 17, 18]],
-  ['자리 잡기', [12, 13, 14, 28, 20]],
+  ['자리 잡기', [32, 12, 13, 14, 28, 20]],
   ['도깨비와 고을', [1, 2, 3, 19, 22]],
 ];
 function openHelp() {
   closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = true;
   const sea = seasonOf();
-  hlist.innerHTML = (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 가운데 길은 둘이 같이 써요. 가운데 길을 지나는 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
+  hlist.innerHTML = (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 도깨비는 각자 바깥 모서리에서 나와 옆길을 타고 가운데 길로 들어와요. 가운데 길은 둘이 같이 쓰는 곳이라 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
     HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
     `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
   hsheet.hidden = false; sfx('click');

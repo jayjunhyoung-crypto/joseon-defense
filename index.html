@@ -878,14 +878,18 @@ for (let i = 0; i < NCELL; i++) {
 }
 const HX = COLS / 2 + 0.72, HY = ROWS / 2 + 0.72, RC = 0.55, LANE = 0.72;
 /* the partner's yard sits above yours, turned half a circle, so its top road and yours are the same road */
-const flipX = x => -x, flipY = y => -2 * HY - y;
+/* the partner's yard is your yard mirrored up over the shared road, so both crowds walk it the same way */
+const flipX = x => x, flipY = y => -2 * HY - y;
 const SEGS = []; let PERIM = 0;
 function segLine(x0, y0, x1, y1) { const len = Math.hypot(x1 - x0, y1 - y0); SEGS.push({ arc: false, x0, y0, x1, y1, len, s: PERIM, dx: (x1 - x0) / len, dy: (y1 - y0) / len }); PERIM += len; }
 function segArc(cx, cy, a0, a1) { const len = Math.abs(a1 - a0) * RC; SEGS.push({ arc: true, cx, cy, a0, a1, len, s: PERIM }); PERIM += len; }
+/* the lap the way 운빨존많겜 runs it: out of the far bottom-left corner, 통로1 up the left side,
+   통로2 the shared road in the middle (the only stretch your partner can reach), 통로3 down the right,
+   통로4 back along the outer edge to where it came out */
+segLine(-HX, HY - RC, -HX, -HY + RC); segArc(-HX + RC, -HY + RC, PI, 1.5 * PI);
 segLine(-HX + RC, -HY, HX - RC, -HY); segArc(HX - RC, -HY + RC, -PI / 2, 0);
 segLine(HX, -HY + RC, HX, HY - RC); segArc(HX - RC, HY - RC, 0, PI / 2);
 segLine(HX - RC, HY, -HX + RC, HY); segArc(-HX + RC, HY - RC, PI / 2, PI);
-segLine(-HX, HY - RC, -HX, -HY + RC); segArc(-HX + RC, -HY + RC, PI, 1.5 * PI);
 const PT = { x: 0, y: 0, dx: 1, dy: 0 };
 function pathAt(d, o = PT) {
   d = ((d % PERIM) + PERIM) % PERIM;
@@ -4541,7 +4545,7 @@ const BG = typeof document !== 'undefined' ? document.createElement('canvas') : 
 const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const UNIT_H = 1.12, FOE_H = 0.6;
 /* R.flip draws the partner's yard: its own coordinates turned half a circle above yours */
-const wx = x => R.OX + (R.flip ? -x : x) * R.CS, wy = y => R.OY + (R.flip ? -2 * HY - y : y) * R.CS;
+const wx = x => R.OX + x * R.CS, wy = y => R.OY + (R.flip ? -2 * HY - y : y) * R.CS;
 
 /* ---------- sprite atlas ---------- */
 const ART = {}, FOE_ART = [], BOSS_ART = {}, CHAL_ART = {};
@@ -5402,7 +5406,7 @@ function drawFoe(g, f) {
   if (f.chal) return drawChal(g, f);
   const art = FOE_ART[f.kind]; if (!art) return;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = (f.face || 1) * (R.flip ? -1 : 1), fr = Math.floor(f.wob / PI) & 1;
+  const face = f.face || 1, fr = Math.floor(f.wob / PI) & 1;
   const rise = Math.min(1, f.age / 0.35);
   const ghost = f.kind === 2 || f.kind === 6 || f.kind === 7;
   const hover = ghost ? 0.08 + Math.sin(f.wob * 0.6) * 0.04 : Math.abs(Math.sin(f.wob)) * 0.05;
@@ -5440,7 +5444,7 @@ const PB = { x: 0, y: 0, dx: 0, dy: 0 };
 function drawBoss(g, f) {
   const CS = R.CS;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = (f.face || 1) * (R.flip ? -1 : 1), x = wx(f.x), y = wy(f.y + 0.08);
+  const face = f.face || 1, x = wx(f.x), y = wy(f.y + 0.08);
   const bob = Math.abs(Math.sin(f.wob * 0.5)) * CS * 0.04;
   if (f.hidden > 0) {
     g.fillStyle = '#7a5a32'; g.strokeStyle = OL; g.lineWidth = 2;
@@ -5496,7 +5500,7 @@ function drawBoss(g, f) {
 function drawChal(g, f) {
   const CS = R.CS, art = CHAL_ART[f.chal]; if (!art) return;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = (f.face || 1) * (R.flip ? -1 : 1), x = wx(f.x), y = wy(f.y + 0.08), left = f.chalMax ? f.chalT / f.chalMax : 1;
+  const face = f.face || 1, x = wx(f.x), y = wy(f.y + 0.08), left = f.chalMax ? f.chalT / f.chalMax : 1;
   const grow = f.chal === 'eodum' ? 1 + (1 - left) * 0.35 : 1;
   const rise = Math.min(1, f.age / 0.5), bob = Math.abs(Math.sin(f.wob * 0.5)) * CS * 0.04;
   g.fillStyle = 'rgba(40,25,10,.3)'; g.beginPath(); g.ellipse(x, y, CS * 0.42 * grow, CS * 0.12, 0, 0, TAU); g.fill();
@@ -5536,7 +5540,7 @@ function chalPortraitURL(id, css) {
 function drawShot(g, s) {
   const CS = R.CS, x = wx(s.x), y = wy(s.y), gy = wy(s.gy);
   if (!s.straight && !s.boomer) { g.fillStyle = 'rgba(40,25,10,.18)'; g.beginPath(); g.ellipse(x, gy, CS * 0.06, CS * 0.025, 0, 0, TAU); g.fill(); }
-  const ang = R.flip ? Math.atan2(-s.vy, -s.vx) : Math.atan2(s.vy, s.vx), t = R.time;
+  const ang = R.flip ? Math.atan2(-s.vy, s.vx) : Math.atan2(s.vy, s.vx), t = R.time;
   g.save(); g.translate(x, y);
   if (drawShotExtra(g, s, ang, t)) { g.restore(); return; }
   switch (s.kind) {
@@ -5562,7 +5566,7 @@ function drawPortal(g) {
   drawPortalAt(g);
 }
 function drawPortalAt(g) {
-  const p = pathAt(0.05), x = wx(p.x - 0.18), y = wy(p.y), CS = R.CS;
+  const p = pathAt(0.05), x = wx(p.x - p.dx * 0.18), y = wy(p.y - p.dy * 0.18), CS = R.CS;
   g.fillStyle = 'rgba(40,20,70,.55)'; g.beginPath(); g.ellipse(x, y, CS * 0.42, CS * 0.2, 0, 0, TAU); g.fill();
   for (let j = 0; j < 3; j++) { g.strokeStyle = `rgba(${150 - j * 20},${110 + j * 30},255,${0.7 - j * 0.15})`; g.lineWidth = 2.5; g.beginPath(); g.ellipse(x, y, CS * (0.18 + j * 0.09), CS * (0.08 + j * 0.045), 0, R.time * (2 + j) , R.time * (2 + j) + 4); g.stroke(); }
   if (Math.random() < R.dtv * 6) part(p.x - 0.18 + rand(-0.2, 0.2), p.y, 0.05, 0, 0, rand(0.5, 1), '#b48cff', 0.05, 0.9, { g: -0.3, drag: 0.5 });
@@ -5620,8 +5624,8 @@ function drawPartnerSide(g) {
     for (let i = 0; i < NCELL; i++) {
       const u = P.units[i]; if (!u) continue;
       let v = PVIS.get(u.id);
-      if (!v) { v = { id: u.id, ph: rand(0, 10), n: u.n, last: -9, face: cellX(i) < 0 ? 1 : -1, pose: newPose(), poses: [] }; PVIS.set(u.id, v); }
-      if (u.n !== v.n) { v.n = u.n; v.last = R.time; v.lastK = ((u.n || 1) - 1) % (u.c || 1); if (u.dir) v.face = -u.dir; }
+      if (!v) { v = { id: u.id, ph: rand(0, 10), n: u.n, last: -9, face: cellX(i) < 0 ? -1 : 1, pose: newPose(), poses: [] }; PVIS.set(u.id, v); }
+      if (u.n !== v.n) { v.n = u.n; v.last = R.time; v.lastK = ((u.n || 1) - 1) % (u.c || 1); if (u.dir) v.face = u.dir; }
       seen.add(u.id); v.u = u; v.cell = i;
       PLIST.push({ y: cellY(i) + 0.3, k: 0, o: v });
     }
@@ -7603,6 +7607,7 @@ const HINTS = [
   '김선달은 가진 엽전에 이자를 붙여 줘요. 엽전을 조금 모아 두면 더 벌어요',
   '장보고의 무역선은 혼을 실어 와요. 굿을 더 자주 벌일 수 있어요',
   '전설 둘을 모으면 신수를, 신화를 모으면 전래동화를 깨울 수 있어요',
+  '도깨비는 왼쪽 아래 구멍에서 나와 왼쪽 길을 타고 가운데 길로 들어가요. 둘이 같이 때리는 가운데 길에 붙은 맨 윗줄이 제일 바빠요. 기절시키는 동료는 입구 말고 가운데 길 쪽에 두세요',
 ];
 
 /* ---------- info bar ---------- */
@@ -8546,13 +8551,13 @@ const HELP = [
   ['신화', [8, 4, 9, 11, 21, 31, 29, 30]],
   ['굿', [23, 24]],
   ['도전과 출정', [16, 17, 18]],
-  ['자리 잡기', [12, 13, 14, 28, 20]],
+  ['자리 잡기', [32, 12, 13, 14, 28, 20]],
   ['도깨비와 고을', [1, 2, 3, 19, 22]],
 ];
 function openHelp() {
   closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = true;
   const sea = seasonOf();
-  hlist.innerHTML = (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 가운데 길은 둘이 같이 써요. 가운데 길을 지나는 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
+  hlist.innerHTML = (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 도깨비는 각자 바깥 모서리에서 나와 옆길을 타고 가운데 길로 들어와요. 가운데 길은 둘이 같이 쓰는 곳이라 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
     HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
     `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
   hsheet.hidden = false; sfx('click');
@@ -9676,7 +9681,7 @@ function joinFromLink() {
 }
 
 /* ---------- 폰 앱: install to the home screen, play offline, keep the screen on ---------- */
-const APP_BUILD = '81377d8978';
+const APP_BUILD = '5489a1a435';
 const APP = (() => {
   const ua = navigator.userAgent || '', mq = q => { try { return matchMedia(q).matches; } catch (err) { return false; } };
   const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
