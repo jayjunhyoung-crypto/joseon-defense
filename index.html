@@ -232,7 +232,7 @@ button:disabled{cursor:default}
 .csect small{font-size:11px;overflow:hidden;text-overflow:ellipsis}
 .recipe.exp{background:linear-gradient(100deg,#2c2436,var(--panel-2) 70%);box-shadow:inset 0 0 0 1px rgba(242,193,74,.35)}
 .recipe.exp.is-run{box-shadow:inset 0 0 0 2px rgba(242,193,74,.7)}
-.recipe .exl{margin:2px 0 0;font-size:12px;line-height:1.4}
+.recipe .exl{margin:2px 0 0;font-size:12px;line-height:1.4;word-break:keep-all}
 .recipe .exr{font-size:12px;color:var(--dan-gold);margin-top:3px}
 .recipe .exs{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--hanji-dim)}
 .recipe .exn{font-size:22px;color:var(--dan-gold);min-width:34px;text-align:center}
@@ -421,6 +421,7 @@ body.in-lobby .hud,body.in-lobby .deck{opacity:0;visibility:hidden;pointer-event
 .relic.is-none .rt p{color:var(--hanji-dim)}
 .relic-svg.is-dim{filter:grayscale(1) brightness(.45)}
 .stg .sr{font-size:10px;color:#9fc7ff}
+.stg .sx{font-size:10px;color:#e8c98a}
 .stg .dotb{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:8px;background:var(--dan-gold);color:#1b1408;font-style:normal;font-size:10px;margin-left:5px;vertical-align:2px;padding-inline:3px}
 .road{background:var(--panel-2);border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:8px}
 .road .qhead .sect{white-space:normal}
@@ -761,7 +762,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 </section>
 <section class="rsheet" id="csheet" hidden>
   <div class="rsheet-in">
-    <div class="rhead"><div class="rh"><h2>도전과 출정</h2><small>귀신을 불러 잡거나 동료를 도깨비굴에 보내요. 실패해도 벌칙은 없어요</small></div><button class="btn-sm" id="cClose" type="button">닫기</button></div>
+    <div class="rhead"><div class="rh"><h2>도전과 출정</h2><small>귀신을 불러 잡거나 동료를 출정 보내요. 실패해도 벌칙은 없어요</small></div><button class="btn-sm" id="cClose" type="button">닫기</button></div>
     <div class="rlist" id="clist"></div>
   </div>
 </section>
@@ -1227,6 +1228,57 @@ const CAVE = [
   { key: 'b_daejeok', name: '굴 깊은 곳 지하국 대적', hp: 1500000, rw: { part: 1, unit: 3, silver: 1000 } },
 ];
 const CAVE_TIME = 30, CAVE_CD = 15, EXP_MAX = 5;
+/* 출정지: 하회마을 has the 도깨비굴. from the second 고을 on, every 고을 sends you somewhere of its own,
+   and each place wants a different kind of companion. same floors, same 30 seconds, different sums */
+const DESTS = {
+  cave: { id: 'cave', place: '도깨비굴', u: '층', label: n => `굴 ${n}층`, why: '대장 하나와 싸워요. 보스에게 센 동료가 유리해요', mouth: ['#6d6474', '#15111c'], hpMul: 1, floors: CAVE },
+  market: { id: 'market', place: '장터 뒷골목', u: '판', label: n => `장터 ${n}판`, why: '떼로 몰려오는 소매치기예요. 여럿을 한꺼번에 치는 동료가 몇 배로 쳐요', mouth: ['#9a6a3a', '#3a2414'], hpMul: 1.9,
+    floors: [
+      { key: 'f4', name: '야광귀 패거리', hp: 2000, rw: { coins: 500 } },
+      { key: 'f1', name: '홍도깨비 소매치기 떼', hp: 6000, rw: { coins: 900, luck: 1 } },
+      { key: 'f2', name: '달걀귀신 노름꾼들', hp: 15000, rw: { coins: 1400, hon: 1 } },
+      { key: 'f3', name: '외눈 왈패 무리', hp: 40000, rw: { coins: 2200, silver: 300 } },
+      { key: 'f5', name: '쇠도깨비 장사치들', hp: 100000, rw: { coins: 3500, luck: 1 } },
+      { key: 'f7', name: '망령 장꾼 떼', hp: 250000, rw: { coins: 5000, unit: 3 } },
+      { key: 'b_geumdwaeji', name: '금돼지 노름판', hp: 600000, rw: { coins: 8000, silver: 600 } },
+      { key: 'b_gumiho', name: '구미호 투전판', hp: 1500000, rw: { coins: 12000, part: 1, silver: 1000 } },
+    ] },
+  gate: { id: 'gate', place: '산성 성문', u: '차', label: n => `성문 ${n}차`, why: '성문을 미는 무리예요. 묶고 늦추는 동료가 하나 있을 때마다 모두 60%씩 세져요 (셋까지)', mouth: ['#8a8478', '#4a2f1c'], hpMul: 1.6,
+    floors: [
+      { key: 'f0', name: '청도깨비 선봉', hp: 2000, rw: { hon: 2 } },
+      { key: 'f1', name: '홍도깨비 돌격대', hp: 6000, rw: { unit: 2 } },
+      { key: 'f3', name: '외눈 공성대', hp: 15000, rw: { hon: 3, coins: 600 } },
+      { key: 'f5', name: '쇠도깨비 충차', hp: 40000, rw: { unit: 3 } },
+      { key: 'b_beom', name: '장산범 무리', hp: 100000, rw: { hon: 4, silver: 300 } },
+      { key: 'b_bulgasari', name: '성벽 먹는 불가살이', hp: 250000, rw: { unit: 3, hon: 2 } },
+      { key: 'b_daejeok', name: '지하국 대적 군세', hp: 600000, rw: { part: 1, hon: 4 } },
+      { key: 'b_heukryong', name: '흑룡 먹구름', hp: 1500000, rw: { unit: 3, part: 1, silver: 1000 } },
+    ] },
+  sea: { id: 'sea', place: '앞바다', u: '척', label: n => `${n}번째 배`, why: '먼바다의 배를 쳐요. 사거리가 긴 동료일수록 세고, 짧으면 거의 못 닿아요', mouth: ['#3f78c8', '#0f2340'], hpMul: 1.4,
+    floors: [
+      { key: 'f6', name: '물귀신 쪽배', hp: 2000, rw: { coins: 300, silver: 100 } },
+      { key: 'f0', name: '청도깨비 돛배', hp: 6000, rw: { silver: 200, hon: 1 } },
+      { key: 'f3', name: '외눈 해적선', hp: 15000, rw: { part: 1 } },
+      { key: 'f5', name: '쇠도깨비 철갑선', hp: 40000, rw: { silver: 400, coins: 1500 } },
+      { key: 'b_imugi', name: '이무기 물길', hp: 100000, rw: { part: 1, hon: 2 } },
+      { key: 'f7', name: '망령 유령선', hp: 250000, rw: { silver: 700, unit: 3 } },
+      { key: 'b_heukryong', name: '흑룡 폭풍', hp: 600000, rw: { part: 1, silver: 800 } },
+      { key: 'b_daejeok', name: '대적 선단', hp: 1500000, rw: { part: 1, unit: 3, silver: 1200 } },
+    ] },
+  hell: { id: 'hell', place: '저승 시왕전', u: '관', label: n => `저승 ${n}관`, why: '시왕이 무리를 심판해요. 패거리와 등급이 여러 가지 섞일수록 세져요', mouth: ['#7a2a3a', '#1a0610'], hpMul: 1.5,
+    floors: [
+      { key: 'f7', name: '진광대왕', hp: 2000, rw: { hon: 2 } },
+      { key: 'f6', name: '초강대왕', hp: 6000, rw: { hon: 2, coins: 800 } },
+      { key: 'f2', name: '송제대왕', hp: 15000, rw: { unit: 2, hon: 2 } },
+      { key: 'f5', name: '오관대왕', hp: 40000, rw: { silver: 400, hon: 3 } },
+      { key: 'b_yeomra', name: '염라대왕', hp: 100000, rw: { part: 1, hon: 3 } },
+      { key: 'c_yacha', name: '변성대왕', hp: 250000, rw: { unit: 3, hon: 4 } },
+      { key: 'b_heukryong', name: '태산대왕', hp: 600000, rw: { part: 1, silver: 800 } },
+      { key: 'b_daejeok', name: '평등대왕', hp: 1500000, rw: { unit: 3, part: 1, hon: 6 } },
+    ] },
+};
+const STAGE_DEST = ['cave', 'market', 'gate', 'sea', 'hell'];
+const destOf = st => DESTS[STAGE_DEST[st != null ? st : (G && G.stage) || 0] || 'cave'];
 const BAL = {
   hpBase: 40, hpGrowth: 1.205, hpGrowth2: 1.10, bossMul: { 10: 16, 20: 18, 30: 13, 40: 7, 50: 7, 60: 6.5, 70: 6, 80: 5.5 },
   startCoins: 400, summonBase: 100, summonStep: 20, coinsDiv: 8, coinsPer: 1, coinUnit: 10,
@@ -1393,7 +1445,7 @@ const MISSIONS = [
   { id: 'kill2000', g: 'fight', text: '도깨비 2,000마리 잡기', cur: () => G.stats.kills, goal: 2000, b: [0, 0, 0, 0, 0.05] },
   { id: 'boss3', g: 'fight', text: '보스 셋 잡기', cur: () => G.stats.bossKills, goal: 3, hon: 5 },
   { id: 'chal3', g: 'fight', text: '도전 귀신 셋 잡기', cur: () => G.stats.chalWins, goal: 3, coins: 1000 },
-  { id: 'cave3', g: 'fight', text: '도깨비굴 3층 깨기', cur: () => (G.exp ? G.exp.wins : 0), goal: 3, hon: 3 },
+  { id: 'cave3', g: 'fight', text: '출정 세 번 이기기', cur: () => (G.exp ? G.exp.wins : 0), goal: 3, hon: 3 },
   { id: 'help50', g: 'duo', duo: true, text: '가운데 길에서 동료 쪽 도깨비 50마리 잡아 주기', cur: () => G.stats.assists || 0, goal: 50, coins: 500 },
   { id: 'gift', g: 'duo', duo: true, text: '동료에게 엽전 보내기', cur: () => G.stats.gifts || 0, goal: 1, hon: 2 },
   { id: 'joint', g: 'duo', duo: true, text: '합동 굿 벌이기', cur: () => G.stats.joint || 0, goal: 1, coins: 400, hon: 1 },
@@ -1674,9 +1726,34 @@ function callChallenge(i) {
 }
 /* 도깨비굴 출정 */
 function caveFloor() {
-  const n = G.exp.floor, C = CAVE[Math.min(n, CAVE.length) - 1], extra = Math.max(0, n - CAVE.length);
-  /* 1.4: the estimate now counts every arrow and bolt, so the bosses got a little tougher to match */
-  return Object.assign({}, C, { n, hp: C.hp * 1.4 * Math.pow(2.2, extra) * STAGES[G.stage].hp });
+  const D = destOf(), L = D.floors, n = G.exp.floor, C = L[Math.min(n, L.length) - 1], extra = Math.max(0, n - L.length);
+  /* 1.4: the estimate counts every arrow and bolt, so the bosses got a little tougher to match */
+  return Object.assign({}, C, { n, hp: C.hp * 1.4 * D.hpMul * Math.pow(2.2, extra) * STAGES[G.stage].hp });
+}
+/* against a crowd: how many of them one attack catches */
+function crowdHits(T) {
+  switch (T.kind) {
+    case 'double': return 2;
+    case 'bolts': return T.bolts || 1;
+    case 'homing': return T.orbs || 1;
+    case 'clone': return (T.clones || 1) * 1.5;
+    case 'volley': return (T.arrows || 1) * 0.8;
+    case 'chain': case 'pulse': case 'cone': case 'beat': case 'wave': case 'fire': case 'drop': return 3;
+    case 'cannon': return 2.5;
+    case 'beam': case 'boomerang': return 2;
+    case 'whip': case 'curse': return 1.5;
+    default: return 1;
+  }
+}
+/* out at sea only the long arms reach */
+const reachMul = T => (T.range >= 3.8 ? 1.6 : T.range >= 3.2 ? 1 : 0.4);
+const isCtrl = T => !!(T.slow || T.stun || T.role === 'ctrl');
+/* what the place does to the whole party: 산성 wants holders, 저승 wants a mixed crowd */
+function destParty(cells) {
+  const D = destOf(), T = cells.filter(c => G.units[c]).map(c => TYPES[G.units[c].t]);
+  if (D.id === 'gate') { const n = Math.min(3, T.filter(isCtrl).length); return { mul: 1 + 0.6 * n, n }; }
+  if (D.id === 'hell') { const f = new Set(T.map(t => t.fam)).size, g = new Set(T.map(t => Math.min(4, t.tier))).size; return { mul: 1 + 0.3 * Math.max(0, f - 1) + 0.15 * Math.max(0, g - 1), f, g }; }
+  return { mul: 1 };
 }
 /* how many blows one attack lands on a single big cave boss: a fan of arrows only half meets it */
 function hitsOn1(T) {
@@ -1691,8 +1768,14 @@ function hitsOn1(T) {
   }
 }
 function expDps(u) {
-  const T = TYPES[u.t], crit = 1 + Math.min(1, (T.crit || 0.05) + (G.rel ? G.rel.crit || 0 : 0)) * ((T.critMul || 2) - 1);
-  return dmgOf(u.t, -1) * (u.c || 1) * hitsOn1(T) * (T.bossMul || 1) * crit / (T.cd * G.lvSpd[u.t]) * 0.95;
+  const T = TYPES[u.t], D = destOf(), crit = 1 + Math.min(1, (T.crit || 0.05) + (G.rel ? G.rel.crit || 0 : 0)) * ((T.critMul || 2) - 1);
+  const base = dmgOf(u.t, -1) * (u.c || 1) * crit / (T.cd * G.lvSpd[u.t]) * 0.95;
+  switch (D.id) {
+    case 'market': return base * crowdHits(T);
+    case 'sea': return base * hitsOn1(T) * reachMul(T);
+    case 'gate': case 'hell': return base * hitsOn1(T);
+    default: return base * hitsOn1(T) * (T.bossMul || 1);
+  }
 }
 /* buffs travel with the party. 선비 speeds up the others, 무동 and 솟대 add damage, 장승 말뚝이 무당 make the cave boss take more */
 function partyBuffs(cells) {
@@ -1713,7 +1796,7 @@ function partyDps(cells) {
     const bo = (b.bo || 0) - (t.bossAura ? 1 : 0);
     sum += expDps(G.units[c]) * (1 + 0.25 * Math.min(2, sp)) * (1 + 0.2 * Math.min(2, dm) + 0.1 * Math.min(2, so)) * (1 + 0.15 * Math.min(2, Math.max(0, bo)));
   }
-  return sum * (1 + b.mark) * (1 + b.curse);
+  return sum * (1 + b.mark) * (1 + b.curse) * destParty(cells).mul;
 }
 function expReady() { return !G.exp.run && G.exp.cd <= 0; }
 function expTime() { return CAVE_TIME + (G.rel ? G.rel.exp : 0); }
@@ -1753,17 +1836,19 @@ function endExp(win) {
   G.auraDirty = true;
   const got = [];
   if (win) {
-    const F = CAVE[Math.min(r.floor, CAVE.length) - 1], scale = Math.pow(1.5, Math.max(0, r.floor - CAVE.length)), rw = F.rw;
+    const L = destOf().floors, F = L[Math.min(r.floor, L.length) - 1], scale = Math.pow(1.5, Math.max(0, r.floor - L.length)), rw = F.rw;
     if (rw.coins) { const c = Math.round(rw.coins * scale); G.coins += c; got.push(`엽전 +${fmtC(c)}`); }
     if (rw.hon) { G.hon += rw.hon; got.push(`혼 +${rw.hon}`); }
     if (rw.silver) { G.stats.silverBonus += rw.silver; got.push(`은전 +${fmtC(rw.silver)}`); }
     if (rw.unit) { const t = pick(poolOf(rw.unit)); if (addUnit(t) >= 0) got.push(`${TIERS[rw.unit].name} ${TYPES[t].name}`); else { G.coins += 1000; got.push('엽전 +1,000'); } }
     if (rw.part) { const t = nearestMissingPart(); if (t >= 0 && addUnit(t) >= 0) got.push(`신화 재료 ${TYPES[t].name}`); else { G.hon += 3; got.push('혼 +3'); } }
+    if (rw.luck) { if (G.up[LUCK] < LUCK_MAX) { G.up[LUCK]++; got.push('소환 운 +1'); } else { G.coins += 800; got.push('엽전 +800'); } }
     if (r.floor >= 6) { const j = Math.min(10, r.floor - 4); G.stats.jade = (G.stats.jade || 0) + j; got.push(`옥 +${j}`); }
     G.exp.floor++; G.exp.wins++; G.stats.caveTop = Math.max(G.stats.caveTop, r.floor);
   }
   emit({ k: 'expEnd', win, cells: back, floor: r.floor, name: r.name, got });
-  toast(win ? `굴 ${r.floor}층 ${r.name} 격파! ${got.join(' · ')}` : `굴 ${r.floor}층에서 물러났어요. 동료는 무사히 돌아왔어요`);
+  const D = destOf();
+  toast(win ? `${D.label(r.floor)} ${r.name} 격파! ${got.join(' · ')}` : `${D.label(r.floor)}에서 물러났어요. 동료는 무사히 돌아왔어요`);
 }
 function expTick(dt) {
   if (G.exp.cd > 0) G.exp.cd = Math.max(0, G.exp.cd - dt);
@@ -5252,13 +5337,14 @@ function drawExpCell(g, r) {
     g.strokeStyle = 'rgba(242,193,74,.8)'; g.lineWidth = Math.max(1.5, CS * 0.035);
     g.beginPath(); RR(g, cx - s / 2, cy - s / 2, s, s, 0.14 * CS); g.stroke(); g.setLineDash([]);
     const aw = CS * 0.34, ah = CS * 0.38, ay = cy + CS * 0.2;
-    g.fillStyle = '#6d6474'; g.beginPath(); g.moveTo(cx - aw - CS * 0.07, ay); g.ellipse(cx, ay, aw + CS * 0.07, ah + CS * 0.06, 0, PI, TAU); g.closePath(); g.fill();
-    g.fillStyle = '#15111c'; g.beginPath(); g.moveTo(cx - aw, ay); g.ellipse(cx, ay, aw, ah, 0, PI, TAU); g.closePath(); g.fill();
+    const mc = destOf().mouth;
+    g.fillStyle = mc[0]; g.beginPath(); g.moveTo(cx - aw - CS * 0.07, ay); g.ellipse(cx, ay, aw + CS * 0.07, ah + CS * 0.06, 0, PI, TAU); g.closePath(); g.fill();
+    g.fillStyle = mc[1]; g.beginPath(); g.moveTo(cx - aw, ay); g.ellipse(cx, ay, aw, ah, 0, PI, TAU); g.closePath(); g.fill();
     if (Math.sin(R.time * 11 + k * 1.7) > 0.2) { for (let j = 0; j < 3; j++) { const a = R.time * 7 + j * 2.1 + k; g.fillStyle = j % 2 ? 'rgba(255,230,140,.9)' : 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(cx + Math.cos(a) * aw * 0.45, ay - ah * 0.45 + Math.sin(a * 1.3) * ah * 0.25, CS * 0.03, 0, TAU); g.fill(); } }
     const fs = Math.max(9, CS * 0.19);
     g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     if (k === 0) {
-      const lab = `${r.floor}층 ${Math.ceil(r.t)}초`, tw = Math.min(s, g.measureText(lab).width + fs * 0.9);
+      const lab = `${r.floor}${destOf().u} ${Math.ceil(r.t)}초`, tw = Math.min(s, g.measureText(lab).width + fs * 0.9);
       g.fillStyle = 'rgba(22,19,31,.78)'; g.beginPath(); RR(g, cx - tw / 2, cy - s / 2 + CS * 0.04, tw, fs * 1.2, fs * 0.6); g.fill();
       g.fillStyle = '#ffe6a0'; g.fillText(lab, cx, cy - s / 2 + CS * 0.04 + fs * 0.62);
     }
@@ -6286,7 +6372,7 @@ function onEvent(e) {
         for (let i = 0; i < 6; i++) part(p.x + rand(-0.2, 0.2), p.y - 0.3, 0.4, rand(-0.3, 0.3), -rand(1.2, 2.2), 0.2, '#f2c14a', 0.05, 0.6, { g: 0.2, drag: 0.6 });
       }
       const p0 = unitPos(e.cells[0]);
-      fxText(p0.x, p0.y - 1.1, e.cells.length > 1 ? `${e.cells.length}명 출정! 굴 ${e.n}층` : `출정! 굴 ${e.n}층`, 'word', 1.1); sfx('chal'); break;
+      fxText(p0.x, p0.y - 1.1, e.cells.length > 1 ? `${e.cells.length}명 출정! ${destOf().label(e.n)}` : `출정! ${destOf().label(e.n)}`, 'word', 1.1); sfx('chal'); break;
     }
     case 'expEnd': {
       if (!e.cells.length) break;
@@ -6294,11 +6380,11 @@ function onEvent(e) {
       const p = unitPos(e.cells[0]);
       if (e.win) {
         fxFlash(p.x, p.y - 0.5, 1.0, '#ffd36a', 0.5, 0.5);
-        fxText(p.x, p.y - 1.3, `굴 ${e.floor}층 격파!`, 'big', 1.4);
+        fxText(p.x, p.y - 1.3, `${destOf().label(e.floor)} 격파!`, 'big', 1.4);
         e.got.slice(0, 3).forEach((t, k) => fxText(p.x, p.y - 1.75 - k * 0.38, t, 'coin', 1.6 + k * 0.15));
         if (e.got.some(t => t.startsWith('엽전'))) flyCoin(p.x, p.y - 0.6, COIN_EL, 5);
         shake(0.15); sfx('chalWin');
-      } else { fxText(p.x, p.y - 1.1, '굴에서 물러났다…', 'word', 1.2); sfx('gutfail'); }
+      } else { fxText(p.x, p.y - 1.1, `${destOf().place}에서 물러났다…`, 'word', 1.2); sfx('gutfail'); }
       break;
     }
     case 'curse': {
@@ -7011,7 +7097,7 @@ const WEEK_POOL = [
   { id: 'wk5k', text: '도깨비 5,000마리 물리치기', stat: 'kills', goal: 5000, silver: 1500, jade: 20 },
   { id: 'wc8', text: '신화 8번 조합하기', stat: 'crafts', goal: 8, silver: 2000, jade: 30 },
   { id: 'wd15', text: '도전 귀신 15마리 잡기', stat: 'chalWins', goal: 15, silver: 1500, jade: 25 },
-  { id: 'wx10', text: '도깨비굴 10층 깨기 · 여러 판 합쳐서', stat: 'caveWins', goal: 10, silver: 1500, jade: 25 },
+  { id: 'wx10', text: '출정 10번 이기기 · 여러 판 합쳐서', stat: 'caveWins', goal: 10, silver: 1500, jade: 25 },
   { id: 'wg7', text: '일곱 판 놀기', stat: 'games', goal: 7, silver: 1200, jade: 20 },
   { id: 'ww60', text: '한 판에 제 60 마당 넘기기', stat: 'wave', goal: 61, silver: 2500, jade: 40, max: true },
   { id: 'wi3k', text: '경제 신화로 엽전 3,000 벌기', stat: 'income', goal: 3000, silver: 1200, jade: 20 },
@@ -7276,9 +7362,9 @@ const ACHS = [
   { id: 'chalYacha', text: '도전 귀신 야차 잡기', test: s => stat(s, 'chalTop') >= 5, silver: 2000, jade: 20 },
   NUM('chal20', '도전 귀신 20마리 잡기', 'chalWins', 20, 600, 5),
   NUM('chal100', '도전 귀신 100마리 잡기', 'chalWins', 100, 2000, 15),
-  NUM('cave5', '도깨비굴 5층 깨기', 'caveTop', 5, 800, 10),
-  NUM('cave8', '도깨비굴 8층 깨기', 'caveTop', 8, 1500, 20),
-  NUM('cave12', '도깨비굴 12층 깨기', 'caveTop', 12, 3000, 30),
+  NUM('cave5', '출정 5단계 깨기', 'caveTop', 5, 800, 10),
+  NUM('cave8', '출정 8단계 깨기', 'caveTop', 8, 1500, 20),
+  NUM('cave12', '출정 12단계 깨기', 'caveTop', 12, 3000, 30),
   { id: 'lv5', text: '동료 하나를 5레벨까지 키워 각성하기', test: s => Object.values(s.lv).some(l => l >= 5), silver: 500, jade: 5 },
   { id: 'lv5x10', text: '동료 10명을 5레벨 이상으로 키우기', test: s => lvCount(s, 5) >= 10, prog: s => [Math.min(10, lvCount(s, 5)), 10], silver: 2000, jade: 20 },
   { id: 'mythLv5', text: '신화 하나를 5레벨까지 키우기', test: s => lvCount(s, 5, true) >= 1, silver: 1500, jade: 15 },
@@ -7592,7 +7678,7 @@ const HINTS = [
   '선비 둘레 여덟 칸에 공격형 동료를 모으면 더 빨리 때려요',
   '소환 운을 올리면 높은 등급이 더 잘 나와요',
   '도전 버튼으로 귀신을 불러 잡으면 엽전과 혼을 더 받아요. 아래 귀신일수록 세고 보상도 커요',
-  '도전 창에서 동료를 도깨비굴에 출정 보낼 수 있어요. 층을 깰수록 보상이 커져요',
+  '도전 창에서 동료를 출정 보낼 수 있어요. 하회마을은 도깨비굴, 저잣거리부터는 고을마다 출정지와 유리한 동료가 달라요',
   '출정은 여러 칸을 같이 보낼 수 있어요. 숫자를 더해서 100%가 넘으면 이겨요',
   '무당이 부정을 씌우면 물귀신이 다시 일어나지 못하고 이무기도 체력이 안 차요',
   '사물놀이패는 마당의 일반·희귀 동료를, 팔도 의병은 영웅 동료를 세게 해 줘요',
@@ -7625,7 +7711,10 @@ function refreshInfo() {
     if (B.bo) bl.push(`돌하르방 +${15 * Math.min(2, B.bo)}%`);
     if (B.mark) bl.push(`${B.markBy} 받는 피해 +${Math.round(B.mark * 100)}%`);
     if (B.curse) bl.push(`${B.curseBy} 부정 +${Math.round(B.curse * 100)}%`);
-    el.info.innerHTML = `<img alt="" src="${foePortraitURL(F.key, 40)}"><div class="it"><span class="l1"><b>굴 ${F.n}층 ${esc(F.name)}</b></span><small>${verdict}</small><small${bl.length ? ' style="color:#9fe8cf"' : ''}>${bl.length ? '같이 간 버프 ' + bl.join(' · ') : '숫자를 더해서 100%가 넘으면 이겨요'}</small></div><div class="ibtns"><button class="mergebtn" type="button" id="expGoBtn" ${sel.length ? '' : 'disabled'}>출발</button><button class="sell" type="button" id="expCancel">취소</button></div>`;
+    const D = destOf(), P = destParty(sel);
+    if (D.id === 'gate' && sel.length) bl.push(P.n ? `묶는 동료 ${P.n} · 모두 +${Math.round((P.mul - 1) * 100)}%` : '묶는 동료가 없어요');
+    if (D.id === 'hell' && sel.length) bl.push(`패거리 ${P.f}가지 · 등급 ${P.g}가지 · +${Math.round((P.mul - 1) * 100)}%`);
+    el.info.innerHTML = `<img alt="" src="${foePortraitURL(F.key, 40)}"><div class="it"><span class="l1"><b>${D.label(F.n)} ${esc(F.name)}</b></span><small>${verdict}</small><small${bl.length ? ' style="color:#9fe8cf"' : ''}>${bl.length ? '같이 간 버프 ' + bl.join(' · ') : (D.id === 'cave' ? '숫자를 더해서 100%가 넘으면 이겨요' : esc(D.why))}</small></div><div class="ibtns"><button class="mergebtn" type="button" id="expGoBtn" ${sel.length ? '' : 'disabled'}>출발</button><button class="sell" type="button" id="expCancel">취소</button></div>`;
     $('expCancel').addEventListener('click', () => { R.pickExp = false; R.pickSel = []; cache.infoKey = ''; refreshInfo(); });
     $('expGoBtn').addEventListener('click', () => { if (startExp(R.pickSel.slice())) { R.pickExp = false; R.pickSel = []; } cache.infoKey = ''; refreshInfo(); });
     return;
@@ -7745,12 +7834,13 @@ function closeRecipes() { el.rsheet.hidden = true; R.recipeHi = null; }
 $('rClose').addEventListener('click', closeRecipes);
 /* ---------- challenge sheet ---------- */
 function caveRewardText(n) {
-  const F = CAVE[Math.min(n, CAVE.length) - 1], sc = Math.pow(1.5, Math.max(0, n - CAVE.length)), rw = F.rw, o = [];
+  const L = destOf().floors, F = L[Math.min(n, L.length) - 1], sc = Math.pow(1.5, Math.max(0, n - L.length)), rw = F.rw, o = [];
   if (rw.coins) o.push(`엽전 +${fmtC(Math.round(rw.coins * sc))}`);
   if (rw.hon) o.push(`혼 +${rw.hon}`);
   if (rw.silver) o.push(`은전 +${fmtC(rw.silver)}`);
   if (rw.unit) o.push(`${TIERS[rw.unit].name} 동료`);
   if (rw.part) o.push('모자란 신화 재료');
+  if (rw.luck) o.push('소환 운 +1');
   return o.join(' · ');
 }
 function renderChal(force) {
@@ -7763,12 +7853,12 @@ function renderChal(force) {
   let ex;
   if (r) {
     const lead = TYPES[r.units[0].t];
-    ex = `<div class="recipe exp is-run"><img class="mi" alt="" src="${portraitURL(lead.id, 52)}"><div><div class="nm">굴 ${r.floor}층에서 싸우는 중<small>${esc(lead.name)}${r.units.length > 1 ? ` 외 ${r.units.length - 1}명` : ''}</small></div><p class="exl">${esc(r.name)} 남은 체력 ${Math.max(0, Math.ceil(r.hp / r.max * 100))}%</p><div class="pc exs"><div class="bar red" style="width:90px"><i style="width:${Math.max(0, r.hp / r.max * 100).toFixed(1)}%"></i></div>${Math.ceil(r.t)}초 남음</div></div><span class="exn num">${Math.ceil(r.t)}</span></div>`;
+    ex = `<div class="recipe exp is-run"><img class="mi" alt="" src="${portraitURL(lead.id, 52)}"><div><div class="nm">${destOf().label(r.floor)}에서 싸우는 중<small>${esc(lead.name)}${r.units.length > 1 ? ` 외 ${r.units.length - 1}명` : ''}</small></div><p class="exl">${esc(r.name)} 남은 체력 ${Math.max(0, Math.ceil(r.hp / r.max * 100))}%</p><div class="pc exs"><div class="bar red" style="width:90px"><i style="width:${Math.max(0, r.hp / r.max * 100).toFixed(1)}%"></i></div>${Math.ceil(r.t)}초 남음</div></div><span class="exn num">${Math.ceil(r.t)}</span></div>`;
   } else {
     const best = G.units.reduce((m, u, i) => (u ? Math.max(m, expRatio(i)) : m), 0);
     const hint = best >= 1.3 ? '혼자서도 넉넉히 이길 동료가 있어요' : best >= 1 ? '혼자서 빠듯하게 이길 동료가 있어요' : `여러 명을 함께 보내 보세요. 최대 ${EXP_MAX}칸`;
     const status = eready ? hint : `${Math.ceil(G.exp.cd)}초 뒤 다시 보낼 수 있어요`;
-    ex = `<div class="recipe exp"><img class="mi" alt="" src="${foePortraitURL(F.key, 52)}"><div><div class="nm">굴 ${F.n}층 · ${esc(F.name)}<small>체력 ${fmt(F.hp)} · ${CAVE_TIME}초</small></div><p class="exl">동료를 여러 칸 같이 보낼 수 있어요. 싸우는 동안 그 칸들은 비어요</p><div class="pc exr">${caveRewardText(F.n)}</div><div class="pc exs">${status}</div></div><button class="btn-sm${eready ? ' is-go' : ''}" type="button" data-exp="1" ${eready ? '' : 'disabled'}>보내기</button></div>`;
+    ex = `<div class="recipe exp"><img class="mi" alt="" src="${foePortraitURL(F.key, 52)}"><div><div class="nm">${destOf().label(F.n)} · ${esc(F.name)}<small>체력 ${fmt(F.hp)} · ${CAVE_TIME}초</small></div><p class="exl">${esc(destOf().why)}. 싸우는 동안 보낸 칸은 비어요</p><div class="pc exr">${caveRewardText(F.n)}</div><div class="pc exs">${status}</div></div><button class="btn-sm${eready ? ' is-go' : ''}" type="button" data-exp="1" ${eready ? '' : 'disabled'}>보내기</button></div>`;
   }
   const list = CHALS.map((C, i) => {
     const active = G.foes.some(f => f.chal === C.id && !f.dead), cd = G.chalCd[i], ready = !active && cd <= 0;
@@ -7777,7 +7867,7 @@ function renderChal(force) {
     const pct = active ? 0 : Math.round((1 - cd / C.cd) * 100);
     return `<div class="recipe${G.wave < C.rec ? ' is-early' : ''}"><img class="mi" alt="" src="${chalPortraitURL(C.id, 52)}"><div><div class="nm">${esc(C.name)}<small>${C.level} · 체력 ${fmt(C.hp * STAGES[G.stage].hp)} · ${C.time}초</small></div><p style="margin:2px 0 0;font-size:12px;line-height:1.4">${esc(C.desc)}</p><div class="pc" style="font-size:12px;color:var(--dan-gold);margin-top:3px">${rw}</div><div class="pc" style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--hanji-dim)"><div class="bar" style="width:70px"><i style="width:${pct}%"></i></div>${status}</div></div><button class="btn-sm${ready ? ' is-go' : ''}" type="button" data-call="${i}" ${ready ? '' : 'disabled'}>부르기</button></div>`;
   }).join('');
-  el.clist.innerHTML = `<div class="csect">도깨비굴 출정 <small>층마다 대장이 세지고 보상도 커져요</small></div>${ex}<div class="csect">도전 귀신 <small>뒤로 갈수록 세고 보상도 커요</small></div>${list}`;
+  el.clist.innerHTML = `<div class="csect">${destOf().place} 출정 <small>단계마다 세지고 보상도 커져요</small></div>${ex}<div class="csect">도전 귀신 <small>뒤로 갈수록 세고 보상도 커요</small></div>${list}`;
 }
 el.clist.addEventListener('click', e => {
   const b = e.target.closest('[data-call]'); if (b && callChallenge(+b.dataset.call)) { closeChal(); return; }
@@ -8300,7 +8390,7 @@ function stageCardsHTML() {
     const open = stageUnlocked(i), sel = SAVE.stageSel === i, best = SAVE.stageBest[i], clear = SAVE.stageClear[i], rn = roadReady(i);
     const stars = '★'.repeat(i + 1) + '☆'.repeat(STAGES.length - 1 - i);
     const status = !open ? '앞 고을 80 마당을 지키면 열려요' : clear ? '80 마당 지켜냄' : best ? `최고 제 ${Math.min(best, LAST_WAVE)} 마당` : '아직 안 가 봄';
-    return `<button class="stg th-${S.theme}${sel ? ' is-sel' : ''}${open ? '' : ' is-lock'}" type="button" data-stage="${i}" aria-pressed="${sel}"><span class="sn">${esc(S.name)}${rn ? `<i class="dotb">${rn}</i>` : ''}</span><span class="sd">${stars}</span><span class="sb">${status}</span><span class="sr">권장 Lv ${STAGE_REC[i]}+</span></button>`;
+    return `<button class="stg th-${S.theme}${sel ? ' is-sel' : ''}${open ? '' : ' is-lock'}" type="button" data-stage="${i}" aria-pressed="${sel}"><span class="sn">${esc(S.name)}${rn ? `<i class="dotb">${rn}</i>` : ''}</span><span class="sd">${stars}</span><span class="sb">${status}</span><span class="sr">권장 Lv ${STAGE_REC[i]}+</span><span class="sx">출정 · ${destOf(i).place}</span></button>`;
   }).join('');
 }
 function roadHTML(st) {
@@ -9681,7 +9771,7 @@ function joinFromLink() {
 }
 
 /* ---------- 폰 앱: install to the home screen, play offline, keep the screen on ---------- */
-const APP_BUILD = '5489a1a435';
+const APP_BUILD = '20e2ef2622';
 const APP = (() => {
   const ua = navigator.userAgent || '', mq = q => { try { return matchMedia(q).matches; } catch (err) { return false; } };
   const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -9781,7 +9871,7 @@ if ('serviceWorker' in navigator && !window.claude && (location.protocol === 'ht
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 joinFromLink();
-window.__tal = { JOINT, jointPut, COMBOS, SEASONS, seasonOf, storyN, unlockStory, comboTick, netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+window.__tal = { destOf, JOINT, jointPut, COMBOS, SEASONS, seasonOf, storyN, unlockStory, comboTick, netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 
 })();
 </script>

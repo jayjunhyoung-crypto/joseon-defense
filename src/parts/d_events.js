@@ -230,7 +230,7 @@ function onEvent(e) {
         for (let i = 0; i < 6; i++) part(p.x + rand(-0.2, 0.2), p.y - 0.3, 0.4, rand(-0.3, 0.3), -rand(1.2, 2.2), 0.2, '#f2c14a', 0.05, 0.6, { g: 0.2, drag: 0.6 });
       }
       const p0 = unitPos(e.cells[0]);
-      fxText(p0.x, p0.y - 1.1, e.cells.length > 1 ? `${e.cells.length}명 출정! 굴 ${e.n}층` : `출정! 굴 ${e.n}층`, 'word', 1.1); sfx('chal'); break;
+      fxText(p0.x, p0.y - 1.1, e.cells.length > 1 ? `${e.cells.length}명 출정! ${destOf().label(e.n)}` : `출정! ${destOf().label(e.n)}`, 'word', 1.1); sfx('chal'); break;
     }
     case 'expEnd': {
       if (!e.cells.length) break;
@@ -238,11 +238,11 @@ function onEvent(e) {
       const p = unitPos(e.cells[0]);
       if (e.win) {
         fxFlash(p.x, p.y - 0.5, 1.0, '#ffd36a', 0.5, 0.5);
-        fxText(p.x, p.y - 1.3, `굴 ${e.floor}층 격파!`, 'big', 1.4);
+        fxText(p.x, p.y - 1.3, `${destOf().label(e.floor)} 격파!`, 'big', 1.4);
         e.got.slice(0, 3).forEach((t, k) => fxText(p.x, p.y - 1.75 - k * 0.38, t, 'coin', 1.6 + k * 0.15));
         if (e.got.some(t => t.startsWith('엽전'))) flyCoin(p.x, p.y - 0.6, COIN_EL, 5);
         shake(0.15); sfx('chalWin');
-      } else { fxText(p.x, p.y - 1.1, '굴에서 물러났다…', 'word', 1.2); sfx('gutfail'); }
+      } else { fxText(p.x, p.y - 1.1, `${destOf().place}에서 물러났다…`, 'word', 1.2); sfx('gutfail'); }
       break;
     }
     case 'curse': {

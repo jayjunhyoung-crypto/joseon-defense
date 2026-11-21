@@ -43,7 +43,7 @@ const HINTS = [
   '선비 둘레 여덟 칸에 공격형 동료를 모으면 더 빨리 때려요',
   '소환 운을 올리면 높은 등급이 더 잘 나와요',
   '도전 버튼으로 귀신을 불러 잡으면 엽전과 혼을 더 받아요. 아래 귀신일수록 세고 보상도 커요',
-  '도전 창에서 동료를 도깨비굴에 출정 보낼 수 있어요. 층을 깰수록 보상이 커져요',
+  '도전 창에서 동료를 출정 보낼 수 있어요. 하회마을은 도깨비굴, 저잣거리부터는 고을마다 출정지와 유리한 동료가 달라요',
   '출정은 여러 칸을 같이 보낼 수 있어요. 숫자를 더해서 100%가 넘으면 이겨요',
   '무당이 부정을 씌우면 물귀신이 다시 일어나지 못하고 이무기도 체력이 안 차요',
   '사물놀이패는 마당의 일반·희귀 동료를, 팔도 의병은 영웅 동료를 세게 해 줘요',
@@ -76,7 +76,10 @@ function refreshInfo() {
     if (B.bo) bl.push(`돌하르방 +${15 * Math.min(2, B.bo)}%`);
     if (B.mark) bl.push(`${B.markBy} 받는 피해 +${Math.round(B.mark * 100)}%`);
     if (B.curse) bl.push(`${B.curseBy} 부정 +${Math.round(B.curse * 100)}%`);
-    el.info.innerHTML = `<img alt="" src="${foePortraitURL(F.key, 40)}"><div class="it"><span class="l1"><b>굴 ${F.n}층 ${esc(F.name)}</b></span><small>${verdict}</small><small${bl.length ? ' style="color:#9fe8cf"' : ''}>${bl.length ? '같이 간 버프 ' + bl.join(' · ') : '숫자를 더해서 100%가 넘으면 이겨요'}</small></div><div class="ibtns"><button class="mergebtn" type="button" id="expGoBtn" ${sel.length ? '' : 'disabled'}>출발</button><button class="sell" type="button" id="expCancel">취소</button></div>`;
+    const D = destOf(), P = destParty(sel);
+    if (D.id === 'gate' && sel.length) bl.push(P.n ? `묶는 동료 ${P.n} · 모두 +${Math.round((P.mul - 1) * 100)}%` : '묶는 동료가 없어요');
+    if (D.id === 'hell' && sel.length) bl.push(`패거리 ${P.f}가지 · 등급 ${P.g}가지 · +${Math.round((P.mul - 1) * 100)}%`);
+    el.info.innerHTML = `<img alt="" src="${foePortraitURL(F.key, 40)}"><div class="it"><span class="l1"><b>${D.label(F.n)} ${esc(F.name)}</b></span><small>${verdict}</small><small${bl.length ? ' style="color:#9fe8cf"' : ''}>${bl.length ? '같이 간 버프 ' + bl.join(' · ') : (D.id === 'cave' ? '숫자를 더해서 100%가 넘으면 이겨요' : esc(D.why))}</small></div><div class="ibtns"><button class="mergebtn" type="button" id="expGoBtn" ${sel.length ? '' : 'disabled'}>출발</button><button class="sell" type="button" id="expCancel">취소</button></div>`;
     $('expCancel').addEventListener('click', () => { R.pickExp = false; R.pickSel = []; cache.infoKey = ''; refreshInfo(); });
     $('expGoBtn').addEventListener('click', () => { if (startExp(R.pickSel.slice())) { R.pickExp = false; R.pickSel = []; } cache.infoKey = ''; refreshInfo(); });
     return;
@@ -196,12 +199,13 @@ function closeRecipes() { el.rsheet.hidden = true; R.recipeHi = null; }
 $('rClose').addEventListener('click', closeRecipes);
 /* ---------- challenge sheet ---------- */
 function caveRewardText(n) {
-  const F = CAVE[Math.min(n, CAVE.length) - 1], sc = Math.pow(1.5, Math.max(0, n - CAVE.length)), rw = F.rw, o = [];
+  const L = destOf().floors, F = L[Math.min(n, L.length) - 1], sc = Math.pow(1.5, Math.max(0, n - L.length)), rw = F.rw, o = [];
   if (rw.coins) o.push(`엽전 +${fmtC(Math.round(rw.coins * sc))}`);
   if (rw.hon) o.push(`혼 +${rw.hon}`);
   if (rw.silver) o.push(`은전 +${fmtC(rw.silver)}`);
   if (rw.unit) o.push(`${TIERS[rw.unit].name} 동료`);
   if (rw.part) o.push('모자란 신화 재료');
+  if (rw.luck) o.push('소환 운 +1');
   return o.join(' · ');
 }
 function renderChal(force) {
@@ -214,12 +218,12 @@ function renderChal(force) {
   let ex;
   if (r) {
     const lead = TYPES[r.units[0].t];
-    ex = `<div class="recipe exp is-run"><img class="mi" alt="" src="${portraitURL(lead.id, 52)}"><div><div class="nm">굴 ${r.floor}층에서 싸우는 중<small>${esc(lead.name)}${r.units.length > 1 ? ` 외 ${r.units.length - 1}명` : ''}</small></div><p class="exl">${esc(r.name)} 남은 체력 ${Math.max(0, Math.ceil(r.hp / r.max * 100))}%</p><div class="pc exs"><div class="bar red" style="width:90px"><i style="width:${Math.max(0, r.hp / r.max * 100).toFixed(1)}%"></i></div>${Math.ceil(r.t)}초 남음</div></div><span class="exn num">${Math.ceil(r.t)}</span></div>`;
+    ex = `<div class="recipe exp is-run"><img class="mi" alt="" src="${portraitURL(lead.id, 52)}"><div><div class="nm">${destOf().label(r.floor)}에서 싸우는 중<small>${esc(lead.name)}${r.units.length > 1 ? ` 외 ${r.units.length - 1}명` : ''}</small></div><p class="exl">${esc(r.name)} 남은 체력 ${Math.max(0, Math.ceil(r.hp / r.max * 100))}%</p><div class="pc exs"><div class="bar red" style="width:90px"><i style="width:${Math.max(0, r.hp / r.max * 100).toFixed(1)}%"></i></div>${Math.ceil(r.t)}초 남음</div></div><span class="exn num">${Math.ceil(r.t)}</span></div>`;
   } else {
     const best = G.units.reduce((m, u, i) => (u ? Math.max(m, expRatio(i)) : m), 0);
     const hint = best >= 1.3 ? '혼자서도 넉넉히 이길 동료가 있어요' : best >= 1 ? '혼자서 빠듯하게 이길 동료가 있어요' : `여러 명을 함께 보내 보세요. 최대 ${EXP_MAX}칸`;
     const status = eready ? hint : `${Math.ceil(G.exp.cd)}초 뒤 다시 보낼 수 있어요`;
-    ex = `<div class="recipe exp"><img class="mi" alt="" src="${foePortraitURL(F.key, 52)}"><div><div class="nm">굴 ${F.n}층 · ${esc(F.name)}<small>체력 ${fmt(F.hp)} · ${CAVE_TIME}초</small></div><p class="exl">동료를 여러 칸 같이 보낼 수 있어요. 싸우는 동안 그 칸들은 비어요</p><div class="pc exr">${caveRewardText(F.n)}</div><div class="pc exs">${status}</div></div><button class="btn-sm${eready ? ' is-go' : ''}" type="button" data-exp="1" ${eready ? '' : 'disabled'}>보내기</button></div>`;
+    ex = `<div class="recipe exp"><img class="mi" alt="" src="${foePortraitURL(F.key, 52)}"><div><div class="nm">${destOf().label(F.n)} · ${esc(F.name)}<small>체력 ${fmt(F.hp)} · ${CAVE_TIME}초</small></div><p class="exl">${esc(destOf().why)}. 싸우는 동안 보낸 칸은 비어요</p><div class="pc exr">${caveRewardText(F.n)}</div><div class="pc exs">${status}</div></div><button class="btn-sm${eready ? ' is-go' : ''}" type="button" data-exp="1" ${eready ? '' : 'disabled'}>보내기</button></div>`;
   }
   const list = CHALS.map((C, i) => {
     const active = G.foes.some(f => f.chal === C.id && !f.dead), cd = G.chalCd[i], ready = !active && cd <= 0;
@@ -228,7 +232,7 @@ function renderChal(force) {
     const pct = active ? 0 : Math.round((1 - cd / C.cd) * 100);
     return `<div class="recipe${G.wave < C.rec ? ' is-early' : ''}"><img class="mi" alt="" src="${chalPortraitURL(C.id, 52)}"><div><div class="nm">${esc(C.name)}<small>${C.level} · 체력 ${fmt(C.hp * STAGES[G.stage].hp)} · ${C.time}초</small></div><p style="margin:2px 0 0;font-size:12px;line-height:1.4">${esc(C.desc)}</p><div class="pc" style="font-size:12px;color:var(--dan-gold);margin-top:3px">${rw}</div><div class="pc" style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--hanji-dim)"><div class="bar" style="width:70px"><i style="width:${pct}%"></i></div>${status}</div></div><button class="btn-sm${ready ? ' is-go' : ''}" type="button" data-call="${i}" ${ready ? '' : 'disabled'}>부르기</button></div>`;
   }).join('');
-  el.clist.innerHTML = `<div class="csect">도깨비굴 출정 <small>층마다 대장이 세지고 보상도 커져요</small></div>${ex}<div class="csect">도전 귀신 <small>뒤로 갈수록 세고 보상도 커요</small></div>${list}`;
+  el.clist.innerHTML = `<div class="csect">${destOf().place} 출정 <small>단계마다 세지고 보상도 커져요</small></div>${ex}<div class="csect">도전 귀신 <small>뒤로 갈수록 세고 보상도 커요</small></div>${list}`;
 }
 el.clist.addEventListener('click', e => {
   const b = e.target.closest('[data-call]'); if (b && callChallenge(+b.dataset.call)) { closeChal(); return; }
@@ -751,7 +755,7 @@ function stageCardsHTML() {
     const open = stageUnlocked(i), sel = SAVE.stageSel === i, best = SAVE.stageBest[i], clear = SAVE.stageClear[i], rn = roadReady(i);
     const stars = '★'.repeat(i + 1) + '☆'.repeat(STAGES.length - 1 - i);
     const status = !open ? '앞 고을 80 마당을 지키면 열려요' : clear ? '80 마당 지켜냄' : best ? `최고 제 ${Math.min(best, LAST_WAVE)} 마당` : '아직 안 가 봄';
-    return `<button class="stg th-${S.theme}${sel ? ' is-sel' : ''}${open ? '' : ' is-lock'}" type="button" data-stage="${i}" aria-pressed="${sel}"><span class="sn">${esc(S.name)}${rn ? `<i class="dotb">${rn}</i>` : ''}</span><span class="sd">${stars}</span><span class="sb">${status}</span><span class="sr">권장 Lv ${STAGE_REC[i]}+</span></button>`;
+    return `<button class="stg th-${S.theme}${sel ? ' is-sel' : ''}${open ? '' : ' is-lock'}" type="button" data-stage="${i}" aria-pressed="${sel}"><span class="sn">${esc(S.name)}${rn ? `<i class="dotb">${rn}</i>` : ''}</span><span class="sd">${stars}</span><span class="sb">${status}</span><span class="sr">권장 Lv ${STAGE_REC[i]}+</span><span class="sx">출정 · ${destOf(i).place}</span></button>`;
   }).join('');
 }
 function roadHTML(st) {

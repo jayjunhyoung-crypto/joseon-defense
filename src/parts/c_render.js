@@ -718,13 +718,14 @@ function drawExpCell(g, r) {
     g.strokeStyle = 'rgba(242,193,74,.8)'; g.lineWidth = Math.max(1.5, CS * 0.035);
     g.beginPath(); RR(g, cx - s / 2, cy - s / 2, s, s, 0.14 * CS); g.stroke(); g.setLineDash([]);
     const aw = CS * 0.34, ah = CS * 0.38, ay = cy + CS * 0.2;
-    g.fillStyle = '#6d6474'; g.beginPath(); g.moveTo(cx - aw - CS * 0.07, ay); g.ellipse(cx, ay, aw + CS * 0.07, ah + CS * 0.06, 0, PI, TAU); g.closePath(); g.fill();
-    g.fillStyle = '#15111c'; g.beginPath(); g.moveTo(cx - aw, ay); g.ellipse(cx, ay, aw, ah, 0, PI, TAU); g.closePath(); g.fill();
+    const mc = destOf().mouth;
+    g.fillStyle = mc[0]; g.beginPath(); g.moveTo(cx - aw - CS * 0.07, ay); g.ellipse(cx, ay, aw + CS * 0.07, ah + CS * 0.06, 0, PI, TAU); g.closePath(); g.fill();
+    g.fillStyle = mc[1]; g.beginPath(); g.moveTo(cx - aw, ay); g.ellipse(cx, ay, aw, ah, 0, PI, TAU); g.closePath(); g.fill();
     if (Math.sin(R.time * 11 + k * 1.7) > 0.2) { for (let j = 0; j < 3; j++) { const a = R.time * 7 + j * 2.1 + k; g.fillStyle = j % 2 ? 'rgba(255,230,140,.9)' : 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(cx + Math.cos(a) * aw * 0.45, ay - ah * 0.45 + Math.sin(a * 1.3) * ah * 0.25, CS * 0.03, 0, TAU); g.fill(); } }
     const fs = Math.max(9, CS * 0.19);
     g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     if (k === 0) {
-      const lab = `${r.floor}층 ${Math.ceil(r.t)}초`, tw = Math.min(s, g.measureText(lab).width + fs * 0.9);
+      const lab = `${r.floor}${destOf().u} ${Math.ceil(r.t)}초`, tw = Math.min(s, g.measureText(lab).width + fs * 0.9);
       g.fillStyle = 'rgba(22,19,31,.78)'; g.beginPath(); RR(g, cx - tw / 2, cy - s / 2 + CS * 0.04, tw, fs * 1.2, fs * 0.6); g.fill();
       g.fillStyle = '#ffe6a0'; g.fillText(lab, cx, cy - s / 2 + CS * 0.04 + fs * 0.62);
     }

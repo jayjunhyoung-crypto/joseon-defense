@@ -388,6 +388,57 @@ const CAVE = [
   { key: 'b_daejeok', name: '굴 깊은 곳 지하국 대적', hp: 1500000, rw: { part: 1, unit: 3, silver: 1000 } },
 ];
 const CAVE_TIME = 30, CAVE_CD = 15, EXP_MAX = 5;
+/* 출정지: 하회마을 has the 도깨비굴. from the second 고을 on, every 고을 sends you somewhere of its own,
+   and each place wants a different kind of companion. same floors, same 30 seconds, different sums */
+const DESTS = {
+  cave: { id: 'cave', place: '도깨비굴', u: '층', label: n => `굴 ${n}층`, why: '대장 하나와 싸워요. 보스에게 센 동료가 유리해요', mouth: ['#6d6474', '#15111c'], hpMul: 1, floors: CAVE },
+  market: { id: 'market', place: '장터 뒷골목', u: '판', label: n => `장터 ${n}판`, why: '떼로 몰려오는 소매치기예요. 여럿을 한꺼번에 치는 동료가 몇 배로 쳐요', mouth: ['#9a6a3a', '#3a2414'], hpMul: 1.9,
+    floors: [
+      { key: 'f4', name: '야광귀 패거리', hp: 2000, rw: { coins: 500 } },
+      { key: 'f1', name: '홍도깨비 소매치기 떼', hp: 6000, rw: { coins: 900, luck: 1 } },
+      { key: 'f2', name: '달걀귀신 노름꾼들', hp: 15000, rw: { coins: 1400, hon: 1 } },
+      { key: 'f3', name: '외눈 왈패 무리', hp: 40000, rw: { coins: 2200, silver: 300 } },
+      { key: 'f5', name: '쇠도깨비 장사치들', hp: 100000, rw: { coins: 3500, luck: 1 } },
+      { key: 'f7', name: '망령 장꾼 떼', hp: 250000, rw: { coins: 5000, unit: 3 } },
+      { key: 'b_geumdwaeji', name: '금돼지 노름판', hp: 600000, rw: { coins: 8000, silver: 600 } },
+      { key: 'b_gumiho', name: '구미호 투전판', hp: 1500000, rw: { coins: 12000, part: 1, silver: 1000 } },
+    ] },
+  gate: { id: 'gate', place: '산성 성문', u: '차', label: n => `성문 ${n}차`, why: '성문을 미는 무리예요. 묶고 늦추는 동료가 하나 있을 때마다 모두 60%씩 세져요 (셋까지)', mouth: ['#8a8478', '#4a2f1c'], hpMul: 1.6,
+    floors: [
+      { key: 'f0', name: '청도깨비 선봉', hp: 2000, rw: { hon: 2 } },
+      { key: 'f1', name: '홍도깨비 돌격대', hp: 6000, rw: { unit: 2 } },
+      { key: 'f3', name: '외눈 공성대', hp: 15000, rw: { hon: 3, coins: 600 } },
+      { key: 'f5', name: '쇠도깨비 충차', hp: 40000, rw: { unit: 3 } },
+      { key: 'b_beom', name: '장산범 무리', hp: 100000, rw: { hon: 4, silver: 300 } },
+      { key: 'b_bulgasari', name: '성벽 먹는 불가살이', hp: 250000, rw: { unit: 3, hon: 2 } },
+      { key: 'b_daejeok', name: '지하국 대적 군세', hp: 600000, rw: { part: 1, hon: 4 } },
+      { key: 'b_heukryong', name: '흑룡 먹구름', hp: 1500000, rw: { unit: 3, part: 1, silver: 1000 } },
+    ] },
+  sea: { id: 'sea', place: '앞바다', u: '척', label: n => `${n}번째 배`, why: '먼바다의 배를 쳐요. 사거리가 긴 동료일수록 세고, 짧으면 거의 못 닿아요', mouth: ['#3f78c8', '#0f2340'], hpMul: 1.4,
+    floors: [
+      { key: 'f6', name: '물귀신 쪽배', hp: 2000, rw: { coins: 300, silver: 100 } },
+      { key: 'f0', name: '청도깨비 돛배', hp: 6000, rw: { silver: 200, hon: 1 } },
+      { key: 'f3', name: '외눈 해적선', hp: 15000, rw: { part: 1 } },
+      { key: 'f5', name: '쇠도깨비 철갑선', hp: 40000, rw: { silver: 400, coins: 1500 } },
+      { key: 'b_imugi', name: '이무기 물길', hp: 100000, rw: { part: 1, hon: 2 } },
+      { key: 'f7', name: '망령 유령선', hp: 250000, rw: { silver: 700, unit: 3 } },
+      { key: 'b_heukryong', name: '흑룡 폭풍', hp: 600000, rw: { part: 1, silver: 800 } },
+      { key: 'b_daejeok', name: '대적 선단', hp: 1500000, rw: { part: 1, unit: 3, silver: 1200 } },
+    ] },
+  hell: { id: 'hell', place: '저승 시왕전', u: '관', label: n => `저승 ${n}관`, why: '시왕이 무리를 심판해요. 패거리와 등급이 여러 가지 섞일수록 세져요', mouth: ['#7a2a3a', '#1a0610'], hpMul: 1.5,
+    floors: [
+      { key: 'f7', name: '진광대왕', hp: 2000, rw: { hon: 2 } },
+      { key: 'f6', name: '초강대왕', hp: 6000, rw: { hon: 2, coins: 800 } },
+      { key: 'f2', name: '송제대왕', hp: 15000, rw: { unit: 2, hon: 2 } },
+      { key: 'f5', name: '오관대왕', hp: 40000, rw: { silver: 400, hon: 3 } },
+      { key: 'b_yeomra', name: '염라대왕', hp: 100000, rw: { part: 1, hon: 3 } },
+      { key: 'c_yacha', name: '변성대왕', hp: 250000, rw: { unit: 3, hon: 4 } },
+      { key: 'b_heukryong', name: '태산대왕', hp: 600000, rw: { part: 1, silver: 800 } },
+      { key: 'b_daejeok', name: '평등대왕', hp: 1500000, rw: { unit: 3, part: 1, hon: 6 } },
+    ] },
+};
+const STAGE_DEST = ['cave', 'market', 'gate', 'sea', 'hell'];
+const destOf = st => DESTS[STAGE_DEST[st != null ? st : (G && G.stage) || 0] || 'cave'];
 const BAL = {
   hpBase: 40, hpGrowth: 1.205, hpGrowth2: 1.10, bossMul: { 10: 16, 20: 18, 30: 13, 40: 7, 50: 7, 60: 6.5, 70: 6, 80: 5.5 },
   startCoins: 400, summonBase: 100, summonStep: 20, coinsDiv: 8, coinsPer: 1, coinUnit: 10,
@@ -554,7 +605,7 @@ const MISSIONS = [
   { id: 'kill2000', g: 'fight', text: '도깨비 2,000마리 잡기', cur: () => G.stats.kills, goal: 2000, b: [0, 0, 0, 0, 0.05] },
   { id: 'boss3', g: 'fight', text: '보스 셋 잡기', cur: () => G.stats.bossKills, goal: 3, hon: 5 },
   { id: 'chal3', g: 'fight', text: '도전 귀신 셋 잡기', cur: () => G.stats.chalWins, goal: 3, coins: 1000 },
-  { id: 'cave3', g: 'fight', text: '도깨비굴 3층 깨기', cur: () => (G.exp ? G.exp.wins : 0), goal: 3, hon: 3 },
+  { id: 'cave3', g: 'fight', text: '출정 세 번 이기기', cur: () => (G.exp ? G.exp.wins : 0), goal: 3, hon: 3 },
   { id: 'help50', g: 'duo', duo: true, text: '가운데 길에서 동료 쪽 도깨비 50마리 잡아 주기', cur: () => G.stats.assists || 0, goal: 50, coins: 500 },
   { id: 'gift', g: 'duo', duo: true, text: '동료에게 엽전 보내기', cur: () => G.stats.gifts || 0, goal: 1, hon: 2 },
   { id: 'joint', g: 'duo', duo: true, text: '합동 굿 벌이기', cur: () => G.stats.joint || 0, goal: 1, coins: 400, hon: 1 },
@@ -835,9 +886,34 @@ function callChallenge(i) {
 }
 /* 도깨비굴 출정 */
 function caveFloor() {
-  const n = G.exp.floor, C = CAVE[Math.min(n, CAVE.length) - 1], extra = Math.max(0, n - CAVE.length);
-  /* 1.4: the estimate now counts every arrow and bolt, so the bosses got a little tougher to match */
-  return Object.assign({}, C, { n, hp: C.hp * 1.4 * Math.pow(2.2, extra) * STAGES[G.stage].hp });
+  const D = destOf(), L = D.floors, n = G.exp.floor, C = L[Math.min(n, L.length) - 1], extra = Math.max(0, n - L.length);
+  /* 1.4: the estimate counts every arrow and bolt, so the bosses got a little tougher to match */
+  return Object.assign({}, C, { n, hp: C.hp * 1.4 * D.hpMul * Math.pow(2.2, extra) * STAGES[G.stage].hp });
+}
+/* against a crowd: how many of them one attack catches */
+function crowdHits(T) {
+  switch (T.kind) {
+    case 'double': return 2;
+    case 'bolts': return T.bolts || 1;
+    case 'homing': return T.orbs || 1;
+    case 'clone': return (T.clones || 1) * 1.5;
+    case 'volley': return (T.arrows || 1) * 0.8;
+    case 'chain': case 'pulse': case 'cone': case 'beat': case 'wave': case 'fire': case 'drop': return 3;
+    case 'cannon': return 2.5;
+    case 'beam': case 'boomerang': return 2;
+    case 'whip': case 'curse': return 1.5;
+    default: return 1;
+  }
+}
+/* out at sea only the long arms reach */
+const reachMul = T => (T.range >= 3.8 ? 1.6 : T.range >= 3.2 ? 1 : 0.4);
+const isCtrl = T => !!(T.slow || T.stun || T.role === 'ctrl');
+/* what the place does to the whole party: 산성 wants holders, 저승 wants a mixed crowd */
+function destParty(cells) {
+  const D = destOf(), T = cells.filter(c => G.units[c]).map(c => TYPES[G.units[c].t]);
+  if (D.id === 'gate') { const n = Math.min(3, T.filter(isCtrl).length); return { mul: 1 + 0.6 * n, n }; }
+  if (D.id === 'hell') { const f = new Set(T.map(t => t.fam)).size, g = new Set(T.map(t => Math.min(4, t.tier))).size; return { mul: 1 + 0.3 * Math.max(0, f - 1) + 0.15 * Math.max(0, g - 1), f, g }; }
+  return { mul: 1 };
 }
 /* how many blows one attack lands on a single big cave boss: a fan of arrows only half meets it */
 function hitsOn1(T) {
@@ -852,8 +928,14 @@ function hitsOn1(T) {
   }
 }
 function expDps(u) {
-  const T = TYPES[u.t], crit = 1 + Math.min(1, (T.crit || 0.05) + (G.rel ? G.rel.crit || 0 : 0)) * ((T.critMul || 2) - 1);
-  return dmgOf(u.t, -1) * (u.c || 1) * hitsOn1(T) * (T.bossMul || 1) * crit / (T.cd * G.lvSpd[u.t]) * 0.95;
+  const T = TYPES[u.t], D = destOf(), crit = 1 + Math.min(1, (T.crit || 0.05) + (G.rel ? G.rel.crit || 0 : 0)) * ((T.critMul || 2) - 1);
+  const base = dmgOf(u.t, -1) * (u.c || 1) * crit / (T.cd * G.lvSpd[u.t]) * 0.95;
+  switch (D.id) {
+    case 'market': return base * crowdHits(T);
+    case 'sea': return base * hitsOn1(T) * reachMul(T);
+    case 'gate': case 'hell': return base * hitsOn1(T);
+    default: return base * hitsOn1(T) * (T.bossMul || 1);
+  }
 }
 /* buffs travel with the party. 선비 speeds up the others, 무동 and 솟대 add damage, 장승 말뚝이 무당 make the cave boss take more */
 function partyBuffs(cells) {
@@ -874,7 +956,7 @@ function partyDps(cells) {
     const bo = (b.bo || 0) - (t.bossAura ? 1 : 0);
     sum += expDps(G.units[c]) * (1 + 0.25 * Math.min(2, sp)) * (1 + 0.2 * Math.min(2, dm) + 0.1 * Math.min(2, so)) * (1 + 0.15 * Math.min(2, Math.max(0, bo)));
   }
-  return sum * (1 + b.mark) * (1 + b.curse);
+  return sum * (1 + b.mark) * (1 + b.curse) * destParty(cells).mul;
 }
 function expReady() { return !G.exp.run && G.exp.cd <= 0; }
 function expTime() { return CAVE_TIME + (G.rel ? G.rel.exp : 0); }
@@ -914,17 +996,19 @@ function endExp(win) {
   G.auraDirty = true;
   const got = [];
   if (win) {
-    const F = CAVE[Math.min(r.floor, CAVE.length) - 1], scale = Math.pow(1.5, Math.max(0, r.floor - CAVE.length)), rw = F.rw;
+    const L = destOf().floors, F = L[Math.min(r.floor, L.length) - 1], scale = Math.pow(1.5, Math.max(0, r.floor - L.length)), rw = F.rw;
     if (rw.coins) { const c = Math.round(rw.coins * scale); G.coins += c; got.push(`엽전 +${fmtC(c)}`); }
     if (rw.hon) { G.hon += rw.hon; got.push(`혼 +${rw.hon}`); }
     if (rw.silver) { G.stats.silverBonus += rw.silver; got.push(`은전 +${fmtC(rw.silver)}`); }
     if (rw.unit) { const t = pick(poolOf(rw.unit)); if (addUnit(t) >= 0) got.push(`${TIERS[rw.unit].name} ${TYPES[t].name}`); else { G.coins += 1000; got.push('엽전 +1,000'); } }
     if (rw.part) { const t = nearestMissingPart(); if (t >= 0 && addUnit(t) >= 0) got.push(`신화 재료 ${TYPES[t].name}`); else { G.hon += 3; got.push('혼 +3'); } }
+    if (rw.luck) { if (G.up[LUCK] < LUCK_MAX) { G.up[LUCK]++; got.push('소환 운 +1'); } else { G.coins += 800; got.push('엽전 +800'); } }
     if (r.floor >= 6) { const j = Math.min(10, r.floor - 4); G.stats.jade = (G.stats.jade || 0) + j; got.push(`옥 +${j}`); }
     G.exp.floor++; G.exp.wins++; G.stats.caveTop = Math.max(G.stats.caveTop, r.floor);
   }
   emit({ k: 'expEnd', win, cells: back, floor: r.floor, name: r.name, got });
-  toast(win ? `굴 ${r.floor}층 ${r.name} 격파! ${got.join(' · ')}` : `굴 ${r.floor}층에서 물러났어요. 동료는 무사히 돌아왔어요`);
+  const D = destOf();
+  toast(win ? `${D.label(r.floor)} ${r.name} 격파! ${got.join(' · ')}` : `${D.label(r.floor)}에서 물러났어요. 동료는 무사히 돌아왔어요`);
 }
 function expTick(dt) {
   if (G.exp.cd > 0) G.exp.cd = Math.max(0, G.exp.cd - dt);
