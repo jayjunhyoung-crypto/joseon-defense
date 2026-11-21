@@ -1578,3 +1578,103 @@ function endGame(reason) {
   onEnd(reason);
 }
 
+
+/* ================= AI 동료: a second yard the computer plays, sharing each boss with you =================
+   it runs these same rules on its own state. one step swaps G and the per-yard boss counters to the AI's,
+   runs the yard, lets the AI think, then swaps back. you two share boss health the way two friends do:
+   each side's damage on the boss is applied to the other's boss */
+const AI = { on: false, G: null, co: { bossW: 0, bossDmg: 0, pApplied: 0 }, me: { bd: 0, bw: 0, wave: 0, waveT: 0, coins: 0 }, nm: '', out: false, t: 0, gift: 0, giftGot: 0, sent: 0, sentGot: 0, sendT: 0 };
+const AI_NAMES = ['돌쇠', '마당쇠', '꽃분이', '복순이', '칠복이', '삼돌이', '언년이', '막동이'];
+function aiNew(lvMul, lvSpd, stage, rel, nm) {
+  const me = G, keep = { bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied }, fx = FX_ON;
+  FX_ON = false;
+  try { newGame(lvMul, lvSpd, stage, rel); AI.G = G; AI.G.ev.length = 0; } finally { G = me; Object.assign(COOP, keep); FX_ON = fx; }
+  Object.assign(AI, { on: true, out: false, t: 0.5, gift: 0, giftGot: 0, sent: 0, sentGot: 0, sendT: 20, co: { bossW: 0, bossDmg: 0, pApplied: 0 }, nm: nm || pick(AI_NAMES) });
+}
+/* your side, every step: the AI's damage on the boss, and coins it sent you */
+function aiSyncMe() {
+  if (!AI.on || AI.out) return;
+  const b = G.boss;
+  if (b && !b.dead && AI.co.bossW === COOP.bossW && AI.co.bossDmg > COOP.pApplied) {
+    const d = AI.co.bossDmg - COOP.pApplied; COOP.pApplied = AI.co.bossDmg; b.hp -= d;
+    if (b.hp <= 0) { HIT_UID = 0; kill(b); if (G.phase !== 'play') return; }
+  }
+  if (AI.sent > AI.sentGot) { const d = AI.sent - AI.sentGot; AI.sentGot = AI.sent; G.coins += d; emit({ k: 'coin', x: 0, y: -HY - 0.2, v: d, big: true }); toast(`AI ${AI.nm}가 엽전 ${fmtC(d)}을 보냈어요`); }
+}
+/* the AI's side: your damage on its boss, your clock, coins you sent it */
+function aiSyncAi() {
+  const m = AI.me, b = G.boss;
+  if (b && !b.dead && m.bw === COOP.bossW && m.bd > COOP.pApplied) {
+    const d = m.bd - COOP.pApplied; COOP.pApplied = m.bd; b.hp -= d;
+    if (b.hp <= 0) { HIT_UID = 0; kill(b); if (G.phase !== 'play') return; }
+  }
+  if (m.wave === G.wave) { const diff = m.waveT - G.waveT; if (Math.abs(diff) > 0.5 && Math.abs(diff) < 20) G.waveT += diff * 0.25; }
+  if (AI.gift > AI.giftGot) { G.coins += AI.gift - AI.giftGot; AI.giftGot = AI.gift; }
+}
+function aiStep(dt) {
+  if (!AI.on || AI.out || !AI.G || AI.G.phase !== 'play') return;
+  AI.me = { bd: COOP.bossDmg, bw: COOP.bossW, wave: G.wave, waveT: G.waveT, coins: G.coins };
+  const me = G, mine = { bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied, sync: COOP.sync }, t0 = toast, e0 = onEnd, fx = FX_ON;
+  let fell = false;
+  G = AI.G; COOP.bossW = AI.co.bossW; COOP.bossDmg = AI.co.bossDmg; COOP.pApplied = AI.co.pApplied; COOP.sync = aiSyncAi;
+  toast = noop; onEnd = noop; FX_ON = false;
+  try {
+    update(dt);
+    AI.t -= dt;
+    if (AI.t <= 0 && G.phase === 'play') { AI.t = 0.3; aiThink(); }
+    fell = G.phase !== 'play' && G.phase !== 'win';
+  } finally {
+    AI.co = { bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied };
+    G.ev.length = 0;
+    G = me; COOP.bossW = mine.bossW; COOP.bossDmg = mine.bossDmg; COOP.pApplied = mine.pApplied; COOP.sync = mine.sync;
+    toast = t0; onEnd = e0; FX_ON = fx;
+  }
+  if (fell) aiFall();
+}
+/* the AI's yard fell: you go on alone, and bosses go back to one player's health */
+function aiFall() {
+  AI.out = true;
+  if (COOP.on) {
+    if (G.boss && !G.boss.dead) { G.boss.hp /= COOP.hpMul; G.boss.max /= COOP.hpMul; }
+    COOP.on = false;
+  }
+  emit({ k: 'banner', main: '동료가 쓰러졌다', sub: `AI ${AI.nm}의 마당이 무너졌어요. 여기서부터는 혼자 지켜요`, boss: false });
+  toast(`AI ${AI.nm}의 마당이 무너졌어요 · 혼자 계속해요`);
+}
+/* what the AI does a few times a second: make mythics, merge, 굿, summon and 강화, sell spares, call 도전 귀신 */
+function aiThink() {
+  for (const M of MYTHS) if (mythOpen(M.id) && recipeState(M).ready) craft(M.id);
+  const need = new Set();
+  for (const M of MYTHS) { if (!mythOpen(M.id)) continue; const st = recipeState(M); if (st.have >= M.parts.length - 2) M.parts.forEach(p => need.add(p)); }
+  for (let i = 0; i < NCELL; i++) {
+    if (!canMergeAt(i)) continue;
+    const t = G.units[i].t;
+    if (need.has(TYPES[t].id) && !G.units.some((u, j) => j !== i && u && u.t === t)) continue;
+    mergeAt(i);
+  }
+  for (let n = 0; n < 4 && G.hon >= 1 && emptyCells().length; n++) {
+    const k = (G.pity || 0) >= PITY_MAX && G.hon >= 2 ? 2 : G.wave < 6 ? 0 : 1;
+    if (G.hon < GUTS[k].cost) break;
+    gamble(k);
+  }
+  const pw = [0, 0, 0, 0];
+  G.units.forEach((u, i) => { if (u) { const T = TYPES[u.t]; pw[upGroup(T)] += dmgOf(u.t, i) * (u.c || 1) / T.cd; } });
+  let best = 0; for (let g = 1; g < 4; g++) if (pw[g] > pw[best]) best = g;
+  for (let guard = 0; guard < 30; guard++) {
+    const sc = summonCost(), uc = G.up[best] < UP_MAX ? upCost(best) : Infinity;
+    if (G.up[LUCK] < 5 && !luckByHon() && G.wave >= 8 && G.coins >= upCost(LUCK) + sc) { upgrade(LUCK); continue; }
+    if (hasRoom() && G.coins >= sc && (G.coins - sc >= uc * 0.5 || G.up[best] >= G.wave * 0.6)) { if (!summon()) break; continue; }
+    if (G.coins >= uc) { upgrade(best); continue; }
+    if (hasRoom() && G.coins >= sc) { if (!summon()) break; continue; }
+    break;
+  }
+  if (!hasRoom() && G.coins >= summonCost()) {
+    let worst = -1, wv = Infinity;
+    G.units.forEach((u, i) => { if (!u) return; const T = TYPES[u.t]; if (T.tier >= 3 || need.has(T.id)) return; const v = T.tier * 10 + u.c; if (v < wv) { wv = v; worst = i; } });
+    if (worst >= 0) sell(worst);
+  }
+  for (let i = 0; i < CHALS.length; i++) if (chalReady(i) && G.wave >= CHALS[i].rec) callChallenge(i);
+  /* a good teammate: when you are broke and it has plenty, it sends you coins now and then */
+  AI.sendT -= 0.3;
+  if (AI.sendT <= 0 && AI.me.coins < 150 && G.coins > 1500 && G.wave >= 3) { AI.sendT = 30; G.coins -= 200; AI.sent += 200; }
+}

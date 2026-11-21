@@ -156,6 +156,7 @@ function onNet() {
   const p = CO.partner;
   /* the guest starts when the host does */
   if (p && NET.role === 'guest' && p.ph === 'start' && p.rd && p.rd !== CO.rd) coopBegin(p.st, p.rd);
+  if (p && NET.role === 'host' && CO.mmAuto && CO.ph === 'lobby') { CO.mmAuto = false; coopNote(`${pname()}와 짝지었어요! 곧 시작해요`); setTimeout(() => { if (CO.partner && CO.ph === 'lobby') coopStart(); }, 900); }
   if (!el.coopOv.hidden) renderCoop();
 }
 function coopNote(t) { CO.note = t; if (!el.coopOv.hidden) renderCoop(); }
@@ -169,8 +170,10 @@ function coopStart() {
   setTimeout(() => coopBegin(SAVE.stageSel || 0, rd, true), 600);
 }
 function coopBegin(st, rd, host) {
-  CO.rd = rd; CO.st = st; CO.giftSent = 0; CO.giftGot = 0; CO.lost = false; CO.ph = 'play';
-  COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0;
+  el.coopGift.hidden = false;
+  CO.rd = rd; CO.st = st; CO.giftSent = 0; CO.giftGot = 0; CO.lost = false; CO.ph = 'play'; CO.mm = false; CO.mmAuto = false;
+  AI.on = false; R.mode = 'net';
+  COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0; COOP.sync = NET_SYNC;
   el.coopOv.hidden = true; el.endOv.hidden = true;
   R.coopStage = st; startGame(); R.coopStage = null;
   el.coopBox.hidden = false; placeCoopBox(); renderGiftBtn();
@@ -197,12 +200,61 @@ COOP.sync = () => {
   }
   if (p.lost && !CO.lost) { CO.lost = true; endGame('partner'); }
 };
+const NET_SYNC = COOP.sync;
 COOP.onEnd = reason => {
   if (reason !== 'win' && reason !== 'partner') CO.lost = true;
   CO.ph = 'over';
   if (NET.link) NET.link.send(coopSnap());
 };
-function coopLeaveRun() { COOP.on = false; CO.ph = 'lobby'; el.coopBox.hidden = true; }
+function coopLeaveRun() { COOP.on = false; CO.ph = 'lobby'; el.coopBox.hidden = true; if (NET.kind === 'ai') { aiStop(); netClose(); NET.role = ''; } }
+
+/* ---------- AI 동료: the default way to play. the computer keeps its own yard beside yours and shares bosses ---------- */
+function aiStop() { AI.on = false; AI.G = null; COOP.sync = NET_SYNC; }
+function aiLink() {
+  netClose(); mmStop();
+  NET.kind = 'ai'; NET.role = 'host'; NET.code = ''; NET.link = { send: () => {}, close: aiStop };
+  CO.rd = 'ai' + Math.random().toString(36).slice(2, 7); CO.giftSent = 0; CO.giftGot = 0; CO.lost = false; CO.ph = 'play'; CO.mm = false; CO.mmAuto = false;
+}
+function aiShow() {
+  CO.partner = aiSnap(); el.coopGift.hidden = false;
+  el.coopOv.hidden = true; el.endOv.hidden = true;
+  el.coopBox.hidden = false; placeCoopBox(); renderGiftBtn();
+}
+function aiBegin() {
+  aiLink();
+  COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0; COOP.sync = aiSyncMe;
+  R.mode = 'ai'; startGame();
+  aiNew(lvMulArr(), lvSpdArr(), G.stage, relicBonuses());
+  aiShow();
+  toast(`AI ${AI.nm}와 같이 시작! 마당은 각자, 보스는 둘이 같이 잡아요`);
+}
+/* the AI's yard as the partner view expects it */
+function aiSnap() {
+  const A = AI.G; if (!A) return null;
+  const live = A.foes.filter(f => !f.dead);
+  return { v: 1, ai: true, code: '', role: 'guest', nm: `AI ${AI.nm}`, ph: AI.out ? 'out' : 'play', rd: CO.rd, st: A.stage, sp: A.speed, w: A.wave, wt: A.waveT, co: Math.floor(A.coins),
+    u: A.units.map(u => (u ? u.t + (u.c > 1 ? 'x' + u.c : '') : '')).join(','), fn: live.length,
+    f: live.slice(0, 48).map(f => [Math.round(f.x * 10), Math.round(f.y * 10), f.boss ? 9 : f.chal ? 8 : f.kind]),
+    bw: AI.co.bossW, bd: Math.round(AI.co.bossDmg), bh: A.boss && !A.boss.dead ? Math.round(A.boss.hp / A.boss.max * 100) : -1, gs: 0, mo: [], lost: false };
+}
+/* a run with the AI saves both yards, so closing the app and coming back keeps your teammate */
+function aiSave() {
+  if (NET.kind !== 'ai' || !AI.G) return null;
+  const me = G; let st = null;
+  try { G = AI.G; st = AI.out ? null : serialize(); } finally { G = me; }
+  return { st, co: AI.co, nm: AI.nm, out: AI.out || !st, gift: AI.gift, giftGot: AI.giftGot, sent: AI.sent, sentGot: AI.sentGot, coop: { on: COOP.on, bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied } };
+}
+function aiResume(a) {
+  aiLink();
+  const me = G; let ok = false;
+  try { if (a.st && !a.out) ok = restore(a.st); if (ok) { AI.G = G; AI.G.paused = false; AI.G.sel = -1; } } finally { G = me; }
+  Object.assign(AI, { on: true, out: !ok, t: 0.5, sendT: 20, nm: a.nm || pick(AI_NAMES), co: Object.assign({ bossW: 0, bossDmg: 0, pApplied: 0 }, a.co || {}), gift: a.gift || 0, giftGot: a.giftGot || 0, sent: a.sent || 0, sentGot: a.sentGot || 0 });
+  if (!ok) AI.G = null;
+  const c = a.coop || {};
+  COOP.on = !!c.on && ok; COOP.bossW = c.bossW || 0; COOP.bossDmg = c.bossDmg || 0; COOP.pApplied = c.pApplied || 0; COOP.sync = aiSyncMe;
+  R.mode = 'ai';
+  if (AI.G) aiShow(); else { CO.partner = null; el.coopBox.hidden = true; }
+}
 
 /* send loop: often while playing, now and then in the lobby; drop same-browser peers that went quiet */
 setInterval(() => {
@@ -210,7 +262,8 @@ setInterval(() => {
   const now = Date.now();
   if (NET.kind === 'local') { let gone = false; for (const [k, v] of NET.peers) if (now - v.at > 6000) { NET.peers.delete(k); gone = true; } if (gone) onNet(); }
   CO.sendT -= 0.25;
-  if (CO.ph === 'play' || CO.sendT <= 0) { CO.sendT = 1; NET.link.send(coopSnap()); }
+  if (NET.kind === 'ai') { if (AI.G) CO.partner = aiSnap(); el.coopGift.hidden = AI.out || !AI.G; }
+  else if (CO.ph === 'play' || CO.sendT <= 0) { CO.sendT = 1; NET.link.send(coopSnap()); }
   if (CO.ph === 'play' && !el.coopBox.hidden) drawPartner();
 }, 250);
 
@@ -222,7 +275,7 @@ function partnerImg(id) {
 }
 function drawPartner() {
   const pill = CO.compact && !CO.big;
-  const cvs = el.coopCv, d = Math.min(window.devicePixelRatio || 1, 2), W = pill ? 150 : CO.big ? 236 : CO.wideBox ? 168 : 124, H = pill ? 30 : Math.round(W * 1.12);
+  const cvs = el.coopCv, d = Math.min(window.devicePixelRatio || 1, 2), W = pill ? 178 : CO.big ? 236 : CO.wideBox ? 168 : 124, H = pill ? 30 : Math.round(W * 1.12);
   if (cvs.width !== Math.round(W * d) || cvs.height !== Math.round(H * d)) { cvs.width = Math.round(W * d); cvs.height = Math.round(H * d); cvs.style.width = W + 'px'; cvs.style.height = H + 'px'; }
   const g = cvs.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
   g.fillStyle = 'rgba(18,15,28,.86)'; g.beginPath(); RR(g, 0, 0, W, H, 10); g.fill();
@@ -230,14 +283,14 @@ function drawPartner() {
   /* a phone has no room beside the yard: one line with the friend's wave and crowd, tap to see their yard */
   if (pill) {
     g.textBaseline = 'middle'; g.font = '12px "Jua",sans-serif';
-    if (!p || p.ph !== 'play') { g.fillStyle = '#ffe6a0'; g.textAlign = 'left'; g.fillText(p ? `${pname()} · 기다리는 중` : '친구 연결 끊김', 9, H / 2); return; }
+    if (!p || p.ph !== 'play') { g.fillStyle = '#ffe6a0'; g.textAlign = 'left'; g.fillText(p ? `${pname()} · ${p.ph === 'out' ? '쓰러졌어요' : '기다리는 중'}` : '친구 연결 끊김', 9, H / 2); return; }
     g.textAlign = 'left'; g.fillStyle = '#ffe6a0'; g.fillText(`${pname()} · ${p.w}마당`, 9, H / 2 - (p.bh >= 0 ? 2 : 0));
     g.textAlign = 'right'; g.fillStyle = p.fn >= 80 ? '#ff8a6a' : '#cfc6b4'; g.fillText(`${p.fn || 0}/${BAL.cap} ▾`, W - 8, H / 2 - (p.bh >= 0 ? 2 : 0));
     if (p.bh >= 0) { g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(9, H - 6, W - 18, 3); g.fillStyle = '#ef5a3a'; g.fillRect(9, H - 6, (W - 18) * p.bh / 100, 3); }
     return;
   }
   g.fillStyle = '#ffe6a0'; g.font = `${CO.big ? 13 : 11}px "Jua",sans-serif`; g.textBaseline = 'middle'; g.textAlign = 'left';
-  if (!p || p.ph !== 'play') { g.fillText(p ? `${pname()} · 기다리는 중` : '친구 연결 끊김', 8, 10); return; }
+  if (!p || p.ph !== 'play') { g.fillText(p ? `${pname()} · ${p.ph === 'out' ? '쓰러졌어요' : '기다리는 중'}` : '친구 연결 끊김', 8, 10); return; }
   g.fillText(`${pname()} · ${p.w}마당`, 8, 10);
   g.textAlign = 'right'; g.fillStyle = p.fn >= 80 ? '#ff8a6a' : '#cfc6b4'; g.fillText(`${p.fn || 0}/${BAL.cap}`, W - 8, 10);
   const ww = WORLD.x1 - WORLD.x0, wh = WORLD.y1 - WORLD.y0, k = Math.min((W - 8) / ww, (H - top - 4) / wh);
@@ -266,6 +319,120 @@ function renderGiftBtn() {
   el.coopGift.textContent = `엽전 ${COOP_GIFT} 보내기`;
 }
 
+/* ---------- 랜덤 매칭: meet a stranger who picked the same 고을, with no server of our own ----------
+   the public PeerJS server knows which ids are taken, and that is enough for a tiny lobby:
+   a few well known slot ids per 고을 and game version. try to hold a slot; if someone already holds it,
+   they are waiting, so knock. whoever waits makes a room code and hands it to the one who knocked,
+   and from there it is an ordinary room. nobody in time: play with the AI instead */
+const MM = { on: false, t0: 0, st: 0, peer: null, host: null, found: false, tick: 0, timer: 0, hosting: false };
+const MM_SLOTS = 3, MM_WAIT = (window.PEER_OPTS && window.PEER_OPTS.mmWait) || 30000;
+const mmId = (st, k) => `joseon-defense-mm-${APP_BUILD}-${st}-${k}`.toLowerCase();
+const mmSleep = ms => new Promise(r => setTimeout(r, ms));
+/* someone with no name yet shows up as 나그네 and a number, so two strangers are not both just 나그네 */
+const mmNick = () => (CO.nick || '').slice(0, 12) || (MM.anon = MM.anon || `나그네${10 + Math.floor(Math.random() * 90)}`);
+function mmStart() {
+  if (typeof window.Peer !== 'function' || window.claude) { toast('랜덤 매칭은 깃허브 링크에서 할 수 있어요'); return; }
+  if (MM.on) { openCoop(); return; }
+  netClose(); NET.role = ''; aiStop();
+  Object.assign(MM, { on: true, t0: Date.now(), st: SAVE.stageSel || 0, found: false, hosting: false });
+  CO.mm = true; CO.mmAuto = false; CO.note = ''; CO.ph = 'lobby'; CO.rd = '';
+  openCoop();
+  MM.tick = setInterval(() => { if (!el.coopOv.hidden && CO.mm) renderCoop(); }, 1000);
+  MM.timer = setTimeout(mmTimeout, MM_WAIT);
+  mmLoop().catch(() => {});
+}
+function mmStop() {
+  if (!MM.on && !MM.peer && !MM.host) return;
+  MM.on = false; MM.hosting = false; clearInterval(MM.tick); clearTimeout(MM.timer);
+  for (const p of [MM.peer, MM.host]) { try { if (p) p.destroy(); } catch (err) { /* ignore */ } }
+  MM.peer = null; MM.host = null;
+}
+function mmTimeout() {
+  if (!MM.on || MM.found) return;
+  mmStop(); CO.mm = false;
+  toast('같이 할 사람이 아직 없어서 AI 동료랑 시작해요');
+  aiBegin();
+}
+/* a peer on the server: resolves with it once registered, 'taken' when that id is in use, or null */
+function mmPeer(id) {
+  return new Promise(res => {
+    const opts = Object.assign({ debug: 0 }, window.PEER_OPTS || {});
+    let p, done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    try { p = id ? new Peer(id, opts) : new Peer(opts); } catch (err) { fin(null); return; }
+    p.on('open', () => fin(p));
+    p.on('error', e => { if (done) return; try { p.destroy(); } catch (err) { /* ignore */ } fin(e && e.type === 'unavailable-id' ? 'taken' : null); });
+    setTimeout(() => { if (!done) { try { p.destroy(); } catch (err) { /* ignore */ } fin(null); } }, 10000);
+  });
+}
+/* knock on one slot: { code, nm } when someone waiting there takes us, else 'empty' or 'busy' */
+function mmProbe(peer, id) {
+  return new Promise(res => {
+    let done = false, c = null;
+    const fin = v => { if (done) return; done = true; clearTimeout(to); peer.off('error', onErr); try { if (c && typeof v === 'string') c.close(); } catch (err) { /* ignore */ } res(v); };
+    const onErr = e => { if (e && e.type === 'peer-unavailable' && (!e.message || String(e.message).toLowerCase().includes(id))) fin('empty'); };
+    peer.on('error', onErr);
+    const to = setTimeout(() => fin('busy'), 7000);
+    try { c = peer.connect(id, { reliable: true, serialization: 'json' }); } catch (err) { fin('busy'); return; }
+    c.on('data', d => {
+      if (!d || !d.mm) return;
+      if (d.mm === 'hi') c.send({ mm: 'join', nm: mmNick() });
+      else if (d.mm === 'busy') fin('busy');
+      else if (d.mm === 'room' && d.code) fin({ code: String(d.code).toUpperCase(), nm: d.nm || '' });
+    });
+    c.on('close', () => fin('busy'));
+  });
+}
+/* we hold a slot: wait there until someone knocks. resolves 'matched' or 'end' */
+function mmWaitIn(p) {
+  MM.host = p; MM.hosting = true; renderCoop();
+  return new Promise(res => {
+    p.on('connection', c => {
+      c.on('open', () => { try { c.send(MM.found || !MM.on ? { mm: 'busy' } : { mm: 'hi', nm: mmNick() }); } catch (err) { /* ignore */ } });
+      c.on('data', d => {
+        if (!d || d.mm !== 'join') return;
+        if (MM.found || !MM.on) { try { c.send({ mm: 'busy' }); } catch (err) { /* ignore */ } return; }
+        MM.found = true;
+        const code = coopCode();
+        try { c.send({ mm: 'room', code, nm: mmNick() }); } catch (err) { /* ignore */ }
+        setTimeout(() => mmMatched(code, 'host', d.nm), 400);
+        res('matched');
+      });
+    });
+    p.on('disconnected', () => { if (MM.on && !MM.found) { try { p.reconnect(); } catch (err) { /* ignore */ } } });
+    p.on('close', () => res('end'));
+  });
+}
+/* claiming an id answers at once, while asking for a missing one takes the server seconds.
+   so for each slot: try to hold it. held, we wait there. taken, someone waits there: knock */
+async function mmLoop() {
+  while (MM.on && !MM.found) {
+    for (let k = 0; k < MM_SLOTS && MM.on && !MM.found; k++) {
+      const id = mmId(MM.st, k), p = await mmPeer(id);
+      if (!MM.on || MM.found) { try { if (p && p !== 'taken') p.destroy(); } catch (err) { /* ignore */ } return; }
+      if (p && p !== 'taken') { await mmWaitIn(p); return; }
+      if (!p) { mmStop(); CO.mm = false; coopNote('연결 서버에 닿지 못했어요. 와이파이를 바꾸거나 데이터로 다시 해 주세요'); return; }
+      if (!MM.peer) {
+        const me = await mmPeer(null);
+        if (!MM.on || MM.found) { try { if (me && me !== 'taken') me.destroy(); } catch (err) { /* ignore */ } return; }
+        if (!me || me === 'taken') continue;
+        MM.peer = me;
+      }
+      const r = await mmProbe(MM.peer, id);
+      if (!MM.on || MM.found) return;
+      if (r && r.code) { MM.found = true; mmMatched(r.code, 'guest', r.nm); return; }
+    }
+    await mmSleep(1500);
+  }
+}
+/* from here it is an ordinary room; the one who waited starts as soon as the other is in */
+function mmMatched(code, role, nm) {
+  mmStop(); MM.found = true; CO.mm = true;
+  if (!CO.nick) CO.nick = mmNick();
+  CO.mmAuto = role === 'host';
+  coopNote(`${nm || '상대'}를 찾았어요! 연결하는 중…`);
+  coopEnter(code, role);
+}
+
 /* ---------- the room panel in the lobby ---------- */
 function openCoop() { auInit(); el.coopOv.hidden = false; renderCoop(); }
 function closeCoop() { el.coopOv.hidden = true; }
@@ -279,6 +446,17 @@ function renderCoop() {
   /* inside claude.ai the room only reaches people who open this same page with an account; the no-login page is a different place */
   const ghNote = window.claude && (!NET.link || NET.kind === 'room') ? `<p class="meta">친구가 Claude 계정이 없으면 둘 다 <a class="linkbtn" href="${GH}" target="_blank" rel="noopener">로그인 없는 링크</a>로 들어가서 거기서 방을 만들어야 해요. 여기서 만든 방은 그 링크에서 안 보여요</p>` : '';
   let body;
+  if (CO.mm) {
+    const left = MM.on ? Math.max(0, Math.ceil((MM_WAIT - (Date.now() - MM.t0)) / 1000)) : 0;
+    body = MM.found || NET.link
+      ? `<p class="co-who">${p ? `<b>${esc(pname())}</b>와 짝지었어요! 곧 시작해요` : '상대를 찾았어요. 연결하는 중…'}</p><p class="sub">고을 ${esc(S.name)}</p>`
+      : `<p class="co-who"><span class="mm-dot"></span>같은 고을을 고른 사람을 찾는 중… <b class="num">${left}</b>초</p>
+        <p class="sub">고을 ${esc(STAGES[MM.st] ? STAGES[MM.st].name : S.name)} · 마당은 각자 지키고 보스는 둘이 같이 잡아요. 못 찾으면 AI 동료랑 바로 시작해요</p>
+        <button class="btn-sub" id="mmAi" type="button">기다리지 않고 AI 동료와 시작</button>`;
+    el.coopCard.innerHTML = `<h2 class="title" style="font-size:38px">랜덤 매칭</h2>${body}${CO.note ? `<p class="meta co-note">${esc(CO.note)}</p>` : ''}
+      <div class="two"><button class="btn-sub" id="mmCancel" type="button">그만두기</button></div>`;
+    return;
+  }
   if (!NET.link) {
     body = `<p class="sub">각자 자기 마당을 지키고, 보스는 체력 하나를 둘이 같이 깎아요. 엽전도 보내줄 수 있어요. 둘 중 한 명이라도 무너지면 같이 끝나요</p>
       <label class="co-row"><span>내 이름</span><input id="coNick" maxlength="12" placeholder="친구에게 보일 이름" value="${esc(CO.nick)}"></label>
@@ -313,21 +491,24 @@ async function coopEnter(code, role) {
 document.addEventListener('click', e => {
   if (el.coopOv.hidden) return;
   const t = e.target.closest('button'); if (!t) return;
+  if (t.id === 'mmCancel') { mmStop(); CO.mm = false; CO.mmAuto = false; netClose(); NET.role = ''; CO.note = ''; closeCoop(); return; }
+  if (t.id === 'mmAi') { mmStop(); CO.mm = false; aiBegin(); return; }
   if (t.id === 'coMake') coopEnter(coopCode(), 'host');
   else if (t.id === 'coJoin') { const c = ($('coCode').value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (c.length !== 4) { toast('코드 네 글자를 넣어 주세요'); return; } coopEnter(c, 'guest'); }
   else if (t.id === 'coGo') coopStart();
   else if (t.id === 'coInvite') coopInvite();
   else if (t.id === 'coLeave') { netClose(); NET.role = ''; CO.note = ''; renderCoop(); }
-  else if (t.id === 'coClose') closeCoop();
+  else if (t.id === 'coClose') { if (CO.mm && !NET.link) { mmStop(); CO.mm = false; } closeCoop(); }
 });
 el.coopCv.addEventListener('click', () => { CO.big = !CO.big; placeCoopBox(); });
 el.coopGift.addEventListener('click', () => {
   if (!COOP.on || G.phase !== 'play') return;
   if (!CO.partner) { toast('친구와 연결이 끊겼어요'); return; }
   if (G.coins < COOP_GIFT) { toast(`엽전이 ${COOP_GIFT} 있어야 보낼 수 있어요`); return; }
-  G.coins -= COOP_GIFT; CO.giftSent += COOP_GIFT; sfx('coin'); toast(`${pname()}에게 엽전 ${COOP_GIFT}을 보냈어요`);
+  if (NET.kind === 'ai' && (AI.out || !AI.G)) { toast(`${pname()}는 쓰러졌어요`); return; }
+  G.coins -= COOP_GIFT; CO.giftSent += COOP_GIFT; if (NET.kind === 'ai') AI.gift += COOP_GIFT; sfx('coin'); toast(`${pname()}에게 엽전 ${COOP_GIFT}을 보냈어요`);
 });
-window.addEventListener('pagehide', () => netClose());
+window.addEventListener('pagehide', () => { mmStop(); netClose(); });
 
 /* beside the yard when there is room (laptop, tablet on its side), otherwise a one-line strip under the top bar */
 function placeCoopBox() {
@@ -459,5 +640,5 @@ if ('serviceWorker' in navigator && !window.claude && (location.protocol === 'ht
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 joinFromLink();
-window.__tal = { APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+window.__tal = { AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 

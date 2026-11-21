@@ -75,17 +75,21 @@ function think(G, mode, memo) {
   /* 6. 도전 귀신 when the yard is ready for them */
   if (mode === 'pro') for (let i = 0; i < C.CHALS.length; i++) if (C.chalReady(i) && G.wave >= C.CHALS[i].rec) C.callChallenge(i);
 }
+/* pair: you are the 'pro' bot, with the in-game AI teammate beside you sharing bosses */
 function run(mode) {
-  const [mul, spd] = lvArrays();
+  const [mul, spd] = lvArrays(), pair = mode === 'pair';
   C.newGame(mul, spd, stage, null);
+  if (pair) { Object.assign(C.COOP, { on: true, bossW: 0, bossDmg: 0, pApplied: 0, sync: C.aiSyncMe }); C.aiNew(mul, spd, stage, null); }
   const memo = { crafts: [] };
   let t = 0, nt = 0;
   while (C.G.phase === 'play' && t < 4000) {
     C.update(DT); t += DT;
-    if (t >= nt) { nt = t + THINK; think(C.G, mode, memo); }
+    if (pair && C.G.phase === 'play') C.aiStep(DT);
+    if (t >= nt) { nt = t + THINK; think(C.G, pair ? 'pro' : mode, memo); }
   }
-  const G = C.G;
-  return { wave: G.phase === 'win' ? 81 : G.wave, why: G.endReason, crafts: memo.crafts, up: G.up.slice(), myth: G.units.filter(u => u && T(u.t).tier >= 4).map(u => T(u.t).name) };
+  const G = C.G, ai = pair ? { fell: C.AI.out ? C.AI.G.wave : 0 } : null;
+  if (pair) { C.COOP.on = false; C.COOP.sync = null; C.AI.on = false; }
+  return { wave: G.phase === 'win' ? 81 : G.wave, why: G.endReason, crafts: memo.crafts, up: G.up.slice(), myth: G.units.filter(u => u && T(u.t).tier >= 4).map(u => T(u.t).name), ai };
 }
 function dps(G) { let s = 0; G.units.forEach((u, i) => { if (u) { const Ty = T(u.t); s += C.dmgOf(u.t, i) * (u.c || 1) * (Ty.kind === 'double' ? 2 : 1) / Ty.cd; } }); return s; }
 function trace(mode, every = 5) {
@@ -110,10 +114,10 @@ function trace(mode, every = 5) {
 module.exports = { run, trace, think, C };
 if (require.main !== module) return;
 if (process.env.TRACE) { trace(process.env.TRACE, +(process.env.EVERY || 5)); return; }
-for (const mode of ['summon', 'mythic', 'pro']) {
+for (const mode of (process.env.MODES || 'summon,mythic,pro').split(',')) {
   const out = [];
   for (let r = 0; r < runs; r++) out.push(run(mode));
   const ws = out.map(o => o.wave).sort((a, b) => a - b);
-  console.log(`${C.STAGES[stage].name} ${mode.padEnd(6)} Lv${LV}/${MLV} waves ${ws.join(' ')} · median ${ws[Math.floor(ws.length / 2)]}`);
+  console.log(`${C.STAGES[stage].name} ${mode.padEnd(6)} Lv${LV}/${MLV} waves ${ws.join(' ')} · median ${ws[Math.floor(ws.length / 2)]}${mode === 'pair' ? ` · AI 쓰러진 마당 ${out.map(o => o.ai.fell || '-').join(' ')}` : ''}`);
   if (process.env.V) out.forEach(o => console.log('   ', o.wave, o.why, 'up', o.up.join('/'), '|', o.myth.join(','), '|', o.crafts.slice(0, 8).join(' ')));
 }

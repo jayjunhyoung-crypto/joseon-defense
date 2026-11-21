@@ -629,7 +629,11 @@ el.pouchOv.addEventListener('click', e => {
 
 /* ---------- run save / resume (this browser only) ---------- */
 const RUN_KEY = 'talnori-run-v4';
-function saveRun() { if (!G || G.phase !== 'play' || COOP.on) return; try { localStorage.setItem(RUN_KEY, JSON.stringify(serialize())); } catch (err) { /* ignore */ } }
+const netCoop = () => COOP.on && NET.kind !== 'ai';
+function saveRun() {
+  if (!G || G.phase !== 'play' || netCoop()) return;
+  try { const s = serialize(); if (NET.kind === 'ai') s.ai = aiSave(); localStorage.setItem(RUN_KEY, JSON.stringify(s)); } catch (err) { /* ignore */ }
+}
 function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (err) { /* ignore */ } }
 function savedRun() { try { const s = JSON.parse(localStorage.getItem(RUN_KEY) || 'null'); return s && s.v >= 6 && s.v <= 8 && s.phase === 'play' ? s : null; } catch (err) { return null; } }
 function resumeRun() {
@@ -639,11 +643,12 @@ function resumeRun() {
   R.lobby = false; document.body.classList.remove('in-lobby');
   UVIS.clear(); FX.length = 0; PART.length = 0; TEXT.length = 0; FLY.length = 0;
   if (!restore(s)) { clearRun(); goLobby(); return; }
+  if (s.ai) aiResume(s.ai); else R.mode = 'solo';
   G.paused = false; cache.infoKey = ''; cache.vo = -1; cache.coinShow = null;
   R.theme = STAGES[G.stage].theme;
   layout(); refreshInfo(); refreshUps();
   musicMode(G.boss ? 'boss' : 'play');
-  toast(`${STAGES[G.stage].name} 제 ${G.wave} 마당부터 이어서 놀아요`);
+  toast(`${STAGES[G.stage].name} 제 ${G.wave} 마당부터 이어서 놀아요${s.ai && AI.G ? ` · AI ${AI.nm}도 같이` : ''}`);
 }
 
 /* ---------- codex ---------- */
@@ -794,9 +799,10 @@ function renderTab() {
   if (curTab === 'home') {
     const run = savedRun(), S = STAGES[SAVE.stageSel] || STAGES[0];
     const bosses = [10, 40, 80].map(w => `${w} ${BOSS_DEF[S.bosses[w]].name}`).join(' · ');
-    b.innerHTML = (run ? `<div class="homegrid"><button class="btn-main" id="resumeBtn" type="button">이어하기 · ${esc(STAGES[run.stage || 0].name)} ${run.wave}마당</button>${curHTML()}</div><button class="btn-sub" id="startBtn" type="button">새로 시작 · ${esc(S.name)} <small style="font-size:12px;color:var(--hanji-dim)">(하던 판은 사라져요)</small></button>`
-        : `<div class="homegrid"><button class="btn-main" id="startBtn" type="button">놀이 시작 · ${esc(S.name)}</button>${curHTML()}</div>`) + `
-      <button class="btn-sub coopbtn" id="coopBtn" type="button">친구랑 같이 · ${esc(S.name)}${NET.link ? ` <small>방 ${esc(NET.code)}</small>` : ''}</button>
+    b.innerHTML = (run ? `<div class="homegrid"><button class="btn-main" id="resumeBtn" type="button">이어하기 · ${esc(STAGES[run.stage || 0].name)} ${run.wave}마당${run.ai ? '<small class="bsub">AI 동료와 같이</small>' : ''}</button>${curHTML()}</div><button class="btn-sub" id="startBtn" type="button">새로 시작 · AI 동료와 ${esc(S.name)} <small style="font-size:12px;color:var(--hanji-dim)">(하던 판은 사라져요)</small></button>`
+        : `<div class="homegrid"><button class="btn-main" id="startBtn" type="button">놀이 시작<small class="bsub">${esc(S.name)} · AI 동료와 둘이서</small></button>${curHTML()}</div>`) + `
+      <div class="duo"><button class="btn-sub" id="mmBtn" type="button">랜덤 매칭<small>모르는 사람과</small></button><button class="btn-sub" id="coopBtn" type="button">친구랑 같이<small>${NET.link && NET.kind !== 'ai' ? `방 ${esc(NET.code)}` : '코드로 초대'}</small></button></div>
+      <button class="linkbtn solo" id="soloBtn" type="button">혼자 하기</button>
       ${guideHTML()}
       <h3 class="sect" style="--g:#c9a878"><i></i>고을 고르기 <small>80 마당을 지키면 다음 고을</small></h3>
       <div class="stages">${stageCardsHTML()}</div>
@@ -810,8 +816,10 @@ function renderTab() {
       <p class="meta">최고 기록 ${SAVE.stats.best ? (SAVE.stats.best > LAST_WAVE ? '고을 지킴' : `제 ${SAVE.stats.best} 마당`) : '아직 없음'} · ${SAVE.stats.games}판 · 신화 조합 ${SAVE.stats.crafts}번 · 보스 ${SAVE.stats.bossKills || 0}마리</p>
       <p class="meta" id="syncLine">${syncText()}</p>
       <p class="meta">하던 판은 이 브라우저에서만 이어할 수 있어요. Space 소환 · G 굿 · M 신화 · C 도전 · P 멈춤</p>`;
-    $('startBtn').addEventListener('click', startGame);
-    $('coopBtn').addEventListener('click', openCoop);
+    $('startBtn').addEventListener('click', () => aiBegin());
+    $('mmBtn').addEventListener('click', mmStart);
+    $('soloBtn').addEventListener('click', () => { R.mode = 'solo'; startGame(); });
+    $('coopBtn').addEventListener('click', () => { CO.mm = false; openCoop(); });
     if (run) $('resumeBtn').addEventListener('click', resumeRun);
   } else if (curTab === 'shop') {
     const M = ensureMarket();
@@ -924,7 +932,8 @@ el.lobby.addEventListener('click', e => {
 
 /* ---------- end of game ---------- */
 onEnd = reason => {
-  if (COOP.on && COOP.onEnd) COOP.onEnd(reason);
+  AI.on = false;
+  if (netCoop() && COOP.onEnd) COOP.onEnd(reason);
   closeRecipes(); closeChal(); drag = null; clearRun(); R.pickExp = false; R.expInfo = false;
   const r = finishGame(), S = STAGES[G.stage];
   musicMode('off'); sfx(reason === 'win' ? 'win' : 'lose');
@@ -951,7 +960,8 @@ onEnd = reason => {
   setTimeout(() => { el.endOv.hidden = false; $('againBtn').focus(); countUp($('endSilver'), r.silver, 1100); }, reason === 'win' ? 1600 : 800);
 };
 $('againBtn').addEventListener('click', () => {
-  if (COOP.on && NET.link) { el.endOv.hidden = true; goLobby(); if (NET.role === 'host') toast('친구가 준비되면 같이 시작을 눌러요'); else toast('방장이 시작하면 같이 시작해요'); return; }
+  if (R.mode === 'ai') { el.endOv.hidden = true; aiBegin(); return; }
+  if (netCoop() && NET.link) { el.endOv.hidden = true; goLobby(); if (NET.role === 'host') toast('친구가 준비되면 같이 시작을 눌러요'); else toast('방장이 시작하면 같이 시작해요'); return; }
   el.endOv.hidden = true; startGame();
 });
 $('homeBtn').addEventListener('click', () => { el.endOv.hidden = true; goLobby(); setTimeout(() => tweenSilver(true), 250); });
@@ -962,13 +972,15 @@ const missRow = $('missRow');
 function renderMissions() {
   if (!missRow) return;
   const M = G.phase === 'play' && G.miss;
-  if (!M) { if (!missRow.hidden) missRow.hidden = true; return; }
-  if (missRow.hidden) missRow.hidden = false;
+  /* the partner's strip sits under the top bar, so it moves when this row comes or goes */
+  if (!M) { if (!missRow.hidden) { missRow.hidden = true; if (!el.coopBox.hidden) placeCoopBox(); } return; }
+  const shown = missRow.hidden; if (shown) missRow.hidden = false;
   const sig = M.list.map(m => m.id + ':' + missProg(m) + '/' + m.goal).join('|');
-  if (sig === cache.missSig) return;
+  if (sig === cache.missSig && missRow.firstChild) { if (shown && !el.coopBox.hidden) placeCoopBox(); return; }
   const fresh = cache.missSig && cache.missIds && M.list.map((m, k) => cache.missIds[k] !== m.id + m.from);
   cache.missSig = sig; cache.missIds = M.list.map(m => m.id + m.from);
   missRow.innerHTML = M.list.map((m, k) => { const D = missDef(m.id), rw = missReward(m), p = missProg(m); return `<button class="mp${fresh && fresh[k] ? ' is-new' : ''}" type="button" data-mk="${k}" aria-label="임무 ${esc(missText(m))} ${p}/${m.goal}"><b>${esc(D.short)}</b><span class="num">${p}/${m.goal}</span><span class="mr">${rw.coins ? `<i class="coin-ico"></i>${fmtC(rw.coins)}` : ''}${rw.hon ? `<i class="hon-ico"></i>${rw.hon}` : ''}</span><i class="mbar" style="width:${Math.round(p / m.goal * 100)}%"></i></button>`; }).join('');
+  if (shown && !el.coopBox.hidden) placeCoopBox();
 }
 if (missRow) missRow.addEventListener('click', e => { const b = e.target.closest('[data-mk]'); if (!b || !G.miss) return; const m = G.miss.list[+b.dataset.mk]; if (m) toast(`임무 · ${missText(m)} · ${missProg(m)}/${m.goal}`); });
 function uiTick(dt) {
@@ -1078,7 +1090,7 @@ function startGame() {
 }
 function goLobby() {
   saveRun();
-  const wasCoop = COOP.on; if (wasCoop) coopLeaveRun();
+  const wasCoop = COOP.on || NET.kind === 'ai'; if (wasCoop) coopLeaveRun();
   closeRecipes(); closeChal(); el.codexOv.hidden = true;
   R.theme = STAGES[SAVE.stageSel || 0].theme;
   setupTitle();
@@ -1102,7 +1114,7 @@ el.gutBtn.addEventListener('click', () => { auInit(); if (el.gsheet.hidden) open
 el.mythBtn.addEventListener('click', () => { auInit(); if (el.rsheet.hidden) openRecipes(); else closeRecipes(); });
 el.chalBtn.addEventListener('click', () => { auInit(); if (el.csheet.hidden) openChal(); else closeChal(); });
 el.speedBtn.addEventListener('click', () => { if (COOP.on && NET.role === 'guest') { toast('같이 할 땐 속도를 방장이 정해요'); return; } G.speed = G.speed >= 3 ? 1 : G.speed + 1; });
-el.pauseBtn.addEventListener('click', () => { if (COOP.on) { toast('같이 할 땐 멈출 수 없어요'); return; } if (G.phase === 'play') G.paused = !G.paused; });
+el.pauseBtn.addEventListener('click', () => { if (netCoop()) { toast('같이 할 땐 멈출 수 없어요'); return; } if (G.phase === 'play') G.paused = !G.paused; });
 /* ---------- settings: one gear, top right, in the lobby and in a run ---------- */
 const setPanel = $('setPanel'), gearBtn = $('gearBtn');
 R.cutin = true; try { R.cutin = localStorage.getItem('talnori-cutin') !== '0'; } catch (err) { /* ignore */ }
@@ -1213,10 +1225,10 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'g' || e.key === 'G' || e.key === 'ㅎ') { if (el.gsheet.hidden) openGut(); else closeGut(); }
   else if (e.key === 'm' || e.key === 'M' || e.key === 'ㅡ') { if (el.rsheet.hidden) openRecipes(); else closeRecipes(); }
   else if (e.key === 'c' || e.key === 'C' || e.key === 'ㅊ') { if (el.csheet.hidden) openChal(); else closeChal(); }
-  else if ((e.key === 'p' || e.key === 'P' || e.key === 'ㅔ') && !COOP.on) G.paused = !G.paused;
+  else if ((e.key === 'p' || e.key === 'P' || e.key === 'ㅔ') && !netCoop()) G.paused = !G.paused;
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { if (G.phase === 'play' && !COOP.on) { G.paused = true; saveRun(); } if (AU.ctx) AU.ctx.suspend().catch(() => {}); }
+  if (document.hidden) { if (G.phase === 'play' && !netCoop()) { G.paused = true; saveRun(); } if (AU.ctx) AU.ctx.suspend().catch(() => {}); }
   else if (AU.ctx && AU.on) AU.ctx.resume().catch(() => {});
 });
 
@@ -1229,7 +1241,7 @@ function frame(now) {
   R.time += dt;
   if (G.phase === 'play' && !G.paused) {
     let simDt = dt * G.speed * (R.slowmo > 0 ? 0.3 : 1);
-    while (simDt > 1e-6 && G.phase === 'play') { const s = Math.min(simDt, 1 / 60); update(s); simDt -= s; }
+    while (simDt > 1e-6 && G.phase === 'play') { const s = Math.min(simDt, 1 / 60); update(s); if (AI.on && G.phase === 'play') aiStep(s); simDt -= s; }
   } else if (G.phase === 'title') titleTick(dt);
   if (R.slowmo > 0) R.slowmo -= dt;
   if (G.phase === 'win' && Math.random() < dt * 3) { const x = rand(-3, 3), y = rand(-3, 2); burst(x, y, rand(1.5, 2.5), 24, OBANG, 3.5, 0.06, 1.4, { g: 2 }); }
