@@ -523,6 +523,8 @@ function fxSlash(x, y, r, ang, col, life) { FX.push({ k: 'slash', x, y, r, ang, 
 function fxCone(x, y, dx, dy, len, w, col, life) { FX.push({ k: 'cone', x, y, dx, dy, len, w, col, life, t: 0 }); }
 function fxArc(x, y, dx, dy, len, w, col, life) { FX.push({ k: 'arcs', x, y, dx, dy, len, w, col, life, t: 0 }); }
 function fxText(x, y, s, cls, life = 0.9) {
+  /* the yard stays clean: numbers and words only for players who turned them on */
+  if (!R.mapText) return;
   if (TEXT.length > 40) TEXT.shift();
   TEXT.push({ x: x + rand(-0.08, 0.08), y, s, cls, life, t: 0 });
 }
@@ -725,9 +727,10 @@ function drawExpCell(g, r) {
     const fs = Math.max(9, CS * 0.19);
     g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     if (k === 0) {
-      const lab = `${r.floor}${destOf().u} ${Math.ceil(r.t)}초`, tw = Math.min(s, g.measureText(lab).width + fs * 0.9);
-      g.fillStyle = 'rgba(22,19,31,.78)'; g.beginPath(); RR(g, cx - tw / 2, cy - s / 2 + CS * 0.04, tw, fs * 1.2, fs * 0.6); g.fill();
-      g.fillStyle = '#ffe6a0'; g.fillText(lab, cx, cy - s / 2 + CS * 0.04 + fs * 0.62);
+      const tl = Math.max(0, Math.min(1, r.t / (r.tMax || expTime()))), rr = CS * 0.13, ry = cy - s / 2 + CS * 0.17;
+      g.fillStyle = 'rgba(22,19,31,.8)'; g.beginPath(); g.arc(cx, ry, rr, 0, TAU); g.fill();
+      g.strokeStyle = tl > 0.3 ? '#ffd36a' : '#ef5a3a'; g.lineWidth = Math.max(2, CS * 0.04); g.lineCap = 'round';
+      g.beginPath(); g.arc(cx, ry, rr * 0.8, -PI / 2, -PI / 2 + TAU * tl); g.stroke();
     }
     const bw = s * 0.8, bh = Math.max(3, CS * 0.07), bx = cx - bw / 2, by = cy + s / 2 - bh - CS * 0.05;
     g.fillStyle = 'rgba(22,19,31,.8)'; g.beginPath(); RR(g, bx - 1, by - 1, bw + 2, bh + 2, bh); g.fill();
@@ -742,11 +745,11 @@ function drawExpPick(g) {
   const a = 0.55 + 0.45 * Math.sin(R.time * 6);
   for (let i = 0; i < NCELL; i++) {
     const u = G.units[i]; if (!u) continue;
-    const on = sel.includes(i), q = expRatio(i), txt = `${Math.max(1, Math.round(q * 100))}%`;
-    const x = wx(cellX(i)), y = wy(cellY(i) - 0.44), w = Math.max(fs * 2.6, g.measureText(txt).width + fs * 0.9), h = fs * 1.25;
+    const on = sel.includes(i), q = expRatio(i);
+    const x = wx(cellX(i)), y = wy(cellY(i) - 0.44), w = CS * 0.62, h = Math.max(5, CS * 0.09);
     if (on) { g.strokeStyle = done ? `rgba(95,211,154,${0.6 + 0.4 * a})` : `rgba(242,193,74,${0.6 + 0.4 * a})`; g.lineWidth = Math.max(2, CS * 0.05); g.beginPath(); RR(g, wx(cellX(i) - 0.46), wy(cellY(i) - 0.46), 0.92 * CS, 0.92 * CS, 0.14 * CS); g.stroke(); }
-    g.fillStyle = on ? (done ? '#3fae6a' : '#e0a53a') : 'rgba(22,19,31,.78)'; g.beginPath(); RR(g, x - w / 2, y - h / 2, w, h, h / 2); g.fill();
-    g.fillStyle = on ? '#fff' : (q >= 1 ? '#9ff0c0' : '#f6efe0'); g.fillText(txt, x, y + 1);
+    g.fillStyle = 'rgba(22,19,31,.82)'; g.beginPath(); RR(g, x - w / 2 - 2, y - h / 2 - 2, w + 4, h + 4, h); g.fill();
+    g.fillStyle = q >= 1 ? '#5fd39a' : on ? (done ? '#3fae6a' : '#e0a53a') : '#f2c14a'; g.beginPath(); RR(g, x - w / 2, y - h / 2, w * Math.min(1, q), h, h / 2); g.fill();
   }
 }
 const easeOutBack = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
@@ -986,8 +989,7 @@ function drawChal(g, f) {
   g.fillStyle = 'rgba(22,19,31,.85)'; g.beginPath(); g.arc(x, cy, r, 0, TAU); g.fill();
   g.strokeStyle = left > 0.3 ? '#f2c14a' : '#ef5a3a'; g.lineWidth = Math.max(2.5, CS * 0.05); g.lineCap = 'round';
   g.beginPath(); g.arc(x, cy, r, -PI / 2, -PI / 2 + TAU * left); g.stroke();
-  g.fillStyle = '#fff6e6'; g.font = `${Math.max(10, CS * 0.2)}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(String(Math.ceil(f.chalT)), x, cy + 1);
+  g.fillStyle = left > 0.3 ? '#f2c14a' : '#ef5a3a'; g.beginPath(); g.arc(x, cy, r * 0.32, 0, TAU); g.fill();
   if (f.stunT > 0) { g.fillStyle = '#ffd24a'; for (let j = 0; j < 3; j++) { const a = R.time * 7 + j * TAU / 3; star(g, x + Math.cos(a) * CS * 0.28, top + CS * 0.1 + Math.sin(a) * CS * 0.06, CS * 0.06); } }
   if (f.markT > 0) { g.strokeStyle = '#e8402e'; g.lineWidth = 2.2; const rr = CS * 0.1, my = top + CS * 0.25; g.beginPath(); g.arc(x + CS * 0.42, my, rr, 0, TAU); g.stroke(); }
   if (f.curseT > 0) drawCurse(g, x - CS * 0.42, top + CS * 0.25, 1.1);
@@ -1141,27 +1143,34 @@ function drawJointTable(g) {
     g.fillStyle = 'rgba(255,190,80,.35)'; g.beginPath(); g.arc(cx, cy - CS * 0.25, CS * 0.1 * fl, 0, TAU); g.fill();
     g.fillStyle = '#ffd36a'; g.beginPath(); g.ellipse(cx, cy - CS * 0.25, CS * 0.03, CS * 0.06 * fl, 0, 0, TAU); g.fill();
   }
-  const fs = Math.min(14, Math.max(10, CS * 0.22));
-  g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = '#fff3d6'; g.fillText(`혼 ${a} · ${b}`, x, y + h * 0.08);
+  /* your 혼 sit on the near half of the cloth, your partner's on the far half */
+  const flame = (fx, fy, on) => {
+    g.fillStyle = on ? 'rgba(140,200,255,.95)' : 'rgba(255,255,255,.14)';
+    g.beginPath(); g.ellipse(fx, fy, CS * 0.035, CS * 0.055, 0, 0, TAU); g.fill();
+  };
+  for (let i = 0; i < JOINT.MAX; i++) {
+    const fx = x - w * 0.28 + i * w * 0.14;
+    flame(fx, y + h * 0.22, i < a); flame(fx, y - h * 0.12, i < b);
+  }
   if (both) {
-    const k = Math.max(0, Math.min(1, JOINT.t / JOINT.WAIT));
-    g.strokeStyle = '#ffd36a'; g.lineWidth = 3; g.beginPath(); g.arc(x, y - h * 1.35, fs * 0.8, -PI / 2, -PI / 2 + TAU * k); g.stroke();
-    g.fillStyle = '#ffe6a0'; g.fillText(String(Math.max(0, Math.ceil(JOINT.t))), x, y - h * 1.35);
-  } else {
-    g.fillStyle = 'rgba(15,12,25,.7)'; const txt = a ? '동료를 기다려요' : '혼을 같이 올려요', tw = g.measureText(txt).width + fs;
-    g.beginPath(); RR(g, x - tw / 2, y - h * 1.35 - fs * 0.65, tw, fs * 1.3, fs * 0.65); g.fill();
-    g.fillStyle = '#e8d8ff'; g.fillText(txt, x, y - h * 1.35);
+    const k = Math.max(0, Math.min(1, JOINT.t / JOINT.WAIT)), rr = CS * 0.14, ry = y - h * 1.35;
+    g.fillStyle = 'rgba(15,12,25,.7)'; g.beginPath(); g.arc(x, ry, rr, 0, TAU); g.fill();
+    g.strokeStyle = '#ffd36a'; g.lineWidth = Math.max(2, CS * 0.04); g.lineCap = 'round'; g.beginPath(); g.arc(x, ry, rr * 0.8, -PI / 2, -PI / 2 + TAU * k); g.stroke();
   }
   g.restore();
 }
 /* their name and crowd, on the far edge of their yard */
+/* no words on the yard: their crowd is a thin bar along the far edge, and a fallen partner's yard goes dark */
 function drawPartnerTag(g, P) {
-  const fs = Math.min(15, Math.max(11, R.CS * 0.24)), y = wy(-3 * HY - LANE / 2) - fs * 0.2, txt = `${P.nm}${P.out ? ' · 쓰러졌어요' : ` · 도깨비 ${P.n}/${BAL.cap}`}`;
-  g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  const w = g.measureText(txt).width + fs * 1.2, x = wx(0);
-  g.fillStyle = 'rgba(15,12,25,.72)'; g.beginPath(); RR(g, x - w / 2, y - fs * 0.7, w, fs * 1.4, fs * 0.7); g.fill();
-  g.fillStyle = P.out ? '#ff9a7a' : P.n >= 80 ? '#ff8a6a' : '#ffe6a0'; g.fillText(txt, x, y + 1);
+  const CS = R.CS;
+  if (P.out) {
+    g.fillStyle = 'rgba(12,10,20,.45)';
+    g.beginPath(); RR(g, wx(-HX - LANE / 2 - 0.42), wy(-3 * HY - LANE / 2 - 0.42), (2 * (HX + LANE / 2 + 0.42)) * CS, (2 * HY + 0.1) * CS, (RC + LANE / 2 + 0.42) * CS); g.fill();
+    return;
+  }
+  const k = Math.min(1, P.n / BAL.cap), w = (2 * HX - 1.2) * CS, h = Math.max(4, CS * 0.07), x = wx(0) - w / 2, y = wy(-3 * HY - LANE / 2 - 0.3);
+  g.fillStyle = 'rgba(15,12,25,.6)'; g.beginPath(); RR(g, x - 2, y - 2, w + 4, h + 4, h); g.fill();
+  g.fillStyle = k >= 0.8 ? '#ef5a3a' : k >= 0.5 ? '#f2a23a' : '#5fd39a'; g.beginPath(); RR(g, x, y, Math.max(h, w * k), h, h / 2); g.fill();
 }
 /* ---------- frame ---------- */
 const DRAWLIST = [];

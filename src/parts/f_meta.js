@@ -365,23 +365,30 @@ function buyJade(k) {
 /* 유물: old treasures that strengthen every run. more copies raise the level */
 const RELIC_LV = [0, 1, 3, 6, 10, 15];
 const RELIC_MAX = 5;
+/* 핵심 유물 first: 돈궤 grows the 엽전 you keep, 엽전검 turns the 엽전 you keep into attack.
+   together they make saving a strategy, the way 금고 and 머니건 do in 운빨존많겜 */
 const RELICS = [
-  { id: 'cheongja', g: 2, name: '고려청자 매병', era: '고려', desc: '모든 동료 공격력', per: 0.04, key: 'atk', pct: true },
-  { id: 'geumgwan', g: 2, name: '신라 금관', era: '신라', desc: '신화 공격력', per: 0.06, key: 'myth', pct: true },
-  { id: 'hyangno', g: 2, name: '백제 금동대향로', era: '백제', desc: '보스에게 주는 피해', per: 0.06, key: 'boss', pct: true },
-  { id: 'hahoetal', g: 1, name: '하회탈', era: '고려', desc: '일반·희귀 공격력', per: 0.06, gr: 0, pct: true },
-  { id: 'sinjong', g: 1, name: '성덕대왕신종', era: '신라', desc: '영웅 공격력', per: 0.06, gr: 1, pct: true },
-  { id: 'sasindo', g: 1, name: '고구려 사신도', era: '고구려', desc: '전설 공격력', per: 0.06, gr: 2, pct: true },
-  { id: 'janggeom', g: 1, name: '이순신 장검', era: '조선', desc: '치명타 확률', per: 0.02, key: 'crit', pct: true },
-  { id: 'honcheon', g: 1, name: '혼천의', era: '조선', desc: '궁극기 충전 속도', per: 0.06, key: 'ult', pct: true },
-  { id: 'cheugugi', g: 0, name: '측우기', era: '조선', desc: '시작 엽전', per: 60, key: 'coins0' },
+  { id: 'dongwe', g: 2, core: true, name: '돈궤', era: '조선', desc: '마당이 끝날 때 가진 엽전이 불어나요', base: 0.045, per: 0.005, key: 'safe', pct: true, dec: 1,
+    text: v => `마당 끝날 때 가진 엽전 +${(v * 100).toFixed(1)}%` },
+  { id: 'yeopgeom', g: 2, core: true, name: '엽전검', era: '조선', desc: '가진 엽전만큼 모든 동료가 세져요', base: 0.0063, per: 0.0007, key: 'gun', pct: true,
+    text: v => `엽전 100마다 공격력 +${(v * 100).toFixed(2)}%` },
+  { id: 'cheongja', g: 2, name: '고려청자 매병', era: '고려', desc: '모든 동료 공격력', per: 0.06, key: 'atk', pct: true },
+  { id: 'geumgwan', g: 2, name: '신라 금관', era: '신라', desc: '신화 공격력', per: 0.1, key: 'myth', pct: true },
+  { id: 'hyangno', g: 2, name: '백제 금동대향로', era: '백제', desc: '보스에게 주는 피해', per: 0.1, key: 'boss', pct: true },
+  { id: 'hahoetal', g: 1, name: '하회탈', era: '고려', desc: '일반·희귀 공격력', per: 0.1, gr: 0, pct: true },
+  { id: 'sinjong', g: 1, name: '성덕대왕신종', era: '신라', desc: '영웅 공격력', per: 0.1, gr: 1, pct: true },
+  { id: 'sasindo', g: 1, name: '고구려 사신도', era: '고구려', desc: '전설 공격력', per: 0.1, gr: 2, pct: true },
+  { id: 'janggeom', g: 1, name: '이순신 장검', era: '조선', desc: '치명타 확률', per: 0.03, key: 'crit', pct: true },
+  { id: 'honcheon', g: 1, name: '혼천의', era: '조선', desc: '궁극기 충전 속도', per: 0.08, key: 'ult', pct: true },
+  { id: 'cheugugi', g: 0, name: '측우기', era: '조선', desc: '시작 엽전', per: 100, key: 'coins0' },
   { id: 'haerye', g: 0, name: '훈민정음 해례본', era: '조선', desc: '시작 혼', per: 1, key: 'hon0' },
-  { id: 'angbu', g: 0, name: '앙부일구', era: '조선', desc: '보스 제한 시간', per: 2, key: 'bossTime', unit: '초' },
-  { id: 'sangpyeong', g: 0, name: '상평통보', era: '조선', desc: '도깨비 처치 엽전', per: 0.05, key: 'kill', pct: true },
-  { id: 'dalhang', g: 0, name: '백자 달항아리', era: '조선', desc: '판이 끝날 때 은전', per: 0.08, key: 'silver', pct: true },
-  { id: 'jagyeok', g: 0, name: '자격루', era: '조선', desc: '출정 제한 시간', per: 3, key: 'exp', unit: '초' },
-  { id: 'cheomseong', g: 0, name: '첨성대', era: '신라', desc: '굿이 될 확률', per: 0.03, key: 'gut', pct: true },
+  { id: 'angbu', g: 0, name: '앙부일구', era: '조선', desc: '보스 제한 시간', per: 3, key: 'bossTime', unit: '초' },
+  { id: 'sangpyeong', g: 0, name: '상평통보', era: '조선', desc: '도깨비 처치 엽전', per: 0.08, key: 'kill', pct: true },
+  { id: 'dalhang', g: 0, name: '백자 달항아리', era: '조선', desc: '판이 끝날 때 은전', per: 0.1, key: 'silver', pct: true },
+  { id: 'jagyeok', g: 0, name: '자격루', era: '조선', desc: '출정 제한 시간', per: 4, key: 'exp', unit: '초' },
+  { id: 'cheomseong', g: 0, name: '첨성대', era: '신라', desc: '굿이 될 확률', per: 0.05, key: 'gut', pct: true },
 ];
+const relicVal = (r, lv) => (r.base || 0) + r.per * lv;
 const RELIC_IX = {}; RELICS.forEach((r, i) => { RELIC_IX[r.id] = i; });
 /* 유물 grades: a box rolls the grade first, then a treasure of that grade */
 const RELIC_GRADE = [{ name: '보통', color: '#c9b48a', p: 0.62 }, { name: '귀함', color: '#6aa8ff', p: 0.30 }, { name: '국보', color: '#ffcf4a', p: 0.08 }];
@@ -397,10 +404,10 @@ function relicUp(id) {
   SAVE.rcp[id] = relicCopies(id) - n.pcs; SAVE.silver -= n.silver; SAVE.rlv[id] = relicLv(id) + 1;
   persist(); return true;
 }
-function relicText(r, lv) { const v = r.per * lv; return `${r.desc} ${r.minus ? '-' : '+'}${r.pct ? Math.round(v * 100) + '%' : fmtC(v) + (r.unit || '')}`; }
+function relicText(r, lv) { const v = relicVal(r, lv); if (r.text) return r.text(v); return `${r.desc} ${r.minus ? '-' : '+'}${r.pct ? Math.round(v * 100) + '%' : fmtC(v) + (r.unit || '')}`; }
 function relicBonuses() {
   const o = noRelics();
-  for (const r of RELICS) { const lv = relicLv(r.id); if (!lv) continue; const v = r.per * lv; if (r.gr != null) o.gr[r.gr] += v; else if (r.key in o) o[r.key] += v; }
+  for (const r of RELICS) { const lv = relicLv(r.id); if (!lv) continue; const v = relicVal(r, lv); if (r.gr != null) o.gr[r.gr] += v; else if (r.key in o) o[r.key] += v; }
   return o;
 }
 function relicSilverBonus() { return RELICS[RELIC_IX.dalhang].per * relicLv('dalhang'); }
@@ -421,6 +428,8 @@ function grantRelics(n) {
     const want = r => { const lv = relicLv(r.id); if (lv >= RELIC_MAX) return false; let need = 0; for (let l = Math.max(1, lv); l < RELIC_MAX; l++) need += RELIC_UP.pcs[l]; return relicCopies(r.id) < need; };
     const g0 = rollRelicGrade();
     let pool = RELICS.filter(r => (r.g || 0) === g0 && want(r));
+    /* a 국보 goes to a 핵심 유물 you still lack before anything else */
+    if (g0 === 2) { const core = RELICS.filter(r => r.core && relicLv(r.id) === 0); if (core.length) pool = core; }
     for (let d = 1; !pool.length && d <= 2; d++) pool = RELICS.filter(r => want(r) && Math.abs((r.g || 0) - g0) === d);
     if (!pool.length) { gain(0, 20); out.push({ id: null, jade: 20 }); continue; }
     const r = pick(pool), isNew = relicLv(r.id) === 0;

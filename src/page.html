@@ -134,6 +134,10 @@ button:disabled{cursor:default}
 .gutfam{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 1.5px rgba(255,255,255,.7)}
 .gutfam[hidden]{display:none}
 .purse.bump,.silver.bump{animation:bump .22s ease-out}
+/* 엽전검 bonus and 돈궤 interest sit right on the purse, not on the yard */
+.purse .pcol{display:flex;flex-direction:column;align-items:flex-start;line-height:1}
+.mgun{font-size:10px;line-height:1;padding:2px 5px;border-radius:999px;background:rgba(242,201,74,.16);color:#ffd36a;margin-top:2px;white-space:nowrap}
+.mgun.is-safe{background:rgba(95,211,154,.2);color:#9ff0c0}
 @keyframes bump{40%{transform:scale(1.18)}}
 .flycoin{position:fixed;z-index:40;width:16px;height:16px;pointer-events:none;left:0;top:0}
 .up .lv{display:flex;align-items:center;gap:4px;color:var(--hanji);white-space:nowrap}
@@ -414,6 +418,8 @@ body.in-lobby .hud,body.in-lobby .deck{opacity:0;visibility:hidden;pointer-event
 .relic-svg.is-dim{filter:grayscale(1) brightness(.45)}
 .stg .sr{font-size:10px;color:#9fc7ff}
 .stg .sx{font-size:10px;color:#e8c98a}
+.relic.is-core{border:1.5px solid rgba(255,207,74,.55);background:linear-gradient(135deg,rgba(255,207,74,.12),transparent 60%)}
+.rgr.core{color:#ff8a5a}
 .stg .dotb{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:8px;background:var(--dan-gold);color:#1b1408;font-style:normal;font-size:10px;margin-left:5px;vertical-align:2px;padding-inline:3px}
 .road{background:var(--panel-2);border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:8px}
 .road .qhead .sect{white-space:normal}
@@ -684,7 +690,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
       <span class="wave" id="waveLabel">제 1 마당</span>
       <span class="chip-t num" id="timer">20초</span><span class="pow" id="powChip" title="전투력 · 지금 마당 동료들이 1초에 주는 피해를 더한 값"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 1.5l1 1-6.8 6.8 1.1 1.1-1 1-1.2-1.2L4.4 12.4l.9.9-.9.9-2.6-2.6.9-.9.9.9 2.2-2.2-1.2-1.2 1-1 1.1 1.1z"/></svg><span class="num" id="pow">0</span></span>
       <span class="spacer"></span>
-      <span class="purse" title="엽전"><i class="coin-ico"></i><span class="num" id="coins">0</span></span>
+      <span class="purse" title="엽전"><i class="coin-ico"></i><span class="pcol"><span class="num" id="coins">0</span><span class="mgun" id="mgun" hidden></span></span></span>
       <span class="purse" title="혼"><i class="hon-ico"></i><span class="num" id="hon">0</span></span>
     </div>
     <div class="row">

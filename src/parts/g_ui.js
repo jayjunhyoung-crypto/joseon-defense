@@ -16,6 +16,8 @@ function setClass(node, key, cls, on) { const k = key + cls; if (cache[k] !== on
 let toastT = 0;
 toast = msg => { el.toast.textContent = msg; el.toast.classList.add('is-on'); toastT = 2.4; };
 function showBanner(main, sub, boss, myth) {
+  /* big words over the yard only for players who turned 맵 위 글자 on; the HUD, sounds and effects carry the rest */
+  if (!R.mapText) return;
   el.bMain.textContent = main; el.bSub.textContent = sub || ''; el.bSub.hidden = !sub;
   el.banner.classList.toggle('is-boss', !!boss); el.banner.classList.toggle('is-myth', !!myth); el.banner.classList.toggle('is-long', main.length > 5);
   el.banner.classList.remove('show'); void el.banner.offsetWidth; el.banner.classList.add('show');
@@ -59,6 +61,7 @@ const HINTS = [
   '장보고의 무역선은 혼을 실어 와요. 굿을 더 자주 벌일 수 있어요',
   '전설 둘을 모으면 신수를, 신화를 모으면 전래동화를 깨울 수 있어요',
   '도깨비는 왼쪽 아래 구멍에서 나와 왼쪽 길을 타고 가운데 길로 들어가요. 둘이 같이 때리는 가운데 길에 붙은 맨 윗줄이 제일 바빠요. 기절시키는 동료는 입구 말고 가운데 길 쪽에 두세요',
+  '핵심 유물 돈궤는 마당이 끝날 때 가진 엽전을 불려 주고, 엽전검은 가진 엽전 100마다 모든 동료를 세게 해요. 둘 다 있으면 초반엔 아껴 모으고 끝에 몰아 쓰는 게 강해요',
 ];
 
 /* ---------- info bar ---------- */
@@ -782,10 +785,12 @@ function attHTML() {
 function relicCardHTML(r) {
   const lv = relicLv(r.id), sp = relicCopies(r.id), n = relicNeed(r.id), Gr = RELIC_GRADE[r.g || 0], ok = canRelicUp(r.id);
   const up = n ? `<div class="pc"><span class="num">조각 ${sp}/${n.pcs}</span><div class="bar" style="width:46px"><i style="width:${Math.min(100, sp / n.pcs * 100)}%"></i></div></div><button class="btn-sm rup${ok ? ' is-go' : ''}" type="button" data-rup="${r.id}" ${ok ? '' : 'disabled'}>Lv ${lv + 1} <i class="silver-ico" style="display:inline-block;width:11px;height:11px;vertical-align:-1px"></i> ${fmtC(n.silver)}</button>` : '';
-  return `<div class="relic${lv ? '' : ' is-none'}" style="--rg:${Gr.color}"><div class="ri">${relicIcon(r.id, 46, !lv)}${lv ? `<span class="rlv">Lv ${lv}</span>` : ''}</div><div class="rt"><b>${esc(r.name)}</b><small><span class="rgr">${Gr.name}</span> · ${esc(r.era)}</small><p>${lv ? esc(relicText(r, lv)) : '아직 못 찾았어요'}</p>${lv ? (n ? `<p class="rn">다음 · ${esc(relicText(r, lv + 1))}</p>${up}` : '<p class="rn">최고 레벨</p>') : ''}</div></div>`;
+  return `<div class="relic${lv ? '' : ' is-none'}${r.core ? ' is-core' : ''}" style="--rg:${Gr.color}"><div class="ri">${relicIcon(r.id, 46, !lv)}${lv ? `<span class="rlv">Lv ${lv}</span>` : ''}</div><div class="rt"><b>${esc(r.name)}</b><small>${r.core ? '<span class="rgr core">핵심</span> · ' : ''}<span class="rgr">${Gr.name}</span> · ${esc(r.era)}</small><p>${lv ? esc(relicText(r, lv)) : r.core ? `아직 못 찾았어요 · ${esc(r.desc)}. 국보가 나오면 이것부터 나와요` : '아직 못 찾았어요'}</p>${lv ? (n ? `<p class="rn">다음 · ${esc(relicText(r, lv + 1))}</p>${up}` : '<p class="rn">최고 레벨</p>') : ''}</div></div>`;
 }
 function relicSummary() {
   const b = relicBonuses(), parts = [];
+  if (b.safe) parts.push(`돈궤 이자 ${(b.safe * 100).toFixed(1)}%`);
+  if (b.gun) parts.push(`엽전검 100냥마다 +${(b.gun * 100).toFixed(2)}%`);
   if (b.atk) parts.push(`모든 공격력 +${Math.round(b.atk * 100)}%`);
   if (b.myth) parts.push(`신화 +${Math.round(b.myth * 100)}%`);
   if (b.boss) parts.push(`보스 피해 +${Math.round(b.boss * 100)}%`);
@@ -1003,6 +1008,7 @@ $('mClose').addEventListener('click', closeMiss);
 const HELP = [
   ['기본', [0, 6, 5, 26, 10]],
   ['강화와 소환 운', [7, 15, 25]],
+  ['유물', [33]],
   ['신화', [8, 4, 9, 11, 21, 31, 29, 30]],
   ['굿', [23, 24]],
   ['도전과 출정', [16, 17, 18]],
@@ -1011,8 +1017,8 @@ const HELP = [
 ];
 function openHelp() {
   closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = true;
-  const sea = seasonOf();
-  hlist.innerHTML = (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 도깨비는 각자 바깥 모서리에서 나와 옆길을 타고 가운데 길로 들어와요. 가운데 길은 둘이 같이 쓰는 곳이라 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
+  const sea = seasonOf(), S = STAGES[G.stage || 0];
+  hlist.innerHTML = (S.rule ? `<div class="hduo"><b>${esc(S.name)}</b>${esc(S.rule)}</div>` : '') + (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 도깨비는 각자 바깥 모서리에서 나와 옆길을 타고 가운데 길로 들어와요. 가운데 길은 둘이 같이 쓰는 곳이라 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
     HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
     `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
   hsheet.hidden = false; sfx('click');
@@ -1042,6 +1048,13 @@ function uiTick(dt) {
   const cT = Math.floor(G.coins);
   if (cache.coinShow == null || cT < cache.coinShow) cache.coinShow = cT; else if (cT > cache.coinShow) cache.coinShow = Math.min(cT, cache.coinShow + Math.max(1, Math.ceil((cT - cache.coinShow) * Math.min(1, dt * 7))));
   setText(el.coins, 'coins', fmtC(cache.coinShow));
+  /* 엽전검: what the purse is worth in attack right now. right after a 마당, what the 돈궤 paid */
+  {
+    const mg = $('mgun'), ss = cache.safeShow && performance.now() - cache.safeShow.t < 2600 ? cache.safeShow : null;
+    const gun = G.rel && G.rel.gun && G.phase === 'play' ? Math.round((moneyMul() - 1) * 100) : 0;
+    const txt = ss ? `궤 +${fmtC(ss.v)}` : gun > 0 ? `검 +${gun}%` : '';
+    if (mg.textContent !== txt) { mg.textContent = txt; mg.hidden = !txt; mg.classList.toggle('is-safe', !!ss); }
+  }
   setText(el.hon, 'hon', String(G.hon));
   const n = G.foes.length, p = Math.min(1, n / BAL.cap), w = `${(p * 100).toFixed(1)}%`;
   if (cache.gw !== w) { cache.gw = w; el.gaugeFill.style.width = w; el.gauge.setAttribute('aria-valuenow', String(n)); }
@@ -1173,6 +1186,7 @@ el.pauseBtn.addEventListener('click', () => { if (netCoop()) { toast('같이 할
 const setPanel = $('setPanel'), gearBtn = $('gearBtn');
 R.cutin = true; try { R.cutin = localStorage.getItem('talnori-cutin') !== '0'; } catch (err) { /* ignore */ }
 R.names = false; try { R.names = localStorage.getItem('talnori-names') === '1'; } catch (err) { /* ignore */ }
+R.mapText = false; try { R.mapText = localStorage.getItem('talnori-maptext') === '1'; } catch (err) { /* ignore */ }
 R.fxLite = false; try { R.fxLite = localStorage.getItem('talnori-fx') === '0'; } catch (err) { /* ignore */ }
 function setFxLite(v) {
   R.fxLite = !!v; try { localStorage.setItem('talnori-fx', v ? '0' : '1'); } catch (err) { /* ignore */ }
@@ -1186,6 +1200,7 @@ function renderSettings() {
   const C = AU.cfg, on = AU.on, row = (label, key, val, vol) => `<div class="sp-row${vol && !on ? ' dim' : ''}"><span>${label}</span>${vol ? `<input type="range" min="0" max="100" step="5" value="${Math.round(C[vol] * 100)}" data-vol="${vol}" aria-label="${label} 크기">` : ''}<button class="tog${val ? ' on' : ''}" type="button" data-sp="${key}">${val ? '켜짐' : '꺼짐'}</button></div>`;
   setPanel.innerHTML = `<div class="sp-h"><b>설정</b><button class="ib" type="button" id="spClose" aria-label="닫기">✕</button></div>
     ${row('소리 전체', 'on', on)}${row('배경음악', 'mus', C.mus, 'musV')}${row('효과음', 'fx', C.fx, 'fxV')}
+    <div class="sp-row"><span>맵 위 글자<small class="sp-sub">피해 숫자, 엽전, 마당 안내 글씨</small></span><button class="tog${R.mapText ? ' on' : ''}" type="button" data-sp="maptext">${R.mapText ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>유닛 이름 보기</span><button class="tog${R.names ? ' on' : ''}" type="button" data-sp="names">${R.names ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>화려한 효과<small class="sp-sub">빛, 고리, 파편, 흔들림</small></span><button class="tog${R.fxLite ? '' : ' on'}" type="button" data-sp="fxl">${R.fxLite ? '꺼짐' : '켜짐'}</button></div>
     <div class="sp-row"><span>궁극기 연출</span><button class="tog${R.cutin ? ' on' : ''}" type="button" data-sp="cut">${R.cutin ? '켜짐' : '꺼짐'}</button></div>
@@ -1215,6 +1230,7 @@ setPanel.addEventListener('click', e => {
   else if (k === 'q') { R.autoQ = false; setQuality((R.q + 1) % 3); }
   else if (k === 'pix') setPixel(!PIXEL);
   else if (k === 'fxl') setFxLite(!R.fxLite);
+  else if (k === 'maptext') { R.mapText = !R.mapText; try { localStorage.setItem('talnori-maptext', R.mapText ? '1' : '0'); } catch (err) { /* ignore */ } if (!R.mapText) TEXT.length = 0; }
   else if (k === 'names') { R.names = !R.names; try { localStorage.setItem('talnori-names', R.names ? '1' : '0'); } catch (err) { /* ignore */ } }
   else if (k === 'cut') { R.cutin = !R.cutin; try { localStorage.setItem('talnori-cutin', R.cutin ? '1' : '0'); } catch (err) { /* ignore */ } }
   renderSettings();

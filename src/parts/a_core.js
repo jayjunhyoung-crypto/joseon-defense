@@ -492,7 +492,17 @@ function noop() {}
 let toast = noop, onEnd = noop;
 /* 유물 bonuses for one run; the lobby fills these from the save */
 /* gr: attack bonus by 강화 group (일반·희귀, 영웅, 전설) */
-function noRelics() { return { atk: 0, myth: 0, boss: 0, coins0: 0, hon0: 0, ult: 0, bossTime: 0, kill: 0, exp: 0, gut: 0, crit: 0, gr: [0, 0, 0] }; }
+function noRelics() { return { atk: 0, myth: 0, boss: 0, coins0: 0, hon0: 0, ult: 0, bossTime: 0, kill: 0, exp: 0, gut: 0, crit: 0, safe: 0, gun: 0, gr: [0, 0, 0] }; }
+/* 엽전검: every 100 엽전 you hold is a little more attack, up to this much */
+const MONEY_CAP = 2.5;
+const moneyMul = () => (G.rel && G.rel.gun ? 1 + Math.min(MONEY_CAP, G.rel.gun * Math.floor(Math.max(0, G.coins) / 100)) : 1);
+/* 돈궤: at the end of every 마당 the 엽전 you kept grow. the chest holds more the deeper you go */
+const safeCap = w => 2000 + 400 * w;
+function paySafe() {
+  if (!G.rel || !G.rel.safe) return;
+  const c = Math.floor(Math.min(Math.max(0, G.coins), safeCap(G.wave)) * G.rel.safe);
+  if (c > 0) { G.coins += c; G.stats.safe = (G.stats.safe || 0) + c; G.stats.income = (G.stats.income || 0) + c; emit({ k: 'safe', v: c }); }
+}
 function makeState(phase, speed = 1) {
   return {
     phase, wave: 0, waveT: 0, spawnLeft: 0, spawnT: 0, coins: BAL.startCoins, hon: 0, summons: 0, stage: 0,
@@ -516,7 +526,7 @@ function newGame(lvMul, lvSpd, stage, rel) {
 }
 function nextWave() {
   G.wave++;
-  if (G.wave > 1) { G.hon += (BAL.honPerWave + (G.sea ? G.sea.honW : 0)) * (G.sea ? G.sea.honMul : 1); payInterest(); }
+  if (G.wave > 1) { G.hon += (BAL.honPerWave + (G.sea ? G.sea.honW : 0)) * (G.sea ? G.sea.honMul : 1); paySafe(); payInterest(); }
   const B = bossAt(G.wave), S = STAGES[G.stage];
   if (B) {
     G.waveT = G.bossTimeMax || BOSS_TIME; G.spawnLeft = 0;
@@ -1088,7 +1098,7 @@ function relMul(T) { const r = G.rel; if (!r) return 1; const g = upGroup(T); re
 const upOf = T => G.up[upGroup(T)];
 const gradeMulOf = T => (T.tier < 4 && G.gradeMul ? G.gradeMul[T.tier] : 1);
 const tierBuffOf = T => { const b = G.tierBuff && G.tierBuff[T.tier]; return b && b.t > 0 ? b.mul : 1; };
-function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * (G.sea ? G.sea.dmg : 1) * (G.comboPowT > 0 ? 1.2 : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
+function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * moneyMul() * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * (G.sea ? G.sea.dmg : 1) * (G.comboPowT > 0 ? 1.2 : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
 function topClusters(rad, n) {
   const out = [], used = new Set(), r2 = rad * rad;
   for (let k = 0; k < n; k++) {

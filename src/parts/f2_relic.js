@@ -1,5 +1,21 @@
 /* ================= 유물 icons: small inline SVGs, one per treasure ================= */
 const RELIC_SVG = {
+  dongwe: `<path d="M10 26h44v28H10z" fill="#8a5a2e" stroke="#3a220e" stroke-width="2.2"/>
+    <path d="M8 18c0-3 2-5 5-5h38c3 0 5 2 5 5v8H8z" fill="#a8703a" stroke="#3a220e" stroke-width="2.2"/>
+    <path d="M10 34h44M10 46h44" stroke="#5a3818" stroke-width="1.4"/>
+    <path d="M10 26h44" stroke="#d9a84a" stroke-width="3"/>
+    <rect x="9" y="12" width="7" height="43" fill="#d9a84a" stroke="#5a3d0c" stroke-width="1.4"/><rect x="48" y="12" width="7" height="43" fill="#d9a84a" stroke="#5a3d0c" stroke-width="1.4"/>
+    <circle cx="32" cy="33" r="7" fill="#f2c94a" stroke="#5a3d0c" stroke-width="2"/>
+    <rect x="29" y="30" width="6" height="6" fill="#3a220e"/>
+    <path d="M32 40v6" stroke="#5a3d0c" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="22" cy="8" r="4" fill="#f2c94a" stroke="#5a3d0c" stroke-width="1.4"/><rect x="20.6" y="6.6" width="2.8" height="2.8" fill="#5a3d0c"/>
+    <circle cx="42" cy="6" r="3" fill="#f2c94a" stroke="#5a3d0c" stroke-width="1.2"/>`,
+  yeopgeom: `<path d="M44 8l4 4-26 30-4-4z" fill="#c9a040" stroke="#4a320e" stroke-width="1.6"/>
+    ${[0, 1, 2, 3, 4, 5].map(i => { const x = 46 - i * 4.6, y = 10 + i * 5.3; return `<circle cx="${x}" cy="${y}" r="3.6" fill="#f2c94a" stroke="#5a3d0c" stroke-width="1.2"/><rect x="${x - 1.1}" y="${y - 1.1}" width="2.2" height="2.2" fill="#5a3d0c"/>`; }).join('')}
+    <path d="M14 38l12 12" stroke="#8a2a1e" stroke-width="5" stroke-linecap="round"/>
+    <path d="M18 46l-8 8" stroke="#3a2010" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="9" cy="55" r="2.6" fill="#d63b2e"/>
+    <path d="M9 57c-2 3-2 5 0 7M9 57c1 3 3 4 4 6M9 57c-3 2-5 3-6 5" stroke="#d63b2e" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
   cheongja: `<defs><linearGradient id="rgC" x1="0" x2="1"><stop offset="0" stop-color="#9cc8b4"/><stop offset=".55" stop-color="#6fa892"/><stop offset="1" stop-color="#4c806c"/></linearGradient></defs>
     <path d="M24 10h16l-2 5c9 4 13 13 11 24-2 9-6 15-9 19H24c-3-4-7-10-9-19-2-11 2-20 11-24z" fill="url(#rgC)" stroke="#23382f" stroke-width="2.2"/>
     <path d="M25 10h14" stroke="#23382f" stroke-width="3" stroke-linecap="round"/>

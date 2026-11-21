@@ -142,6 +142,10 @@ button:disabled{cursor:default}
 .gutfam{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 1.5px rgba(255,255,255,.7)}
 .gutfam[hidden]{display:none}
 .purse.bump,.silver.bump{animation:bump .22s ease-out}
+/* 엽전검 bonus and 돈궤 interest sit right on the purse, not on the yard */
+.purse .pcol{display:flex;flex-direction:column;align-items:flex-start;line-height:1}
+.mgun{font-size:10px;line-height:1;padding:2px 5px;border-radius:999px;background:rgba(242,201,74,.16);color:#ffd36a;margin-top:2px;white-space:nowrap}
+.mgun.is-safe{background:rgba(95,211,154,.2);color:#9ff0c0}
 @keyframes bump{40%{transform:scale(1.18)}}
 .flycoin{position:fixed;z-index:40;width:16px;height:16px;pointer-events:none;left:0;top:0}
 .up .lv{display:flex;align-items:center;gap:4px;color:var(--hanji);white-space:nowrap}
@@ -422,6 +426,8 @@ body.in-lobby .hud,body.in-lobby .deck{opacity:0;visibility:hidden;pointer-event
 .relic-svg.is-dim{filter:grayscale(1) brightness(.45)}
 .stg .sr{font-size:10px;color:#9fc7ff}
 .stg .sx{font-size:10px;color:#e8c98a}
+.relic.is-core{border:1.5px solid rgba(255,207,74,.55);background:linear-gradient(135deg,rgba(255,207,74,.12),transparent 60%)}
+.rgr.core{color:#ff8a5a}
 .stg .dotb{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:8px;background:var(--dan-gold);color:#1b1408;font-style:normal;font-size:10px;margin-left:5px;vertical-align:2px;padding-inline:3px}
 .road{background:var(--panel-2);border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:8px}
 .road .qhead .sect{white-space:normal}
@@ -692,7 +698,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
       <span class="wave" id="waveLabel">제 1 마당</span>
       <span class="chip-t num" id="timer">20초</span><span class="pow" id="powChip" title="전투력 · 지금 마당 동료들이 1초에 주는 피해를 더한 값"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 1.5l1 1-6.8 6.8 1.1 1.1-1 1-1.2-1.2L4.4 12.4l.9.9-.9.9-2.6-2.6.9-.9.9.9 2.2-2.2-1.2-1.2 1-1 1.1 1.1z"/></svg><span class="num" id="pow">0</span></span>
       <span class="spacer"></span>
-      <span class="purse" title="엽전"><i class="coin-ico"></i><span class="num" id="coins">0</span></span>
+      <span class="purse" title="엽전"><i class="coin-ico"></i><span class="pcol"><span class="num" id="coins">0</span><span class="mgun" id="mgun" hidden></span></span></span>
       <span class="purse" title="혼"><i class="hon-ico"></i><span class="num" id="hon">0</span></span>
     </div>
     <div class="row">
@@ -1332,7 +1338,17 @@ function noop() {}
 let toast = noop, onEnd = noop;
 /* 유물 bonuses for one run; the lobby fills these from the save */
 /* gr: attack bonus by 강화 group (일반·희귀, 영웅, 전설) */
-function noRelics() { return { atk: 0, myth: 0, boss: 0, coins0: 0, hon0: 0, ult: 0, bossTime: 0, kill: 0, exp: 0, gut: 0, crit: 0, gr: [0, 0, 0] }; }
+function noRelics() { return { atk: 0, myth: 0, boss: 0, coins0: 0, hon0: 0, ult: 0, bossTime: 0, kill: 0, exp: 0, gut: 0, crit: 0, safe: 0, gun: 0, gr: [0, 0, 0] }; }
+/* 엽전검: every 100 엽전 you hold is a little more attack, up to this much */
+const MONEY_CAP = 2.5;
+const moneyMul = () => (G.rel && G.rel.gun ? 1 + Math.min(MONEY_CAP, G.rel.gun * Math.floor(Math.max(0, G.coins) / 100)) : 1);
+/* 돈궤: at the end of every 마당 the 엽전 you kept grow. the chest holds more the deeper you go */
+const safeCap = w => 2000 + 400 * w;
+function paySafe() {
+  if (!G.rel || !G.rel.safe) return;
+  const c = Math.floor(Math.min(Math.max(0, G.coins), safeCap(G.wave)) * G.rel.safe);
+  if (c > 0) { G.coins += c; G.stats.safe = (G.stats.safe || 0) + c; G.stats.income = (G.stats.income || 0) + c; emit({ k: 'safe', v: c }); }
+}
 function makeState(phase, speed = 1) {
   return {
     phase, wave: 0, waveT: 0, spawnLeft: 0, spawnT: 0, coins: BAL.startCoins, hon: 0, summons: 0, stage: 0,
@@ -1356,7 +1372,7 @@ function newGame(lvMul, lvSpd, stage, rel) {
 }
 function nextWave() {
   G.wave++;
-  if (G.wave > 1) { G.hon += (BAL.honPerWave + (G.sea ? G.sea.honW : 0)) * (G.sea ? G.sea.honMul : 1); payInterest(); }
+  if (G.wave > 1) { G.hon += (BAL.honPerWave + (G.sea ? G.sea.honW : 0)) * (G.sea ? G.sea.honMul : 1); paySafe(); payInterest(); }
   const B = bossAt(G.wave), S = STAGES[G.stage];
   if (B) {
     G.waveT = G.bossTimeMax || BOSS_TIME; G.spawnLeft = 0;
@@ -1928,7 +1944,7 @@ function relMul(T) { const r = G.rel; if (!r) return 1; const g = upGroup(T); re
 const upOf = T => G.up[upGroup(T)];
 const gradeMulOf = T => (T.tier < 4 && G.gradeMul ? G.gradeMul[T.tier] : 1);
 const tierBuffOf = T => { const b = G.tierBuff && G.tierBuff[T.tier]; return b && b.t > 0 ? b.mul : 1; };
-function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * (G.sea ? G.sea.dmg : 1) * (G.comboPowT > 0 ? 1.2 : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
+function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * moneyMul() * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * (G.sea ? G.sea.dmg : 1) * (G.comboPowT > 0 ? 1.2 : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
 function topClusters(rad, n) {
   const out = [], used = new Set(), r2 = rad * rad;
   for (let k = 0; k < n; k++) {
@@ -5142,6 +5158,8 @@ function fxSlash(x, y, r, ang, col, life) { FX.push({ k: 'slash', x, y, r, ang, 
 function fxCone(x, y, dx, dy, len, w, col, life) { FX.push({ k: 'cone', x, y, dx, dy, len, w, col, life, t: 0 }); }
 function fxArc(x, y, dx, dy, len, w, col, life) { FX.push({ k: 'arcs', x, y, dx, dy, len, w, col, life, t: 0 }); }
 function fxText(x, y, s, cls, life = 0.9) {
+  /* the yard stays clean: numbers and words only for players who turned them on */
+  if (!R.mapText) return;
   if (TEXT.length > 40) TEXT.shift();
   TEXT.push({ x: x + rand(-0.08, 0.08), y, s, cls, life, t: 0 });
 }
@@ -5344,9 +5362,10 @@ function drawExpCell(g, r) {
     const fs = Math.max(9, CS * 0.19);
     g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     if (k === 0) {
-      const lab = `${r.floor}${destOf().u} ${Math.ceil(r.t)}초`, tw = Math.min(s, g.measureText(lab).width + fs * 0.9);
-      g.fillStyle = 'rgba(22,19,31,.78)'; g.beginPath(); RR(g, cx - tw / 2, cy - s / 2 + CS * 0.04, tw, fs * 1.2, fs * 0.6); g.fill();
-      g.fillStyle = '#ffe6a0'; g.fillText(lab, cx, cy - s / 2 + CS * 0.04 + fs * 0.62);
+      const tl = Math.max(0, Math.min(1, r.t / (r.tMax || expTime()))), rr = CS * 0.13, ry = cy - s / 2 + CS * 0.17;
+      g.fillStyle = 'rgba(22,19,31,.8)'; g.beginPath(); g.arc(cx, ry, rr, 0, TAU); g.fill();
+      g.strokeStyle = tl > 0.3 ? '#ffd36a' : '#ef5a3a'; g.lineWidth = Math.max(2, CS * 0.04); g.lineCap = 'round';
+      g.beginPath(); g.arc(cx, ry, rr * 0.8, -PI / 2, -PI / 2 + TAU * tl); g.stroke();
     }
     const bw = s * 0.8, bh = Math.max(3, CS * 0.07), bx = cx - bw / 2, by = cy + s / 2 - bh - CS * 0.05;
     g.fillStyle = 'rgba(22,19,31,.8)'; g.beginPath(); RR(g, bx - 1, by - 1, bw + 2, bh + 2, bh); g.fill();
@@ -5361,11 +5380,11 @@ function drawExpPick(g) {
   const a = 0.55 + 0.45 * Math.sin(R.time * 6);
   for (let i = 0; i < NCELL; i++) {
     const u = G.units[i]; if (!u) continue;
-    const on = sel.includes(i), q = expRatio(i), txt = `${Math.max(1, Math.round(q * 100))}%`;
-    const x = wx(cellX(i)), y = wy(cellY(i) - 0.44), w = Math.max(fs * 2.6, g.measureText(txt).width + fs * 0.9), h = fs * 1.25;
+    const on = sel.includes(i), q = expRatio(i);
+    const x = wx(cellX(i)), y = wy(cellY(i) - 0.44), w = CS * 0.62, h = Math.max(5, CS * 0.09);
     if (on) { g.strokeStyle = done ? `rgba(95,211,154,${0.6 + 0.4 * a})` : `rgba(242,193,74,${0.6 + 0.4 * a})`; g.lineWidth = Math.max(2, CS * 0.05); g.beginPath(); RR(g, wx(cellX(i) - 0.46), wy(cellY(i) - 0.46), 0.92 * CS, 0.92 * CS, 0.14 * CS); g.stroke(); }
-    g.fillStyle = on ? (done ? '#3fae6a' : '#e0a53a') : 'rgba(22,19,31,.78)'; g.beginPath(); RR(g, x - w / 2, y - h / 2, w, h, h / 2); g.fill();
-    g.fillStyle = on ? '#fff' : (q >= 1 ? '#9ff0c0' : '#f6efe0'); g.fillText(txt, x, y + 1);
+    g.fillStyle = 'rgba(22,19,31,.82)'; g.beginPath(); RR(g, x - w / 2 - 2, y - h / 2 - 2, w + 4, h + 4, h); g.fill();
+    g.fillStyle = q >= 1 ? '#5fd39a' : on ? (done ? '#3fae6a' : '#e0a53a') : '#f2c14a'; g.beginPath(); RR(g, x - w / 2, y - h / 2, w * Math.min(1, q), h, h / 2); g.fill();
   }
 }
 const easeOutBack = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
@@ -5605,8 +5624,7 @@ function drawChal(g, f) {
   g.fillStyle = 'rgba(22,19,31,.85)'; g.beginPath(); g.arc(x, cy, r, 0, TAU); g.fill();
   g.strokeStyle = left > 0.3 ? '#f2c14a' : '#ef5a3a'; g.lineWidth = Math.max(2.5, CS * 0.05); g.lineCap = 'round';
   g.beginPath(); g.arc(x, cy, r, -PI / 2, -PI / 2 + TAU * left); g.stroke();
-  g.fillStyle = '#fff6e6'; g.font = `${Math.max(10, CS * 0.2)}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(String(Math.ceil(f.chalT)), x, cy + 1);
+  g.fillStyle = left > 0.3 ? '#f2c14a' : '#ef5a3a'; g.beginPath(); g.arc(x, cy, r * 0.32, 0, TAU); g.fill();
   if (f.stunT > 0) { g.fillStyle = '#ffd24a'; for (let j = 0; j < 3; j++) { const a = R.time * 7 + j * TAU / 3; star(g, x + Math.cos(a) * CS * 0.28, top + CS * 0.1 + Math.sin(a) * CS * 0.06, CS * 0.06); } }
   if (f.markT > 0) { g.strokeStyle = '#e8402e'; g.lineWidth = 2.2; const rr = CS * 0.1, my = top + CS * 0.25; g.beginPath(); g.arc(x + CS * 0.42, my, rr, 0, TAU); g.stroke(); }
   if (f.curseT > 0) drawCurse(g, x - CS * 0.42, top + CS * 0.25, 1.1);
@@ -5760,27 +5778,34 @@ function drawJointTable(g) {
     g.fillStyle = 'rgba(255,190,80,.35)'; g.beginPath(); g.arc(cx, cy - CS * 0.25, CS * 0.1 * fl, 0, TAU); g.fill();
     g.fillStyle = '#ffd36a'; g.beginPath(); g.ellipse(cx, cy - CS * 0.25, CS * 0.03, CS * 0.06 * fl, 0, 0, TAU); g.fill();
   }
-  const fs = Math.min(14, Math.max(10, CS * 0.22));
-  g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillStyle = '#fff3d6'; g.fillText(`혼 ${a} · ${b}`, x, y + h * 0.08);
+  /* your 혼 sit on the near half of the cloth, your partner's on the far half */
+  const flame = (fx, fy, on) => {
+    g.fillStyle = on ? 'rgba(140,200,255,.95)' : 'rgba(255,255,255,.14)';
+    g.beginPath(); g.ellipse(fx, fy, CS * 0.035, CS * 0.055, 0, 0, TAU); g.fill();
+  };
+  for (let i = 0; i < JOINT.MAX; i++) {
+    const fx = x - w * 0.28 + i * w * 0.14;
+    flame(fx, y + h * 0.22, i < a); flame(fx, y - h * 0.12, i < b);
+  }
   if (both) {
-    const k = Math.max(0, Math.min(1, JOINT.t / JOINT.WAIT));
-    g.strokeStyle = '#ffd36a'; g.lineWidth = 3; g.beginPath(); g.arc(x, y - h * 1.35, fs * 0.8, -PI / 2, -PI / 2 + TAU * k); g.stroke();
-    g.fillStyle = '#ffe6a0'; g.fillText(String(Math.max(0, Math.ceil(JOINT.t))), x, y - h * 1.35);
-  } else {
-    g.fillStyle = 'rgba(15,12,25,.7)'; const txt = a ? '동료를 기다려요' : '혼을 같이 올려요', tw = g.measureText(txt).width + fs;
-    g.beginPath(); RR(g, x - tw / 2, y - h * 1.35 - fs * 0.65, tw, fs * 1.3, fs * 0.65); g.fill();
-    g.fillStyle = '#e8d8ff'; g.fillText(txt, x, y - h * 1.35);
+    const k = Math.max(0, Math.min(1, JOINT.t / JOINT.WAIT)), rr = CS * 0.14, ry = y - h * 1.35;
+    g.fillStyle = 'rgba(15,12,25,.7)'; g.beginPath(); g.arc(x, ry, rr, 0, TAU); g.fill();
+    g.strokeStyle = '#ffd36a'; g.lineWidth = Math.max(2, CS * 0.04); g.lineCap = 'round'; g.beginPath(); g.arc(x, ry, rr * 0.8, -PI / 2, -PI / 2 + TAU * k); g.stroke();
   }
   g.restore();
 }
 /* their name and crowd, on the far edge of their yard */
+/* no words on the yard: their crowd is a thin bar along the far edge, and a fallen partner's yard goes dark */
 function drawPartnerTag(g, P) {
-  const fs = Math.min(15, Math.max(11, R.CS * 0.24)), y = wy(-3 * HY - LANE / 2) - fs * 0.2, txt = `${P.nm}${P.out ? ' · 쓰러졌어요' : ` · 도깨비 ${P.n}/${BAL.cap}`}`;
-  g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  const w = g.measureText(txt).width + fs * 1.2, x = wx(0);
-  g.fillStyle = 'rgba(15,12,25,.72)'; g.beginPath(); RR(g, x - w / 2, y - fs * 0.7, w, fs * 1.4, fs * 0.7); g.fill();
-  g.fillStyle = P.out ? '#ff9a7a' : P.n >= 80 ? '#ff8a6a' : '#ffe6a0'; g.fillText(txt, x, y + 1);
+  const CS = R.CS;
+  if (P.out) {
+    g.fillStyle = 'rgba(12,10,20,.45)';
+    g.beginPath(); RR(g, wx(-HX - LANE / 2 - 0.42), wy(-3 * HY - LANE / 2 - 0.42), (2 * (HX + LANE / 2 + 0.42)) * CS, (2 * HY + 0.1) * CS, (RC + LANE / 2 + 0.42) * CS); g.fill();
+    return;
+  }
+  const k = Math.min(1, P.n / BAL.cap), w = (2 * HX - 1.2) * CS, h = Math.max(4, CS * 0.07), x = wx(0) - w / 2, y = wy(-3 * HY - LANE / 2 - 0.3);
+  g.fillStyle = 'rgba(15,12,25,.6)'; g.beginPath(); RR(g, x - 2, y - 2, w + 4, h + 4, h); g.fill();
+  g.fillStyle = k >= 0.8 ? '#ef5a3a' : k >= 0.5 ? '#f2a23a' : '#5fd39a'; g.beginPath(); RR(g, x, y, Math.max(h, w * k), h, h / 2); g.fill();
 }
 /* ---------- frame ---------- */
 const DRAWLIST = [];
@@ -6272,6 +6297,7 @@ function onEvent(e) {
       break;
     }
     case 'charm': for (let i = 0; i < 4; i++) part(e.x, e.y, 0.6, rand(-0.6, 0.6), rand(-0.3, 0.3), rand(0.6, 1.2), '#ff6aa0', 0.08, 0.7, { g: 0.5, kind: 'heart' }); break;
+    case 'safe': bump(el.coins.parentElement); cache.safeShow = { v: e.v, t: performance.now() }; sfx('coin'); break;
     case 'coin': fxText(e.x, e.y - (e.big ? 1.25 : 0.8), `+${fmtC(e.v)}`, 'coin', e.big ? 1.25 : 0.95); if (e.big) burst(e.x, e.y - 0.6, 0.3, 8, ['#f2c94a', '#fff2b0'], 1.6, 0.05, 0.6, { up: 2, g: 1.2 }); flyCoin(e.x, e.y - 0.5, COIN_EL, 1); sfx('coin'); break;
     case 'kill': {
       if (e.boss) {
@@ -6514,9 +6540,12 @@ function cutIn(id, label, name, force) {
   const ill = typeof ILLUST !== 'undefined' && ILLUST[id] && ILLUST[id].complete && ILLUST[id].naturalWidth ? ILLUST[id] : null;
   el.classList.toggle('big', !!ill);
   el.querySelector('img').src = ill ? ill.src : portraitURL(id, 128);
-  el.querySelector('small').textContent = label;
-  el.querySelector('b').textContent = name;
-  el.querySelector('em').textContent = T.name === name ? T.skill : T.name;
+  /* the picture sweeps across; its words only with 맵 위 글자 on */
+  const words = !!R.mapText;
+  el.querySelector('small').textContent = words ? label : '';
+  el.querySelector('b').textContent = words ? name : '';
+  el.querySelector('em').textContent = words ? (T.name === name ? T.skill : T.name) : '';
+  el.classList.toggle('no-words', !words);
   el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
   clearTimeout(cutIn.t); cutIn.t = setTimeout(() => { el.hidden = true; el.classList.remove('go'); }, 1250);
   if (G.phase === 'play') R.slowmo = Math.max(R.slowmo || 0, 0.35);
@@ -7196,23 +7225,30 @@ function buyJade(k) {
 /* 유물: old treasures that strengthen every run. more copies raise the level */
 const RELIC_LV = [0, 1, 3, 6, 10, 15];
 const RELIC_MAX = 5;
+/* 핵심 유물 first: 돈궤 grows the 엽전 you keep, 엽전검 turns the 엽전 you keep into attack.
+   together they make saving a strategy, the way 금고 and 머니건 do in 운빨존많겜 */
 const RELICS = [
-  { id: 'cheongja', g: 2, name: '고려청자 매병', era: '고려', desc: '모든 동료 공격력', per: 0.04, key: 'atk', pct: true },
-  { id: 'geumgwan', g: 2, name: '신라 금관', era: '신라', desc: '신화 공격력', per: 0.06, key: 'myth', pct: true },
-  { id: 'hyangno', g: 2, name: '백제 금동대향로', era: '백제', desc: '보스에게 주는 피해', per: 0.06, key: 'boss', pct: true },
-  { id: 'hahoetal', g: 1, name: '하회탈', era: '고려', desc: '일반·희귀 공격력', per: 0.06, gr: 0, pct: true },
-  { id: 'sinjong', g: 1, name: '성덕대왕신종', era: '신라', desc: '영웅 공격력', per: 0.06, gr: 1, pct: true },
-  { id: 'sasindo', g: 1, name: '고구려 사신도', era: '고구려', desc: '전설 공격력', per: 0.06, gr: 2, pct: true },
-  { id: 'janggeom', g: 1, name: '이순신 장검', era: '조선', desc: '치명타 확률', per: 0.02, key: 'crit', pct: true },
-  { id: 'honcheon', g: 1, name: '혼천의', era: '조선', desc: '궁극기 충전 속도', per: 0.06, key: 'ult', pct: true },
-  { id: 'cheugugi', g: 0, name: '측우기', era: '조선', desc: '시작 엽전', per: 60, key: 'coins0' },
+  { id: 'dongwe', g: 2, core: true, name: '돈궤', era: '조선', desc: '마당이 끝날 때 가진 엽전이 불어나요', base: 0.045, per: 0.005, key: 'safe', pct: true, dec: 1,
+    text: v => `마당 끝날 때 가진 엽전 +${(v * 100).toFixed(1)}%` },
+  { id: 'yeopgeom', g: 2, core: true, name: '엽전검', era: '조선', desc: '가진 엽전만큼 모든 동료가 세져요', base: 0.0063, per: 0.0007, key: 'gun', pct: true,
+    text: v => `엽전 100마다 공격력 +${(v * 100).toFixed(2)}%` },
+  { id: 'cheongja', g: 2, name: '고려청자 매병', era: '고려', desc: '모든 동료 공격력', per: 0.06, key: 'atk', pct: true },
+  { id: 'geumgwan', g: 2, name: '신라 금관', era: '신라', desc: '신화 공격력', per: 0.1, key: 'myth', pct: true },
+  { id: 'hyangno', g: 2, name: '백제 금동대향로', era: '백제', desc: '보스에게 주는 피해', per: 0.1, key: 'boss', pct: true },
+  { id: 'hahoetal', g: 1, name: '하회탈', era: '고려', desc: '일반·희귀 공격력', per: 0.1, gr: 0, pct: true },
+  { id: 'sinjong', g: 1, name: '성덕대왕신종', era: '신라', desc: '영웅 공격력', per: 0.1, gr: 1, pct: true },
+  { id: 'sasindo', g: 1, name: '고구려 사신도', era: '고구려', desc: '전설 공격력', per: 0.1, gr: 2, pct: true },
+  { id: 'janggeom', g: 1, name: '이순신 장검', era: '조선', desc: '치명타 확률', per: 0.03, key: 'crit', pct: true },
+  { id: 'honcheon', g: 1, name: '혼천의', era: '조선', desc: '궁극기 충전 속도', per: 0.08, key: 'ult', pct: true },
+  { id: 'cheugugi', g: 0, name: '측우기', era: '조선', desc: '시작 엽전', per: 100, key: 'coins0' },
   { id: 'haerye', g: 0, name: '훈민정음 해례본', era: '조선', desc: '시작 혼', per: 1, key: 'hon0' },
-  { id: 'angbu', g: 0, name: '앙부일구', era: '조선', desc: '보스 제한 시간', per: 2, key: 'bossTime', unit: '초' },
-  { id: 'sangpyeong', g: 0, name: '상평통보', era: '조선', desc: '도깨비 처치 엽전', per: 0.05, key: 'kill', pct: true },
-  { id: 'dalhang', g: 0, name: '백자 달항아리', era: '조선', desc: '판이 끝날 때 은전', per: 0.08, key: 'silver', pct: true },
-  { id: 'jagyeok', g: 0, name: '자격루', era: '조선', desc: '출정 제한 시간', per: 3, key: 'exp', unit: '초' },
-  { id: 'cheomseong', g: 0, name: '첨성대', era: '신라', desc: '굿이 될 확률', per: 0.03, key: 'gut', pct: true },
+  { id: 'angbu', g: 0, name: '앙부일구', era: '조선', desc: '보스 제한 시간', per: 3, key: 'bossTime', unit: '초' },
+  { id: 'sangpyeong', g: 0, name: '상평통보', era: '조선', desc: '도깨비 처치 엽전', per: 0.08, key: 'kill', pct: true },
+  { id: 'dalhang', g: 0, name: '백자 달항아리', era: '조선', desc: '판이 끝날 때 은전', per: 0.1, key: 'silver', pct: true },
+  { id: 'jagyeok', g: 0, name: '자격루', era: '조선', desc: '출정 제한 시간', per: 4, key: 'exp', unit: '초' },
+  { id: 'cheomseong', g: 0, name: '첨성대', era: '신라', desc: '굿이 될 확률', per: 0.05, key: 'gut', pct: true },
 ];
+const relicVal = (r, lv) => (r.base || 0) + r.per * lv;
 const RELIC_IX = {}; RELICS.forEach((r, i) => { RELIC_IX[r.id] = i; });
 /* 유물 grades: a box rolls the grade first, then a treasure of that grade */
 const RELIC_GRADE = [{ name: '보통', color: '#c9b48a', p: 0.62 }, { name: '귀함', color: '#6aa8ff', p: 0.30 }, { name: '국보', color: '#ffcf4a', p: 0.08 }];
@@ -7228,10 +7264,10 @@ function relicUp(id) {
   SAVE.rcp[id] = relicCopies(id) - n.pcs; SAVE.silver -= n.silver; SAVE.rlv[id] = relicLv(id) + 1;
   persist(); return true;
 }
-function relicText(r, lv) { const v = r.per * lv; return `${r.desc} ${r.minus ? '-' : '+'}${r.pct ? Math.round(v * 100) + '%' : fmtC(v) + (r.unit || '')}`; }
+function relicText(r, lv) { const v = relicVal(r, lv); if (r.text) return r.text(v); return `${r.desc} ${r.minus ? '-' : '+'}${r.pct ? Math.round(v * 100) + '%' : fmtC(v) + (r.unit || '')}`; }
 function relicBonuses() {
   const o = noRelics();
-  for (const r of RELICS) { const lv = relicLv(r.id); if (!lv) continue; const v = r.per * lv; if (r.gr != null) o.gr[r.gr] += v; else if (r.key in o) o[r.key] += v; }
+  for (const r of RELICS) { const lv = relicLv(r.id); if (!lv) continue; const v = relicVal(r, lv); if (r.gr != null) o.gr[r.gr] += v; else if (r.key in o) o[r.key] += v; }
   return o;
 }
 function relicSilverBonus() { return RELICS[RELIC_IX.dalhang].per * relicLv('dalhang'); }
@@ -7252,6 +7288,8 @@ function grantRelics(n) {
     const want = r => { const lv = relicLv(r.id); if (lv >= RELIC_MAX) return false; let need = 0; for (let l = Math.max(1, lv); l < RELIC_MAX; l++) need += RELIC_UP.pcs[l]; return relicCopies(r.id) < need; };
     const g0 = rollRelicGrade();
     let pool = RELICS.filter(r => (r.g || 0) === g0 && want(r));
+    /* a 국보 goes to a 핵심 유물 you still lack before anything else */
+    if (g0 === 2) { const core = RELICS.filter(r => r.core && relicLv(r.id) === 0); if (core.length) pool = core; }
     for (let d = 1; !pool.length && d <= 2; d++) pool = RELICS.filter(r => want(r) && Math.abs((r.g || 0) - g0) === d);
     if (!pool.length) { gain(0, 20); out.push({ id: null, jade: 20 }); continue; }
     const r = pick(pool), isNew = relicLv(r.id) === 0;
@@ -7465,6 +7503,22 @@ function foeCount() { return FOE_KEYS.filter(k => SAVE.foes[k]).length; }
 
 /* ================= 유물 icons: small inline SVGs, one per treasure ================= */
 const RELIC_SVG = {
+  dongwe: `<path d="M10 26h44v28H10z" fill="#8a5a2e" stroke="#3a220e" stroke-width="2.2"/>
+    <path d="M8 18c0-3 2-5 5-5h38c3 0 5 2 5 5v8H8z" fill="#a8703a" stroke="#3a220e" stroke-width="2.2"/>
+    <path d="M10 34h44M10 46h44" stroke="#5a3818" stroke-width="1.4"/>
+    <path d="M10 26h44" stroke="#d9a84a" stroke-width="3"/>
+    <rect x="9" y="12" width="7" height="43" fill="#d9a84a" stroke="#5a3d0c" stroke-width="1.4"/><rect x="48" y="12" width="7" height="43" fill="#d9a84a" stroke="#5a3d0c" stroke-width="1.4"/>
+    <circle cx="32" cy="33" r="7" fill="#f2c94a" stroke="#5a3d0c" stroke-width="2"/>
+    <rect x="29" y="30" width="6" height="6" fill="#3a220e"/>
+    <path d="M32 40v6" stroke="#5a3d0c" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="22" cy="8" r="4" fill="#f2c94a" stroke="#5a3d0c" stroke-width="1.4"/><rect x="20.6" y="6.6" width="2.8" height="2.8" fill="#5a3d0c"/>
+    <circle cx="42" cy="6" r="3" fill="#f2c94a" stroke="#5a3d0c" stroke-width="1.2"/>`,
+  yeopgeom: `<path d="M44 8l4 4-26 30-4-4z" fill="#c9a040" stroke="#4a320e" stroke-width="1.6"/>
+    ${[0, 1, 2, 3, 4, 5].map(i => { const x = 46 - i * 4.6, y = 10 + i * 5.3; return `<circle cx="${x}" cy="${y}" r="3.6" fill="#f2c94a" stroke="#5a3d0c" stroke-width="1.2"/><rect x="${x - 1.1}" y="${y - 1.1}" width="2.2" height="2.2" fill="#5a3d0c"/>`; }).join('')}
+    <path d="M14 38l12 12" stroke="#8a2a1e" stroke-width="5" stroke-linecap="round"/>
+    <path d="M18 46l-8 8" stroke="#3a2010" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="9" cy="55" r="2.6" fill="#d63b2e"/>
+    <path d="M9 57c-2 3-2 5 0 7M9 57c1 3 3 4 4 6M9 57c-3 2-5 3-6 5" stroke="#d63b2e" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
   cheongja: `<defs><linearGradient id="rgC" x1="0" x2="1"><stop offset="0" stop-color="#9cc8b4"/><stop offset=".55" stop-color="#6fa892"/><stop offset="1" stop-color="#4c806c"/></linearGradient></defs>
     <path d="M24 10h16l-2 5c9 4 13 13 11 24-2 9-6 15-9 19H24c-3-4-7-10-9-19-2-11 2-20 11-24z" fill="url(#rgC)" stroke="#23382f" stroke-width="2.2"/>
     <path d="M25 10h14" stroke="#23382f" stroke-width="3" stroke-linecap="round"/>
@@ -7651,6 +7705,8 @@ function setClass(node, key, cls, on) { const k = key + cls; if (cache[k] !== on
 let toastT = 0;
 toast = msg => { el.toast.textContent = msg; el.toast.classList.add('is-on'); toastT = 2.4; };
 function showBanner(main, sub, boss, myth) {
+  /* big words over the yard only for players who turned 맵 위 글자 on; the HUD, sounds and effects carry the rest */
+  if (!R.mapText) return;
   el.bMain.textContent = main; el.bSub.textContent = sub || ''; el.bSub.hidden = !sub;
   el.banner.classList.toggle('is-boss', !!boss); el.banner.classList.toggle('is-myth', !!myth); el.banner.classList.toggle('is-long', main.length > 5);
   el.banner.classList.remove('show'); void el.banner.offsetWidth; el.banner.classList.add('show');
@@ -7694,6 +7750,7 @@ const HINTS = [
   '장보고의 무역선은 혼을 실어 와요. 굿을 더 자주 벌일 수 있어요',
   '전설 둘을 모으면 신수를, 신화를 모으면 전래동화를 깨울 수 있어요',
   '도깨비는 왼쪽 아래 구멍에서 나와 왼쪽 길을 타고 가운데 길로 들어가요. 둘이 같이 때리는 가운데 길에 붙은 맨 윗줄이 제일 바빠요. 기절시키는 동료는 입구 말고 가운데 길 쪽에 두세요',
+  '핵심 유물 돈궤는 마당이 끝날 때 가진 엽전을 불려 주고, 엽전검은 가진 엽전 100마다 모든 동료를 세게 해요. 둘 다 있으면 초반엔 아껴 모으고 끝에 몰아 쓰는 게 강해요',
 ];
 
 /* ---------- info bar ---------- */
@@ -8417,10 +8474,12 @@ function attHTML() {
 function relicCardHTML(r) {
   const lv = relicLv(r.id), sp = relicCopies(r.id), n = relicNeed(r.id), Gr = RELIC_GRADE[r.g || 0], ok = canRelicUp(r.id);
   const up = n ? `<div class="pc"><span class="num">조각 ${sp}/${n.pcs}</span><div class="bar" style="width:46px"><i style="width:${Math.min(100, sp / n.pcs * 100)}%"></i></div></div><button class="btn-sm rup${ok ? ' is-go' : ''}" type="button" data-rup="${r.id}" ${ok ? '' : 'disabled'}>Lv ${lv + 1} <i class="silver-ico" style="display:inline-block;width:11px;height:11px;vertical-align:-1px"></i> ${fmtC(n.silver)}</button>` : '';
-  return `<div class="relic${lv ? '' : ' is-none'}" style="--rg:${Gr.color}"><div class="ri">${relicIcon(r.id, 46, !lv)}${lv ? `<span class="rlv">Lv ${lv}</span>` : ''}</div><div class="rt"><b>${esc(r.name)}</b><small><span class="rgr">${Gr.name}</span> · ${esc(r.era)}</small><p>${lv ? esc(relicText(r, lv)) : '아직 못 찾았어요'}</p>${lv ? (n ? `<p class="rn">다음 · ${esc(relicText(r, lv + 1))}</p>${up}` : '<p class="rn">최고 레벨</p>') : ''}</div></div>`;
+  return `<div class="relic${lv ? '' : ' is-none'}${r.core ? ' is-core' : ''}" style="--rg:${Gr.color}"><div class="ri">${relicIcon(r.id, 46, !lv)}${lv ? `<span class="rlv">Lv ${lv}</span>` : ''}</div><div class="rt"><b>${esc(r.name)}</b><small>${r.core ? '<span class="rgr core">핵심</span> · ' : ''}<span class="rgr">${Gr.name}</span> · ${esc(r.era)}</small><p>${lv ? esc(relicText(r, lv)) : r.core ? `아직 못 찾았어요 · ${esc(r.desc)}. 국보가 나오면 이것부터 나와요` : '아직 못 찾았어요'}</p>${lv ? (n ? `<p class="rn">다음 · ${esc(relicText(r, lv + 1))}</p>${up}` : '<p class="rn">최고 레벨</p>') : ''}</div></div>`;
 }
 function relicSummary() {
   const b = relicBonuses(), parts = [];
+  if (b.safe) parts.push(`돈궤 이자 ${(b.safe * 100).toFixed(1)}%`);
+  if (b.gun) parts.push(`엽전검 100냥마다 +${(b.gun * 100).toFixed(2)}%`);
   if (b.atk) parts.push(`모든 공격력 +${Math.round(b.atk * 100)}%`);
   if (b.myth) parts.push(`신화 +${Math.round(b.myth * 100)}%`);
   if (b.boss) parts.push(`보스 피해 +${Math.round(b.boss * 100)}%`);
@@ -8638,6 +8697,7 @@ $('mClose').addEventListener('click', closeMiss);
 const HELP = [
   ['기본', [0, 6, 5, 26, 10]],
   ['강화와 소환 운', [7, 15, 25]],
+  ['유물', [33]],
   ['신화', [8, 4, 9, 11, 21, 31, 29, 30]],
   ['굿', [23, 24]],
   ['도전과 출정', [16, 17, 18]],
@@ -8646,8 +8706,8 @@ const HELP = [
 ];
 function openHelp() {
   closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = true;
-  const sea = seasonOf();
-  hlist.innerHTML = (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 도깨비는 각자 바깥 모서리에서 나와 옆길을 타고 가운데 길로 들어와요. 가운데 길은 둘이 같이 쓰는 곳이라 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
+  const sea = seasonOf(), S = STAGES[G.stage || 0];
+  hlist.innerHTML = (S.rule ? `<div class="hduo"><b>${esc(S.name)}</b>${esc(S.rule)}</div>` : '') + (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 도깨비는 각자 바깥 모서리에서 나와 옆길을 타고 가운데 길로 들어와요. 가운데 길은 둘이 같이 쓰는 곳이라 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
     HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
     `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
   hsheet.hidden = false; sfx('click');
@@ -8677,6 +8737,13 @@ function uiTick(dt) {
   const cT = Math.floor(G.coins);
   if (cache.coinShow == null || cT < cache.coinShow) cache.coinShow = cT; else if (cT > cache.coinShow) cache.coinShow = Math.min(cT, cache.coinShow + Math.max(1, Math.ceil((cT - cache.coinShow) * Math.min(1, dt * 7))));
   setText(el.coins, 'coins', fmtC(cache.coinShow));
+  /* 엽전검: what the purse is worth in attack right now. right after a 마당, what the 돈궤 paid */
+  {
+    const mg = $('mgun'), ss = cache.safeShow && performance.now() - cache.safeShow.t < 2600 ? cache.safeShow : null;
+    const gun = G.rel && G.rel.gun && G.phase === 'play' ? Math.round((moneyMul() - 1) * 100) : 0;
+    const txt = ss ? `궤 +${fmtC(ss.v)}` : gun > 0 ? `검 +${gun}%` : '';
+    if (mg.textContent !== txt) { mg.textContent = txt; mg.hidden = !txt; mg.classList.toggle('is-safe', !!ss); }
+  }
   setText(el.hon, 'hon', String(G.hon));
   const n = G.foes.length, p = Math.min(1, n / BAL.cap), w = `${(p * 100).toFixed(1)}%`;
   if (cache.gw !== w) { cache.gw = w; el.gaugeFill.style.width = w; el.gauge.setAttribute('aria-valuenow', String(n)); }
@@ -8808,6 +8875,7 @@ el.pauseBtn.addEventListener('click', () => { if (netCoop()) { toast('같이 할
 const setPanel = $('setPanel'), gearBtn = $('gearBtn');
 R.cutin = true; try { R.cutin = localStorage.getItem('talnori-cutin') !== '0'; } catch (err) { /* ignore */ }
 R.names = false; try { R.names = localStorage.getItem('talnori-names') === '1'; } catch (err) { /* ignore */ }
+R.mapText = false; try { R.mapText = localStorage.getItem('talnori-maptext') === '1'; } catch (err) { /* ignore */ }
 R.fxLite = false; try { R.fxLite = localStorage.getItem('talnori-fx') === '0'; } catch (err) { /* ignore */ }
 function setFxLite(v) {
   R.fxLite = !!v; try { localStorage.setItem('talnori-fx', v ? '0' : '1'); } catch (err) { /* ignore */ }
@@ -8821,6 +8889,7 @@ function renderSettings() {
   const C = AU.cfg, on = AU.on, row = (label, key, val, vol) => `<div class="sp-row${vol && !on ? ' dim' : ''}"><span>${label}</span>${vol ? `<input type="range" min="0" max="100" step="5" value="${Math.round(C[vol] * 100)}" data-vol="${vol}" aria-label="${label} 크기">` : ''}<button class="tog${val ? ' on' : ''}" type="button" data-sp="${key}">${val ? '켜짐' : '꺼짐'}</button></div>`;
   setPanel.innerHTML = `<div class="sp-h"><b>설정</b><button class="ib" type="button" id="spClose" aria-label="닫기">✕</button></div>
     ${row('소리 전체', 'on', on)}${row('배경음악', 'mus', C.mus, 'musV')}${row('효과음', 'fx', C.fx, 'fxV')}
+    <div class="sp-row"><span>맵 위 글자<small class="sp-sub">피해 숫자, 엽전, 마당 안내 글씨</small></span><button class="tog${R.mapText ? ' on' : ''}" type="button" data-sp="maptext">${R.mapText ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>유닛 이름 보기</span><button class="tog${R.names ? ' on' : ''}" type="button" data-sp="names">${R.names ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>화려한 효과<small class="sp-sub">빛, 고리, 파편, 흔들림</small></span><button class="tog${R.fxLite ? '' : ' on'}" type="button" data-sp="fxl">${R.fxLite ? '꺼짐' : '켜짐'}</button></div>
     <div class="sp-row"><span>궁극기 연출</span><button class="tog${R.cutin ? ' on' : ''}" type="button" data-sp="cut">${R.cutin ? '켜짐' : '꺼짐'}</button></div>
@@ -8850,6 +8919,7 @@ setPanel.addEventListener('click', e => {
   else if (k === 'q') { R.autoQ = false; setQuality((R.q + 1) % 3); }
   else if (k === 'pix') setPixel(!PIXEL);
   else if (k === 'fxl') setFxLite(!R.fxLite);
+  else if (k === 'maptext') { R.mapText = !R.mapText; try { localStorage.setItem('talnori-maptext', R.mapText ? '1' : '0'); } catch (err) { /* ignore */ } if (!R.mapText) TEXT.length = 0; }
   else if (k === 'names') { R.names = !R.names; try { localStorage.setItem('talnori-names', R.names ? '1' : '0'); } catch (err) { /* ignore */ } }
   else if (k === 'cut') { R.cutin = !R.cutin; try { localStorage.setItem('talnori-cutin', R.cutin ? '1' : '0'); } catch (err) { /* ignore */ } }
   renderSettings();
@@ -9771,7 +9841,7 @@ function joinFromLink() {
 }
 
 /* ---------- 폰 앱: install to the home screen, play offline, keep the screen on ---------- */
-const APP_BUILD = '20e2ef2622';
+const APP_BUILD = '551c187a22';
 const APP = (() => {
   const ua = navigator.userAgent || '', mq = q => { try { return matchMedia(q).matches; } catch (err) { return false; } };
   const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -9871,7 +9941,7 @@ if ('serviceWorker' in navigator && !window.claude && (location.protocol === 'ht
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 joinFromLink();
-window.__tal = { destOf, JOINT, jointPut, COMBOS, SEASONS, seasonOf, storyN, unlockStory, comboTick, netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+window.__tal = { grantRelics, moneyMul, destOf, JOINT, jointPut, COMBOS, SEASONS, seasonOf, storyN, unlockStory, comboTick, netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 
 })();
 </script>

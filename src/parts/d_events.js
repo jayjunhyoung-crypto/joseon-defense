@@ -130,6 +130,7 @@ function onEvent(e) {
       break;
     }
     case 'charm': for (let i = 0; i < 4; i++) part(e.x, e.y, 0.6, rand(-0.6, 0.6), rand(-0.3, 0.3), rand(0.6, 1.2), '#ff6aa0', 0.08, 0.7, { g: 0.5, kind: 'heart' }); break;
+    case 'safe': bump(el.coins.parentElement); cache.safeShow = { v: e.v, t: performance.now() }; sfx('coin'); break;
     case 'coin': fxText(e.x, e.y - (e.big ? 1.25 : 0.8), `+${fmtC(e.v)}`, 'coin', e.big ? 1.25 : 0.95); if (e.big) burst(e.x, e.y - 0.6, 0.3, 8, ['#f2c94a', '#fff2b0'], 1.6, 0.05, 0.6, { up: 2, g: 1.2 }); flyCoin(e.x, e.y - 0.5, COIN_EL, 1); sfx('coin'); break;
     case 'kill': {
       if (e.boss) {
@@ -372,9 +373,12 @@ function cutIn(id, label, name, force) {
   const ill = typeof ILLUST !== 'undefined' && ILLUST[id] && ILLUST[id].complete && ILLUST[id].naturalWidth ? ILLUST[id] : null;
   el.classList.toggle('big', !!ill);
   el.querySelector('img').src = ill ? ill.src : portraitURL(id, 128);
-  el.querySelector('small').textContent = label;
-  el.querySelector('b').textContent = name;
-  el.querySelector('em').textContent = T.name === name ? T.skill : T.name;
+  /* the picture sweeps across; its words only with 맵 위 글자 on */
+  const words = !!R.mapText;
+  el.querySelector('small').textContent = words ? label : '';
+  el.querySelector('b').textContent = words ? name : '';
+  el.querySelector('em').textContent = words ? (T.name === name ? T.skill : T.name) : '';
+  el.classList.toggle('no-words', !words);
   el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
   clearTimeout(cutIn.t); cutIn.t = setTimeout(() => { el.hidden = true; el.classList.remove('go'); }, 1250);
   if (G.phase === 'play') R.slowmo = Math.max(R.slowmo || 0, 0.35);

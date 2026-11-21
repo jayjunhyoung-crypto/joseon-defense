@@ -57,13 +57,15 @@ function think(G, mode, memo) {
   const pw = groupPower(G);
   let best = 0; for (let g = 1; g < 4; g++) if (pw[g] > pw[best]) best = g;
   let guard = 0;
+  /* saver: keeps a growing pile for 돈궤 and 엽전검, unless the yard is filling up */
+  const keep = mode === 'saver' && G.foes.length < 60 ? Math.min(G.wave * 250, 15000) : 0, cash = () => G.coins - keep;
   while (guard++ < 30) {
     const sc = C.summonCost(), uc = G.up[best] < C.UP_MAX ? C.upCost(best) : Infinity;
-    const luckOk = G.up[C.LUCK] < 5 && !C.luckByHon() && G.coins >= C.upCost(C.LUCK) + sc && G.wave >= 8;
+    const luckOk = G.up[C.LUCK] < 5 && !C.luckByHon() && cash() >= C.upCost(C.LUCK) + sc && G.wave >= 8;
     if (luckOk) { C.upgrade(C.LUCK); continue; }
-    if (C.hasRoom() && G.coins >= sc && (G.coins - sc >= uc * 0.5 || G.up[best] >= G.wave * 0.6)) { if (!C.summon()) break; continue; }
-    if (G.coins >= uc) { C.upgrade(best); continue; }
-    if (C.hasRoom() && G.coins >= sc) { if (!C.summon()) break; continue; }
+    if (C.hasRoom() && cash() >= sc && (cash() - sc >= uc * 0.5 || G.up[best] >= G.wave * 0.6)) { if (!C.summon()) break; continue; }
+    if (cash() >= uc) { C.upgrade(best); continue; }
+    if (C.hasRoom() && cash() >= sc) { if (!C.summon()) break; continue; }
     break;
   }
   /* 5. full yard: sell the weakest spare */
@@ -73,12 +75,13 @@ function think(G, mode, memo) {
     if (worst >= 0) C.sell(worst);
   }
   /* 6. 도전 귀신 when the yard is ready for them */
-  if (mode === 'pro') for (let i = 0; i < C.CHALS.length; i++) if (C.chalReady(i) && G.wave >= C.CHALS[i].rec) C.callChallenge(i);
+  if (mode === 'pro' || mode === 'saver') for (let i = 0; i < C.CHALS.length; i++) if (C.chalReady(i) && G.wave >= C.CHALS[i].rec) C.callChallenge(i);
 }
 /* pair: you are the 'pro' bot, with the in-game AI teammate beside you sharing bosses */
 function run(mode) {
   const [mul, spd] = lvArrays(), pair = mode === 'pair';
-  C.newGame(mul, spd, stage, null);
+  /* REL=core: 돈궤 and 엽전검 at their top level */
+  C.newGame(mul, spd, stage, process.env.REL === 'core' ? Object.assign(C.noRelics(), { safe: 0.07, gun: 0.0098 }) : null);
   if (pair) { Object.assign(C.COOP, { on: true, bossW: 0, bossDmg: 0, pApplied: 0, sync: C.aiSyncMe }); C.aiNew(mul, spd, stage, null); }
   const memo = { crafts: [] };
   let t = 0, nt = 0;
@@ -94,7 +97,8 @@ function run(mode) {
 function dps(G) { let s = 0; G.units.forEach((u, i) => { if (u) { const Ty = T(u.t); s += C.dmgOf(u.t, i) * (u.c || 1) * (Ty.kind === 'double' ? 2 : 1) / Ty.cd; } }); return s; }
 function trace(mode, every = 5) {
   const [mul, spd] = lvArrays();
-  C.newGame(mul, spd, stage, null); C.G.tally = {};
+  /* REL=core: 돈궤 and 엽전검 at their top level */
+  C.newGame(mul, spd, stage, process.env.REL === 'core' ? Object.assign(C.noRelics(), { safe: 0.07, gun: 0.0098 }) : null); C.G.tally = {};
   const memo = { crafts: [] };
   let t = 0, nt = 0, lw = 0;
   while (C.G.phase === 'play' && t < 4000) {
