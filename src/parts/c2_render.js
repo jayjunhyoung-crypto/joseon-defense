@@ -161,7 +161,7 @@ function drawFxExtra(g) {
       g.fillStyle = '#8d8a84'; g.strokeStyle = OL; g.lineWidth = 2; g.beginPath(); for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, rr = r * (0.8 + ((i * 37) % 5) / 12); g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); g.fill(); g.stroke();
       g.fillStyle = 'rgba(255,255,255,.22)'; g.beginPath(); g.ellipse(-r * 0.3, -r * 0.3, r * 0.3, r * 0.18, -0.5, 0, TAU); g.fill();
       g.restore();
-    } else if (e.k === 'cloud') {
+    } else if (e.k === 'cloud' && !R.fxLite) {
       const a = k < 0.15 ? k / 0.15 : k > 0.8 ? (1 - k) / 0.2 : 1, x = wx(cellX(e.col)), y0 = wy(-ROWS / 2 - 0.6), y1 = wy(ROWS / 2 + 0.2);
       g.globalAlpha = a;
       g.fillStyle = 'rgba(30,34,52,.85)'; for (const [dx, dy, r] of [[-0.3, 0, 0.32], [0.05, -0.12, 0.38], [0.36, 0.02, 0.3]]) { g.beginPath(); g.arc(x + dx * CS, y0 + dy * CS, r * CS, 0, TAU); g.fill(); }

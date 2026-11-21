@@ -10,7 +10,8 @@ const ctx = cv ? cv.getContext('2d') : null;
 const BG = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const UNIT_H = 1.12, FOE_H = 0.6;
-const wx = x => R.OX + x * R.CS, wy = y => R.OY + y * R.CS;
+/* R.flip draws the partner's yard: its own coordinates turned half a circle above yours */
+const wx = x => R.OX + (R.flip ? -x : x) * R.CS, wy = y => R.OY + (R.flip ? -2 * HY - y : y) * R.CS;
 
 /* ---------- sprite atlas ---------- */
 const ART = {}, FOE_ART = [], BOSS_ART = {}, CHAL_ART = {};
@@ -125,6 +126,8 @@ function computePose(p, D, t, ph, ap, sil) {
   p.aB = I.aB ? I.aB[0] + I.aB[1] * Math.sin(tm * PI + PI) : 0.3;
   p.hrot = (I.head || 0) + Math.sin(tm * PI * 0.5 + 1) * 0.05;
   p.sy = 1 + Math.sin(tm * PI * 2) * 0.012;
+  /* slow breath for the illustrated companions, about one every two and a half seconds */
+  p.br = Math.sin(t * 2.5 + ph * 1.7);
   if (D.static) { p.by = 0; p.lean = Math.sin(tm * 1.3) * 0.015; }
   if (sil) { p.aF = 0.1; p.aB = 0.1; p.by = 0; p.hrot = 0.28; p.lean = 0.06; return p; }
   if (ap < 1) {
@@ -162,7 +165,9 @@ function drawSprite(g, id, x, y, k, pose, face, alpha) {
   if (alpha < 1) g.globalAlpha *= alpha;
   /* with a real attack picture the body motion stays small: the picture does the work */
   const m = useA ? 0.35 : 1;
-  g.translate(pose.bx + (c ? c.x * m : 0), pose.by + (c ? c.y * m : 0)); g.rotate(pose.lean * 0.5 + (c ? c.r * m : 0)); g.scale(c ? 1 + (c.sx - 1) * m : 1, c ? 1 + (c.sy - 1) * m : 1);
+  const br = pose.br || 0;
+  g.translate(pose.bx + (c ? c.x * m : 0), pose.by * 0.35 + (c ? c.y * m : 0)); g.rotate(pose.lean * 0.16 + (c ? c.r * m : 0));
+  g.scale((c ? 1 + (c.sx - 1) * m : 1) * (1 - br * 0.012), (c ? 1 + (c.sy - 1) * m : 1) * (1 + br * 0.022));
   g.drawImage(S, left, -h, w, h);
   /* melee companions leave a short white swing arc in front of them */
   if (c && c.s > 0.15 && c.s < 1.5) {
@@ -357,6 +362,8 @@ function drawFoePortraitOld(g, key, css) {
 
 /* ---------- layout & background ---------- */
 const WORLD = { x0: -HX - 0.55, x1: HX + 0.55, y0: -HY - 1.05, y1: HY + 0.55 };
+/* with a partner the world grows upward by one yard */
+function setWorld() { WORLD.y0 = R.duo ? -3 * HY - 1.0 : -HY - 1.05; }
 function layout() {
   const W = window.innerWidth, H = window.innerHeight;
   R.W = W; R.H = H;
@@ -374,6 +381,7 @@ function layout() {
     else { top = document.getElementById('hud').getBoundingClientRect().bottom - 8; bot = document.getElementById('deck').getBoundingClientRect().top + 8; }
   }
   if (R.lobby) document.body.classList.remove('wide');
+  setWorld();
   const freeH = Math.max(160, bot - top), ww = WORLD.x1 - WORLD.x0, wh = WORLD.y1 - WORLD.y0;
   R.CS = Math.max(18, Math.min((x1 - x0 - 12) / ww, freeH / wh));
   R.OX = (x0 + x1) / 2 - (WORLD.x0 + WORLD.x1) / 2 * R.CS;
@@ -384,6 +392,7 @@ function layout() {
   try { if (el.coopBox && !el.coopBox.hidden) placeCoopBox(); } catch (err) { /* not ready yet */ }
 }
 function seeded(s) { return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+
 let MAT_PAT = null;
 const THEMES = {
   village: { ground: '#7d9a55', g1: 'rgba(40,70,20,.35)', g2: 'rgba(190,220,120,.25)', yard: '#dcc394', path: '#c29a63', grass: true },
@@ -399,6 +408,7 @@ function buildBG() {
   const rnd = seeded(11);
   const W = R.W, H = R.H;
   const mx0 = wx(-HX - LANE / 2 - 0.42), my0 = wy(-HY - LANE / 2 - 0.42), mx1 = wx(HX + LANE / 2 + 0.42), my1 = wy(HY + LANE / 2 + 0.42);
+  const ty0 = R.duo && !R.lobby ? wy(-3 * HY - LANE / 2 - 0.42) : my0;
   g.fillStyle = TH.ground; g.fillRect(0, 0, W, H);
   if (R.theme === 'sea') seaBase(g, rnd, mx0, my0, mx1, my1);
   for (let i = 0; i < W * H / 260; i++) {
@@ -407,21 +417,34 @@ function buildBG() {
     else if (i % 2 === 0 && (R.theme !== 'sea' || seaLand(x, y))) { g.fillStyle = rnd() < 0.5 ? TH.g1 : TH.g2; g.fillRect(x, y, 1.6, 1.6); }
   }
   if (R.theme === 'underworld') for (let i = 0; i < 10; i++) { const x = rnd() * W, y = rnd() * H, r = 60 + rnd() * 120; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(160,150,200,.16)'); gr.addColorStop(1, 'rgba(160,150,200,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
-  (DECOR[R.theme] || decorOutside)(g, rnd, mx0, my0, mx1, my1);
+  (DECOR[R.theme] || decorOutside)(g, rnd, mx0, ty0, mx1, my1);
+  const yards = R.duo && !R.lobby ? [false, true] : [false];
+  /* one yard, or two stacked into an 8: the half above the shared road is the partner's, a shade darker */
+  const yr = (RC + LANE / 2 + 0.42) * CS, yh = my1 - ty0, mid = wy(-HY);
+  const yardPath = () => {
+    g.beginPath();
+    if (yards.length < 2) { RR(g, mx0, my0, mx1 - mx0, my1 - my0, yr); return; }
+    RR(g, mx0, ty0, mx1 - mx0, mid - ty0, yr); RR(g, mx0, mid, mx1 - mx0, my1 - mid, yr);
+    g.rect(mx0, mid - yr, mx1 - mx0, yr * 2);
+  };
   g.save();
   g.shadowColor = 'rgba(40,30,10,.35)'; g.shadowBlur = 12; g.shadowOffsetY = 4;
-  g.beginPath(); RR(g, mx0, my0, mx1 - mx0, my1 - my0, (RC + LANE / 2 + 0.42) * CS); g.fillStyle = TH.yard; g.fill();
+  yardPath(); g.fillStyle = TH.yard; g.fill('nonzero');
   g.restore();
-  g.save(); g.beginPath(); RR(g, mx0, my0, mx1 - mx0, my1 - my0, (RC + LANE / 2 + 0.42) * CS); g.clip();
-  for (let i = 0; i < (mx1 - mx0) * (my1 - my0) / 30; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(120,90,50,.13)' : 'rgba(255,245,220,.18)'; g.fillRect(mx0 + rnd() * (mx1 - mx0), my0 + rnd() * (my1 - my0), 1.6, 1.6); }
+  g.save(); yardPath(); g.clip('nonzero');
+  if (yards.length > 1) { g.fillStyle = 'rgba(30,20,40,.12)'; g.fillRect(mx0, ty0, mx1 - mx0, mid - ty0); }
+  for (let i = 0; i < (mx1 - mx0) * yh / 30; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(120,90,50,.13)' : 'rgba(255,245,220,.18)'; g.fillRect(mx0 + rnd() * (mx1 - mx0), ty0 + rnd() * yh, 1.6, 1.6); }
   g.restore();
-  const pr = (o) => { g.beginPath(); RR(g, wx(-HX - o), wy(-HY - o), (2 * (HX + o)) * CS, (2 * (HY + o)) * CS, (RC + o) * CS); };
+  R.flip = false;
+  const pr = (o) => { g.beginPath(); RR(g, wx(-HX - o), wy(-HY - o), (2 * (HX + o)) * CS, (2 * (HY + o)) * CS, (RC + o) * CS); if (yards.length > 1) RR(g, wx(-HX - o), wy(-3 * HY - o), (2 * (HX + o)) * CS, (2 * (HY + o)) * CS, (RC + o) * CS); };
   g.lineJoin = 'round';
   pr(0); g.strokeStyle = TH.path; g.lineWidth = LANE * CS; g.stroke();
   pr(0); g.strokeStyle = 'rgba(255,235,200,.16)'; g.lineWidth = LANE * CS * 0.5; g.stroke();
-  for (let i = 0; i < 700; i++) { const d = rnd() * PERIM, p = pathAt(d), o = (rnd() - 0.5) * LANE * 0.9; g.fillStyle = rnd() < 0.5 ? 'rgba(90,60,30,.22)' : 'rgba(255,240,210,.2)'; g.beginPath(); g.arc(wx(p.x - p.dy * o), wy(p.y + p.dx * o), 0.7 + rnd() * 1.2, 0, TAU); g.fill(); }
+  for (let i = 0; i < 700 * yards.length; i++) { R.flip = yards.length > 1 && i % 2 === 1; const d = rnd() * PERIM, p = pathAt(d), o = (rnd() - 0.5) * LANE * 0.9; g.fillStyle = rnd() < 0.5 ? 'rgba(90,60,30,.22)' : 'rgba(255,240,210,.2)'; g.beginPath(); g.arc(wx(p.x - p.dy * o), wy(p.y + p.dx * o), 0.7 + rnd() * 1.2, 0, TAU); g.fill(); }
+  R.flip = false;
   const P0 = { x: 0, y: 0, dx: 0, dy: 0 };
-  for (const off of [-LANE / 2 - 0.03, LANE / 2 + 0.03]) {
+  for (const fl of yards) for (const off of [-LANE / 2 - 0.03, LANE / 2 + 0.03]) {
+    R.flip = fl;
     for (let d = 0; d < PERIM; d += 0.17 + rnd() * 0.06) {
       pathAt(d, P0);
       const x = wx(P0.x - P0.dy * off), y = wy(P0.y + P0.dx * off), s = CS * (0.045 + rnd() * 0.03), v = 150 + rnd() * 40 | 0;
@@ -429,8 +452,13 @@ function buildBG() {
       g.beginPath(); g.ellipse(x, y, s * 1.3, s, rnd() * PI, 0, TAU); g.fill(); g.stroke();
     }
   }
-  const gx0 = wx(-COLS / 2 - 0.08), gy0 = wy(-ROWS / 2 - 0.08);
-  g.fillStyle = 'rgba(90,60,30,.28)'; g.beginPath(); RR(g, gx0, gy0, (COLS + 0.16) * CS, (ROWS + 0.16) * CS, 0.18 * CS); g.fill();
+  R.flip = false;
+  for (const fl of yards) {
+    R.flip = fl;
+    const gx0 = Math.min(wx(-COLS / 2 - 0.08), wx(COLS / 2 + 0.08)), gy0 = Math.min(wy(-ROWS / 2 - 0.08), wy(ROWS / 2 + 0.08));
+    g.fillStyle = 'rgba(90,60,30,.28)'; g.beginPath(); RR(g, gx0, gy0, (COLS + 0.16) * CS, (ROWS + 0.16) * CS, 0.18 * CS); g.fill();
+  }
+  R.flip = false;
   if (!MAT_PAT) {
     const pc = document.createElement('canvas'); pc.width = pc.height = 16; const q = pc.getContext('2d');
     q.fillStyle = '#b8935a'; q.fillRect(0, 0, 16, 16);
@@ -439,8 +467,9 @@ function buildBG() {
     MAT_PAT = pc;
   }
   const pat = g.createPattern(MAT_PAT, 'repeat');
-  for (let i = 0; i < NCELL; i++) {
-    const x = wx(cellX(i) - 0.45), y = wy(cellY(i) - 0.45), s = 0.9 * CS;
+  for (let i = 0; i < NCELL * yards.length; i++) {
+    const j = i % NCELL, oy = i >= NCELL ? -2 * HY : 0;
+    const x = wx(cellX(j) - 0.45), y = wy(cellY(j) - 0.45 + oy), s = 0.9 * CS;
     g.save(); g.beginPath(); RR(g, x, y, s, s, 0.1 * CS); g.fillStyle = pat; g.fill();
     g.strokeStyle = '#6b4c28'; g.lineWidth = Math.max(1.5, CS * 0.04); g.stroke();
     g.strokeStyle = 'rgba(255,235,190,.35)'; g.lineWidth = 1; g.beginPath(); RR(g, x + 3, y + 3, s - 6, s - 6, 0.08 * CS); g.stroke();
@@ -498,6 +527,7 @@ function fxText(x, y, s, cls, life = 0.9) {
   TEXT.push({ x: x + rand(-0.08, 0.08), y, s, cls, life, t: 0 });
 }
 function part(x, y, z, vx, vy, vz, col, size, life, o = {}) {
+  if (R.flip || R.fxLite) return;
   if (PART.length > 700) return;
   PART.push({ x, y, z, vx, vy, vz, col, size, life, t: 0, g: o.g != null ? o.g : 4, drag: o.drag != null ? o.drag : 2, kind: o.kind || 'dot', rot: rand(0, TAU), spin: rand(-8, 8), shrink: o.shrink !== false });
 }
@@ -509,7 +539,7 @@ function puff(x, y, n, col, size, life) {
   n = Math.max(1, Math.round(n * QUALITY[R.q].pmul));
   for (let i = 0; i < n; i++) part(x + rand(-0.15, 0.15), y + rand(-0.08, 0.08), rand(0.05, 0.3), rand(-0.4, 0.4), rand(-0.2, 0.2), rand(0.2, 0.6), col, size * rand(0.7, 1.2), life * rand(0.8, 1.2), { kind: 'smoke', g: -0.2, drag: 1.4, shrink: false });
 }
-function shake(a) { if (!reduceMotion) R.shake = Math.max(R.shake, a); }
+function shake(a) { if (!reduceMotion && !R.fxLite) R.shake = Math.max(R.shake, a); }
 function updateFx(dt) {
   for (let i = FX.length - 1; i >= 0; i--) { FX[i].t += dt; if (FX[i].t >= FX[i].life) FX.splice(i, 1); }
   for (let i = PART.length - 1; i >= 0; i--) {
@@ -525,6 +555,8 @@ function updateFx(dt) {
 }
 function drawFx(g) {
   const CS = R.CS;
+  /* 효과 끔: flashes, rings, slashes and beams all go; shots, numbers that matter and words stay */
+  if (R.fxLite) return;
   for (const e of FX) {
     if (e.t < 0) continue;
     const k = e.t / e.life, a = 1 - k;
@@ -614,6 +646,40 @@ function drawTexts(g) {
 
 /* ---------- unit visuals ---------- */
 const UVIS = new Map();
+/* how a companion moves on its mat: turns like a paper doll instead of snapping, steps in to strike up close,
+   kicks back a little when it shoots, and now and then hops or glances the other way while it waits */
+const MELEE_KIND = { thump: 1, whip: 1, axes: 1, devour: 1, cone: 1, beat: 1, slam: 1, saxe: 1 };
+const MOTION = { dx: 0, dy: 0, lift: 0, face: 1 };
+function unitMotion(v, u, T, ap, x, y) {
+  const dt = Math.min(0.05, R.dtv || 0.016), M = MOTION;
+  M.dx = 0; M.dy = 0; M.lift = 0;
+  if (v.faceS == null) v.faceS = v.face;
+  v.faceS += (v.face - v.faceS) * Math.min(1, dt * 14);
+  M.face = (v.faceS < 0 ? -1 : 1) * Math.max(0.16, Math.abs(v.faceS));
+  if (v.leap || reduceMotion || PIXEL) { M.face = v.face; return M; }
+  if (ap < 1 && u.tx != null) {
+    let dx = u.tx - x, dy = u.ty - y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+    if (MELEE_KIND[T.kind]) {
+      const reach = Math.min(0.34, Math.max(0, l - 0.55));
+      let m;
+      if (ap < 0.15) m = -0.06 * (ap / 0.15);
+      else if (ap < 0.4) { const t = (ap - 0.15) / 0.25; m = -0.06 + (reach + 0.06) * (1 - (1 - t) * (1 - t)); }
+      else { const t = (ap - 0.4) / 0.6; m = reach * (1 - t) * (1 - t); }
+      M.dx = dx * m; M.dy = dy * m * 0.7;
+      if (ap > 0.1 && ap < 0.45) M.lift = Math.sin((ap - 0.1) / 0.35 * PI) * 0.07;
+    } else {
+      const m = ap < 0.12 ? -0.08 * (ap / 0.12) : -0.08 * Math.pow(1 - (ap - 0.12) / 0.88, 2);
+      M.dx = dx * m; M.dy = dy * m * 0.5;
+    }
+    v.hopAt = null;
+  } else if (R.time - v.last > 1.6) {
+    if (v.hopAt == null) v.hopAt = R.time + rand(1.5, 6);
+    const h = R.time - v.hopAt;
+    if (h >= 0 && h < 0.34) M.lift = Math.sin(h / 0.34 * PI) * 0.08;
+    else if (h >= 0.34) { v.hopAt = R.time + rand(3, 8); if (Math.random() < 0.4) v.face = -v.face; }
+  }
+  return M;
+}
 function unitVis(u, i) {
   let v = UVIS.get(u.id);
   if (!v) { v = { id: u.id, t: u.t, ph: rand(0, 10), n: u.n, last: -9, spawn: 0, x: cellX(i), y: cellY(i), face: cellX(i) < 0 ? -1 : 1, pose: newPose(), leap: null, sub: null }; UVIS.set(u.id, v); }
@@ -731,6 +797,8 @@ function drawUnit(g, v) {
   const dragging = drag && drag.moved && drag.uid === u.id;
   if (dragging) lift = 0.35;
   const pose = computePose(v.pose, D, R.time, v.ph, ap, sil);
+  const mo = sil || dragging ? null : unitMotion(v, u, T, ap, fx, fy), face = mo ? mo.face : v.face;
+  if (mo) { fx += mo.dx; fy += mo.dy; lift += mo.lift; }
   if (pose.lunge && u.tx != null) { const dx = u.tx - fx, dy = u.ty - fy, l = Math.hypot(dx, dy) || 1, m = Math.min(0.45, l * 0.3) * pose.lunge; fx += dx / l * m; fy += dy / l * m; }
   const sc = PIXEL ? 1 : (v.spawn < 1 ? Math.max(0.05, easeOutBack(v.spawn)) : 1) * (dragging ? 1.1 : 1);
   const k = R.CS * UNIT_S * D.size / 100 * sc * unitFit(T.id);
@@ -747,7 +815,7 @@ function drawUnit(g, v) {
     for (const j of order) {
       const pp = v.poses[j] || (v.poses[j] = newPose());
       computePose(pp, D, R.time, v.ph + j * 1.7, j === (v.lastK || 0) ? ap : 1, sil);
-      drawPuppet(g, T.id, sx + pos[j][0] * R.CS, yy + pos[j][1] * R.CS, k * ks, pp, j === (v.lastK || 0) || j % 2 === 0 ? v.face : -v.face, dragging ? 0.92 : 1);
+      drawPuppet(g, T.id, sx + pos[j][0] * R.CS, yy + pos[j][1] * R.CS, k * ks, pp, j === (v.lastK || 0) || j % 2 === 0 ? face : -face, dragging ? 0.92 : 1);
     }
   } else if (grp) {
     for (const [sid, ox, oy] of D.group.slice().sort((a, b) => a[2] - b[2])) {
@@ -755,7 +823,7 @@ function drawUnit(g, v) {
       computePose(pp, SD, R.time, v.ph + ox * 3, Math.min(1, (R.time - v.last) / 0.36), sil);
       drawPuppet(g, sid, sx + ox * R.CS * 0.5, yy + oy * R.CS * 0.36, k * (D.groupK || 0.62), pp, ox < 0 ? 1 : -1);
     }
-  } else drawPuppet(g, T.id, sx, yy, k, pose, v.face, dragging ? 0.92 : 1);
+  } else drawPuppet(g, T.id, sx, yy, k, pose, face, dragging ? 0.92 : 1);
   if (D.ribbon) drawRibbon(g, sx + v.face * k * 3, yy - k * 92, ap < 1 ? 1 : 0, v);
   if (T.tier >= 4 && ULTS[T.id] && G.phase === 'play') {
     const w = R.CS * 0.56, h = Math.max(3, R.CS * 0.065), bx = sx - w / 2, by = wy(cellY(v.cell)) + R.CS * 0.36, m = Math.min(1, (u.mana || 0) / 100);
@@ -804,7 +872,7 @@ function drawFoe(g, f) {
   if (f.chal) return drawChal(g, f);
   const art = FOE_ART[f.kind]; if (!art) return;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = f.face || 1, fr = Math.floor(f.wob / PI) & 1;
+  const face = (f.face || 1) * (R.flip ? -1 : 1), fr = Math.floor(f.wob / PI) & 1;
   const rise = Math.min(1, f.age / 0.35);
   const ghost = f.kind === 2 || f.kind === 6 || f.kind === 7;
   const hover = ghost ? 0.08 + Math.sin(f.wob * 0.6) * 0.04 : Math.abs(Math.sin(f.wob)) * 0.05;
@@ -842,7 +910,7 @@ const PB = { x: 0, y: 0, dx: 0, dy: 0 };
 function drawBoss(g, f) {
   const CS = R.CS;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = f.face || 1, x = wx(f.x), y = wy(f.y + 0.08);
+  const face = (f.face || 1) * (R.flip ? -1 : 1), x = wx(f.x), y = wy(f.y + 0.08);
   const bob = Math.abs(Math.sin(f.wob * 0.5)) * CS * 0.04;
   if (f.hidden > 0) {
     g.fillStyle = '#7a5a32'; g.strokeStyle = OL; g.lineWidth = 2;
@@ -898,7 +966,7 @@ function drawBoss(g, f) {
 function drawChal(g, f) {
   const CS = R.CS, art = CHAL_ART[f.chal]; if (!art) return;
   if (Math.abs(f.hx) > 0.3) f.face = f.hx > 0 ? 1 : -1;
-  const face = f.face || 1, x = wx(f.x), y = wy(f.y + 0.08), left = f.chalT / f.chalMax;
+  const face = (f.face || 1) * (R.flip ? -1 : 1), x = wx(f.x), y = wy(f.y + 0.08), left = f.chalMax ? f.chalT / f.chalMax : 1;
   const grow = f.chal === 'eodum' ? 1 + (1 - left) * 0.35 : 1;
   const rise = Math.min(1, f.age / 0.5), bob = Math.abs(Math.sin(f.wob * 0.5)) * CS * 0.04;
   g.fillStyle = 'rgba(40,25,10,.3)'; g.beginPath(); g.ellipse(x, y, CS * 0.42 * grow, CS * 0.12, 0, 0, TAU); g.fill();
@@ -938,7 +1006,7 @@ function chalPortraitURL(id, css) {
 function drawShot(g, s) {
   const CS = R.CS, x = wx(s.x), y = wy(s.y), gy = wy(s.gy);
   if (!s.straight && !s.boomer) { g.fillStyle = 'rgba(40,25,10,.18)'; g.beginPath(); g.ellipse(x, gy, CS * 0.06, CS * 0.025, 0, 0, TAU); g.fill(); }
-  const ang = Math.atan2(s.vy, s.vx), t = R.time;
+  const ang = R.flip ? Math.atan2(-s.vy, -s.vx) : Math.atan2(s.vy, s.vx), t = R.time;
   g.save(); g.translate(x, y);
   if (drawShotExtra(g, s, ang, t)) { g.restore(); return; }
   switch (s.kind) {
@@ -960,6 +1028,10 @@ function drawShot(g, s) {
 
 /* ---------- portal, helpers ---------- */
 function drawPortal(g) {
+  if (R.duo && G.phase === 'play') { R.flip = true; drawPortalAt(g); R.flip = false; }
+  drawPortalAt(g);
+}
+function drawPortalAt(g) {
   const p = pathAt(0.05), x = wx(p.x - 0.18), y = wy(p.y), CS = R.CS;
   g.fillStyle = 'rgba(40,20,70,.55)'; g.beginPath(); g.ellipse(x, y, CS * 0.42, CS * 0.2, 0, 0, TAU); g.fill();
   for (let j = 0; j < 3; j++) { g.strokeStyle = `rgba(${150 - j * 20},${110 + j * 30},255,${0.7 - j * 0.15})`; g.lineWidth = 2.5; g.beginPath(); g.ellipse(x, y, CS * (0.18 + j * 0.09), CS * (0.08 + j * 0.045), 0, R.time * (2 + j) , R.time * (2 + j) + 4); g.stroke(); }
@@ -1007,6 +1079,60 @@ function drawFields(g) {
     if (Math.random() < R.dtv * 10 * k) part(F.x + rand(-F.r, F.r) * 0.7, F.y + rand(-F.r, F.r) * 0.35, 0.1, 0, 0, rand(0.4, 0.8), pick(['#ffd36a', '#ff8a3a', '#ff5a2a']), 0.045, 0.6, { g: -1.2, drag: 1 });
   }
 }
+/* ---------- the partner's yard ---------- */
+const PVIS = new Map(), PLIST = [];
+function drawPartnerSide(g) {
+  const P = typeof partnerView === 'function' ? partnerView() : null;
+  if (!P) { if (PVIS.size) PVIS.clear(); return null; }
+  R.flip = true;
+  try {
+    const seen = new Set(); PLIST.length = 0;
+    for (let i = 0; i < NCELL; i++) {
+      const u = P.units[i]; if (!u) continue;
+      let v = PVIS.get(u.id);
+      if (!v) { v = { id: u.id, ph: rand(0, 10), n: u.n, last: -9, face: cellX(i) < 0 ? 1 : -1, pose: newPose(), poses: [] }; PVIS.set(u.id, v); }
+      if (u.n !== v.n) { v.n = u.n; v.last = R.time; v.lastK = ((u.n || 1) - 1) % (u.c || 1); if (u.dir) v.face = -u.dir; }
+      seen.add(u.id); v.u = u; v.cell = i;
+      PLIST.push({ y: cellY(i) + 0.3, k: 0, o: v });
+    }
+    for (const id of [...PVIS.keys()]) if (!seen.has(id)) PVIS.delete(id);
+    for (const f of P.foes) if (!f.dead) PLIST.push({ y: f.y + (f.boss ? 0.2 : 0.06), k: 1, o: f });
+    /* turned half a circle: what is lower in their yard is higher on your screen */
+    PLIST.sort((a, b) => b.y - a.y);
+    for (const d of PLIST) { if (d.k) drawFoe(g, d.o); else drawPartnerUnit(g, d.o); }
+    for (const sh of P.shots) if (!sh.dead) drawShot(g, sh);
+  } finally { R.flip = false; }
+  return P;
+}
+/* a partner's companion: same picture and motion as yours, without your own markers */
+function drawPartnerUnit(g, v) {
+  const u = v.u, T = TYPES[u.t], D = PUP[T.id]; if (!T || !D) return;
+  const dur = (KEYS[D.atk] && KEYS[D.atk].dur) || 0.36, ap = Math.min(1, (R.time - v.last) / dur);
+  const mo = unitMotion(v, u, T, ap, cellX(v.cell), cellY(v.cell) + 0.3), face = mo.face;
+  const x = wx(cellX(v.cell)), y = wy(cellY(v.cell) - 0.12), tr = TIERS[T.tier];
+  g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.45 : 0.3); g.strokeStyle = rgba(tr.color, 0.8); g.lineWidth = Math.max(1.2, R.CS * 0.035);
+  g.beginPath(); g.ellipse(x, y, R.CS * 0.36, R.CS * 0.18, 0, 0, TAU); g.fill(); g.stroke();
+  const sx = wx(cellX(v.cell) + mo.dx), sy = wy(cellY(v.cell) - 0.3 + mo.dy) - mo.lift * R.CS;
+  const k = R.CS * UNIT_S * D.size / 100 * unitFit(T.id) * 0.94;
+  const cnt = u.c || 1;
+  if (cnt > 1) {
+    const pos = STACK_POS[Math.min(4, cnt)], ks = STACK_SC[Math.min(4, cnt)];
+    const order = pos.map((p, j) => j).sort((a, b) => pos[a][1] - pos[b][1]);
+    for (const j of order) {
+      const pp = v.poses[j] || (v.poses[j] = newPose());
+      computePose(pp, D, R.time, v.ph + j * 1.7, j === (v.lastK || 0) ? ap : 1, false);
+      drawPuppet(g, T.id, sx + pos[j][0] * R.CS, sy + pos[j][1] * R.CS, k * ks, pp, j % 2 === 0 ? face : -face, 0.95);
+    }
+  } else drawPuppet(g, T.id, sx, sy, k, computePose(v.pose, D, R.time, v.ph, ap, false), face, 0.95);
+}
+/* their name and crowd, on the far edge of their yard */
+function drawPartnerTag(g, P) {
+  const fs = Math.min(15, Math.max(11, R.CS * 0.24)), y = wy(-3 * HY - LANE / 2) - fs * 0.2, txt = `${P.nm}${P.out ? ' · 쓰러졌어요' : ` · 도깨비 ${P.n}/${BAL.cap}`}`;
+  g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const w = g.measureText(txt).width + fs * 1.2, x = wx(0);
+  g.fillStyle = 'rgba(15,12,25,.72)'; g.beginPath(); RR(g, x - w / 2, y - fs * 0.7, w, fs * 1.4, fs * 0.7); g.fill();
+  g.fillStyle = P.out ? '#ff9a7a' : P.n >= 80 ? '#ff8a6a' : '#ffe6a0'; g.fillText(txt, x, y + 1);
+}
 /* ---------- frame ---------- */
 const DRAWLIST = [];
 function renderFrame(dt) {
@@ -1020,6 +1146,7 @@ function renderFrame(dt) {
   PIX.snap = R.DPR; PIX.px = Math.max(1, Math.round(R.CS * PIX_UNIT * 1.05 / PIX.art * R.DPR)) / R.DPR;
   if (R.shake > 0) { const s = R.shake * R.CS * 0.12; g.translate(rand(-s, s), rand(-s, s)); R.shake = Math.max(0, R.shake - dt * 2.5); }
   drawPortal(g);
+  const PV = R.duo && G.phase === 'play' ? drawPartnerSide(g) : null;
   drawHelpers(g);
   for (let i = 0; i < NCELL; i++) { const u = G.units[i]; if (u) { const v = UVIS.get(u.id); if (v && v.cell === i) drawUnitBase(g, v, TYPES[u.t]); } }
   if (G.phase === 'play' && G.exp && G.exp.run) drawExpCell(g, G.exp.run);
@@ -1036,6 +1163,7 @@ function renderFrame(dt) {
   if (G.sky) { R.skyA = Math.min(1, (R.skyA || 0) + dt * 2); R.skyK = G.sky; } else R.skyA = Math.max(0, (R.skyA || 0) - dt * 2);
   if (R.skyA > 0.01) { g.fillStyle = R.skyK === 'moon' ? `rgba(40,60,150,${0.17 * R.skyA})` : `rgba(255,170,60,${0.12 * R.skyA})`; g.fillRect(0, 0, R.W, R.H); }
   drawFx(g); drawFxExtra(g); drawParticles(g); drawTexts(g);
+  if (PV) drawPartnerTag(g, PV);
   if (G.phase === 'play' && G.paused) {
     g.fillStyle = 'rgba(15,12,25,.45)'; g.fillRect(0, 0, R.W, R.H);
     g.textAlign = 'center'; g.fillStyle = '#f6efe0'; g.font = '48px "East Sea Dokdo",cursive'; g.fillText('잠깐 쉬는 중', R.W / 2, wy(0));

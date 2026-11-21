@@ -5,7 +5,7 @@
    (the standalone build, no accounts), or a BroadcastChannel between tabs of this browser (testing) */
 el.coopOv = $('coopOv'); el.coopCard = $('coopCard'); el.coopBox = $('coopBox'); el.coopCv = $('coopCv'); el.coopGift = $('coopGift');
 const NET = { link: null, kind: '', code: '', role: '', peers: new Map(), srv: '', err: '' };
-const CO = { nick: '', partner: null, rd: '', giftSent: 0, giftGot: 0, lost: false, ph: 'lobby', sendT: 0, big: false, left: false, imgs: new Map() };
+const CO = { hitSeq: 0, hitIn: 0, hitAck: 0, hitLog: [], hitsQ: [], pAt: 0, nick: '', partner: null, rd: '', giftSent: 0, giftGot: 0, lost: false, ph: 'lobby', sendT: 0, big: false, left: false, imgs: new Map() };
 try { CO.nick = localStorage.getItem('talnori-nick') || ''; } catch (err) { /* ignore */ }
 const COOP_GIFT = 200;
 
@@ -133,10 +133,14 @@ function coopSnap() {
   const o = { v: 1, code: NET.code, role: NET.role, nm: (CO.nick || '').slice(0, 12), ph: CO.ph, rd: CO.rd, st: NET.role === 'host' ? (SAVE.stageSel || 0) : (CO.st || 0) };
   if (CO.ph === 'play' && G && G.units) {
     o.sp = G.speed; o.w = G.wave; o.wt = Math.round(G.waveT * 10) / 10; o.co = Math.floor(G.coins);
-    o.u = G.units.map(u => (u ? u.t + (u.c > 1 ? 'x' + u.c : '') : '')).join(',');
+    o.u = G.units.map(u => (u ? u.t + (u.c > 1 ? 'x' + u.c : '') + 'n' + ((u.n || 0) % 36).toString(36) : '')).join(',');
     const live = G.foes.filter(f => !f.dead);
     o.fn = live.length;
     o.f = live.slice(0, 48).map(f => [Math.round(f.x * 10), Math.round(f.y * 10), f.boss ? 9 : f.chal ? 8 : f.kind]);
+    o.ff = live.slice(0, 110).map(f => [f.id, Math.round(f.d * 100), Math.round(foeSpeedNow(f) * 1000), Math.round(f.hp), Math.round(f.max), f.kind, Math.round(f.lane * 100), Math.round(f.r * 100), f.boss || f.chal || '', (f.big ? 1 : 0) + (f.mini ? 2 : 0) + (f.hidden > 0 ? 4 : 0)]);
+    if (G.outHits && G.outHits.length) CO.hitLog.push([++CO.hitSeq, G.outHits.splice(0)]);
+    while (CO.hitLog.length && (CO.hitLog[0][0] <= CO.hitAck || CO.hitLog.length > 40)) CO.hitLog.shift();
+    o.hz = CO.hitLog; o.ha = CO.hitIn;
     o.bw = COOP.bossW; o.bd = Math.round(COOP.bossDmg); o.bh = G.boss && !G.boss.dead ? Math.round(G.boss.hp / G.boss.max * 100) : -1;
     o.gs = CO.giftSent;
     o.mo = STAGES[G.stage || 0].myths.filter(id => !MYTH_BY[id].secret && mythOpenSelf(id, G.stage || 0));
@@ -152,6 +156,14 @@ function pickPartner() {
 function onNet() {
   const before = CO.partner;
   CO.partner = pickPartner();
+  const np = CO.partner;
+  if (np && np !== before) {
+    CO.pAt = performance.now();
+    if (np.rd === CO.rd && CO.ph === 'play') {
+      if (typeof np.ha === 'number' && np.ha > CO.hitAck) CO.hitAck = np.ha;
+      if (Array.isArray(np.hz)) for (const b of np.hz) if (Array.isArray(b) && b[0] > CO.hitIn) { CO.hitIn = b[0]; if (Array.isArray(b[1])) CO.hitsQ.push(...b[1]); }
+    }
+  }
   if (!CO.partner && before && CO.ph === 'play') { toast(`${before.nm || '친구'}가 나갔어요 · 혼자 계속해요`); }
   const p = CO.partner;
   /* the guest starts when the host does */
@@ -170,7 +182,7 @@ function coopStart() {
   setTimeout(() => coopBegin(SAVE.stageSel || 0, rd, true), 600);
 }
 function coopBegin(st, rd, host) {
-  el.coopGift.hidden = false;
+  el.coopGift.hidden = false; R.duo = true; CO.hitSeq = 0; CO.hitIn = 0; CO.hitAck = 0; CO.hitLog = []; CO.hitsQ = []; NETF.clear();
   CO.rd = rd; CO.st = st; CO.giftSent = 0; CO.giftGot = 0; CO.lost = false; CO.ph = 'play'; CO.mm = false; CO.mmAuto = false;
   AI.on = false; R.mode = 'net';
   COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0; COOP.sync = NET_SYNC;
@@ -182,9 +194,12 @@ function coopBegin(st, rd, host) {
 
 /* every simulation step: partner damage on the shared boss, coins they sent, the host's clock and speed */
 COOP.sync = () => {
-  const p = CO.partner; if (!p || p.rd !== CO.rd) return;
+  const p = CO.partner; if (!p || p.rd !== CO.rd) { if (G.ghosts && G.ghosts.length) syncGhosts([]); return; }
   if (p.lost && !CO.lost) { CO.lost = true; endGame('partner'); return; }
   if (p.ph !== 'play') return;
+  /* the shared road: their 도깨비 there, and the hits they landed on yours */
+  syncGhosts(netFoes(p));
+  if (CO.hitsQ.length) { applyHits(CO.hitsQ.splice(0)); if (G.phase !== 'play') return; }
   if (typeof p.gs === 'number' && p.gs > CO.giftGot) {
     const d = p.gs - CO.giftGot; CO.giftGot = p.gs; G.coins += d;
     emit({ k: 'coin', x: 0, y: -HY - 0.2, v: d, big: true }); toast(`${pname()}가 엽전 ${fmtC(d)}을 보냈어요`);
@@ -206,7 +221,50 @@ COOP.onEnd = reason => {
   CO.ph = 'over';
   if (NET.link) NET.link.send(coopSnap());
 };
-function coopLeaveRun() { COOP.on = false; CO.ph = 'lobby'; el.coopBox.hidden = true; if (NET.kind === 'ai') { aiStop(); netClose(); NET.role = ''; } }
+function coopLeaveRun() { COOP.on = false; CO.ph = 'lobby'; el.coopBox.hidden = true; R.duo = false; NETF.clear(); if (NET.kind === 'ai') { aiStop(); netClose(); NET.role = ''; } }
+
+/* ---------- the partner's yard on your field ----------
+   with the AI it is its real state. with a friend it is rebuilt from their last message: each 도깨비 keeps
+   walking along the road at the speed it had, until the next message corrects it */
+const NETF = new Map(), NETU = { key: '', list: [] };
+function netFoes(p) {
+  if (!p || !Array.isArray(p.ff)) return [];
+  const now = performance.now(), age = G.paused ? 0 : Math.min(1.2, Math.max(0, (now - (CO.pAt || 0)) / 1000)) * (G.speed || 1), seen = new Set(), out = [];
+  for (const a of p.ff) {
+    const [id, d, sp, hp, max, kind, lane, r, key, fl] = a;
+    let f = NETF.get(id);
+    if (!f) { f = { id, w0: Math.random() * TAU, age: 1, flash: 0, hx: 1, hy: 0, face: 1, slowT: 0, stunT: 0, burnT: 0, markT: 0, curseT: 0, revT: 0, fAt: -1e9, chalT: 1, chalMax: 1 }; NETF.set(id, f); }
+    if (f.hp !== undefined && hp < f.hp) f.fAt = now;
+    f.kind = kind; f.hp = hp; f.max = max || hp || 1; f.lane = lane / 100; f.r = r / 100; f.big = !!(fl & 1); f.mini = !!(fl & 2); f.hidden = fl & 4 ? 1 : 0;
+    f.boss = f.big && key && BOSS_DEF[key] ? key : null; f.chal = f.big && key && !f.boss ? key : null;
+    f.d = d / 100 + (sp / 1000) * age;
+    const q = pathAt(f.d); f.x = q.x - q.dy * f.lane; f.y = q.y + q.dx * f.lane; f.hx = q.dx; f.hy = q.dy;
+    f.wob = f.w0 + now / 1000 * 4 * (G.speed || 1); f.flash = Math.max(0, 0.09 - (now - f.fAt) / 1000);
+    f.dead = false; seen.add(id); out.push(f);
+  }
+  for (const id of [...NETF.keys()]) if (!seen.has(id)) NETF.delete(id);
+  return out;
+}
+function netUnits(p) {
+  const key = p.u || '';
+  if (NETU.key === key) return NETU.list;
+  NETU.key = key;
+  NETU.list = key.split(',').map((c, i) => {
+    if (!c) return null;
+    const m = /^(\d+)(?:x(\d+))?(?:n([0-9a-z]+))?$/.exec(c); if (!m || !TYPES[+m[1]]) return null;
+    return { id: 'p' + i + ':' + m[1], t: +m[1], c: +(m[2] || 1), n: parseInt(m[3] || '0', 36) };
+  });
+  return NETU.list;
+}
+function partnerView() {
+  if (!R.duo || !G || G.phase !== 'play') return null;
+  if (NET.kind === 'ai') {
+    const A = AI.G; if (!A) return null;
+    return { units: A.units, foes: AI.out ? [] : A.foes, shots: AI.out ? [] : A.shots, nm: `AI ${AI.nm}`, n: A.foes.length, out: AI.out };
+  }
+  const p = CO.partner; if (!p || p.rd !== CO.rd || p.ph !== 'play') return null;
+  return { units: netUnits(p), foes: netFoes(p), shots: [], nm: pname(), n: p.fn || 0, out: false };
+}
 
 /* ---------- AI 동료: the default way to play. the computer keeps its own yard beside yours and shares bosses ---------- */
 function aiStop() { AI.on = false; AI.G = null; COOP.sync = NET_SYNC; }
@@ -221,7 +279,7 @@ function aiShow() {
   el.coopBox.hidden = false; placeCoopBox(); renderGiftBtn();
 }
 function aiBegin() {
-  aiLink();
+  aiLink(); R.duo = true;
   COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0; COOP.sync = aiSyncMe;
   R.mode = 'ai'; startGame();
   aiNew(lvMulArr(), lvSpdArr(), G.stage, relicBonuses());
@@ -245,7 +303,7 @@ function aiSave() {
   return { st, co: AI.co, nm: AI.nm, out: AI.out || !st, gift: AI.gift, giftGot: AI.giftGot, sent: AI.sent, sentGot: AI.sentGot, coop: { on: COOP.on, bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied } };
 }
 function aiResume(a) {
-  aiLink();
+  aiLink(); R.duo = true;
   const me = G; let ok = false;
   try { if (a.st && !a.out) ok = restore(a.st); if (ok) { AI.G = G; AI.G.paused = false; AI.G.sel = -1; } } finally { G = me; }
   Object.assign(AI, { on: true, out: !ok, t: 0.5, sendT: 20, nm: a.nm || pick(AI_NAMES), co: Object.assign({ bossW: 0, bossDmg: 0, pApplied: 0 }, a.co || {}), gift: a.gift || 0, giftGot: a.giftGot || 0, sent: a.sent || 0, sentGot: a.sentGot || 0 });
@@ -500,13 +558,13 @@ document.addEventListener('click', e => {
   else if (t.id === 'coLeave') { netClose(); NET.role = ''; CO.note = ''; renderCoop(); }
   else if (t.id === 'coClose') { if (CO.mm && !NET.link) { mmStop(); CO.mm = false; } closeCoop(); }
 });
-el.coopCv.addEventListener('click', () => { CO.big = !CO.big; placeCoopBox(); });
+el.coopCv.addEventListener('click', () => { if (R.duo) return; CO.big = !CO.big; placeCoopBox(); });
 el.coopGift.addEventListener('click', () => {
   if (!COOP.on || G.phase !== 'play') return;
   if (!CO.partner) { toast('친구와 연결이 끊겼어요'); return; }
   if (G.coins < COOP_GIFT) { toast(`엽전이 ${COOP_GIFT} 있어야 보낼 수 있어요`); return; }
   if (NET.kind === 'ai' && (AI.out || !AI.G)) { toast(`${pname()}는 쓰러졌어요`); return; }
-  G.coins -= COOP_GIFT; CO.giftSent += COOP_GIFT; if (NET.kind === 'ai') AI.gift += COOP_GIFT; sfx('coin'); toast(`${pname()}에게 엽전 ${COOP_GIFT}을 보냈어요`);
+  G.coins -= COOP_GIFT; CO.giftSent += COOP_GIFT; G.stats.gifts = (G.stats.gifts || 0) + 1; if (NET.kind === 'ai') AI.gift += COOP_GIFT; sfx('coin'); toast(`${pname()}에게 엽전 ${COOP_GIFT}을 보냈어요`);
 });
 window.addEventListener('pagehide', () => { mmStop(); netClose(); });
 
@@ -514,7 +572,9 @@ window.addEventListener('pagehide', () => { mmStop(); netClose(); });
 function placeCoopBox() {
   const wide = document.body.classList.contains('wide'), hud = document.getElementById('hud');
   const room = R.OX + WORLD.x0 * R.CS - 12;
-  CO.wideBox = room >= 180; CO.compact = room < 132;
+  CO.wideBox = room >= 180; CO.compact = room < 132 || R.duo; if (R.duo) CO.big = false;
+  /* their yard is on the field now, so only the gift button stays */
+  el.coopCv.hidden = !!R.duo; el.coopBox.classList.toggle('only-gift', !!R.duo);
   el.coopBox.classList.toggle('is-pill', CO.compact && !CO.big);
   const top = wide ? 10 : hud ? Math.round(hud.getBoundingClientRect().bottom - (CO.compact && !CO.big ? 6 : -4)) : 110;
   el.coopBox.style.top = `${top}px`;
@@ -640,5 +700,5 @@ if ('serviceWorker' in navigator && !window.claude && (location.protocol === 'ht
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 joinFromLink();
-window.__tal = { AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+window.__tal = { netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 

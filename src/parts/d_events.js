@@ -5,6 +5,7 @@ function unitPos(cell) { return { x: cellX(cell), y: cellY(cell) + 0.3 }; }
 function onEvent(e) {
   switch (e.k) {
     case 'num':
+      if (R.fxLite && !e.crit) break;
       { const cost = e.boss ? 3 : 1; if ((e.crit && R.numBudget >= 0) || R.numBudget >= cost) { R.numBudget -= cost; fxText(e.x + rand(-0.25, 0.25), e.y - (e.boss ? 1.35 : 0.72) + rand(-0.1, 0.1), fmt(e.v), e.crit ? 'crit' : e.res ? 'res' : e.boss ? 'big' : 'myth'); } }
       break;
     case 'hit': hitFx(e); break;

@@ -17,7 +17,7 @@ let toastT = 0;
 toast = msg => { el.toast.textContent = msg; el.toast.classList.add('is-on'); toastT = 2.4; };
 function showBanner(main, sub, boss, myth) {
   el.bMain.textContent = main; el.bSub.textContent = sub || ''; el.bSub.hidden = !sub;
-  el.banner.classList.toggle('is-boss', !!boss); el.banner.classList.toggle('is-myth', !!myth);
+  el.banner.classList.toggle('is-boss', !!boss); el.banner.classList.toggle('is-myth', !!myth); el.banner.classList.toggle('is-long', main.length > 5);
   el.banner.classList.remove('show'); void el.banner.offsetWidth; el.banner.classList.add('show');
 }
 let vig = 0;
@@ -52,7 +52,7 @@ const HINTS = [
   '재수굿은 희귀 60%, 대동굿은 영웅 20%, 별신굿은 전설 10%예요. 꽝이 나도 정성이 쌓여요',
   '정성이 가득 차면 다음 굿은 꼭 돼요. 별신굿에 쓰면 전설이 나와요',
   '소환 운은 5단계까지 엽전, 6단계부터 10단계까지는 혼으로 올려요',
-  '마당 위 임무 세 개를 끝내면 엽전과 혼을 받아요',
+  '아래 막대의 임무를 누르면 임무 장부가 열려요. 끝낼 때마다 엽전, 혼, 이번 판 공격력을 받아요',
   '도깨비를 누르면 남은 체력을 볼 수 있어요',
   '돌하르방 둘레 여덟 칸 동료는 보스와 도전 귀신을 더 세게 때려요. 보스 잡을 동료 옆에 두세요',
   '김선달은 가진 엽전에 이자를 붙여 줘요. 엽전을 조금 모아 두면 더 벌어요',
@@ -93,18 +93,22 @@ function refreshInfo() {
   if (R.foeSel && (R.foeSel.dead || !G.foes.includes(R.foeSel) || u)) R.foeSel = null;
   if (!u && R.foeSel && G.phase === 'play') { foeInfoBar(R.foeSel); return; }
   if (!u || G.phase !== 'play') {
-    const h = HINTS[Math.max(0, G.wave - 1) % HINTS.length];
-    if (cache.infoKey !== 'h' + h) { cache.infoKey = 'h' + h; el.info.innerHTML = `<span class="it">${esc(h)}</span>`; }
+    const D = G.phase === 'play' ? missNext() : null, dn = missDoneN(), an = missAllN();
+    const key = 'm' + (D ? D.id + ':' + missProg(D) : '-') + ':' + dn + ':' + an;
+    if (cache.infoKey === key) return;
+    cache.infoKey = key;
+    const rw = D ? rewardText(missReward(D)) : '';
+    el.info.innerHTML = `<button class="inmiss" type="button" data-open="miss" aria-label="임무 장부 열기"><span class="scroll-ico" aria-hidden="true"></span><span class="it"><span class="l1"><b>임무 ${dn}/${an}</b>${D ? ` · ${esc(D.text)}` : ' · 모두 끝냈어요!'}</span><small>${D ? `<span class="num">${fmtC(missProg(D))}/${fmtC(missGoal(D))}</span> · 보상 ${esc(rw)}` : '장부를 눌러 받은 보상을 볼 수 있어요'}</small></span>${D ? `<span class="mbar"><i style="width:${Math.round(missProg(D) / missGoal(D) * 100)}%"></i></span>` : ''}</button><button class="inhelp" type="button" data-open="help" aria-label="도움말">?</button>`;
     return;
   }
   const T = TYPES[u.t], Tr = TIERS[T.tier], cap = capOf(u.t), canM = canMergeAt(G.sel);
   const armed = !!cache.sellArm && cache.sellArm.id === u.id && performance.now() < cache.sellArm.until;
-  const key = u.id + ':' + u.c + ':' + killsOf(u) + ':' + earnOf(u) + ':' + G.up.join(',') + ':' + G.spd[G.sel] + ':' + G.dmgN[G.sel] + ':' + gradeMulOf(T) + ':' + armed;
+  const key = u.id + ':' + u.c + ':' + killsOf(u) + ':' + earnOf(u) + ':' + G.up.join(',') + ':' + G.spd[G.sel] + ':' + G.dmgN[G.sel] + ':' + gradeMulOf(T) + ':' + armed + ':' + !!R.ucOpen + ':' + (G.mb || []).join(',');
   if (cache.infoKey === key) return;
   cache.infoKey = key;
   const dmg = dmgOf(u.t, G.sel);
   const lvN = lvOf(T.id);
-  el.info.innerHTML = `<img alt="" src="${portraitURL(T.id, 40)}"><div class="it"><span class="l1"><b>${esc(T.name)}</b>${cap > 1 ? `<span class="tchip stackchip">${u.c}/${cap}</span>` : ''}<span class="tchip" style="--g:${Tr.color}">${Tr.name}</span>${roleChip(T)}</span><small><span data-tip="${T.id}">${esc(T.skill)}</span> · Lv ${lvN}${lvTag(T, lvN)} · ${fmtC(killsOf(u))}마리 잡음${earnOf(u) ? ` · <span style="color:#f2c94a">엽전 +${fmtC(earnOf(u))}</span>` : ''}</small><small>공격력 ${fmt(dmg)} ${upTag(dmg, T)} · ${unitInterval(u, G.sel).toFixed(2)}초마다</small></div><div class="ibtns">${canM ? '<button class="mergebtn" type="button" id="mergeBtn">합성</button>' : ''}<button class="sell${armed ? ' is-arm' : ''}" type="button" id="sellBtn">${armed ? '정말 팔까요? 한 번 더' : `${u.c > 1 ? '1명 ' : ''}팔기 <i class="coin-ico"></i>${fmtC(Tr.sell)}`}</button></div>`;
+  el.info.innerHTML = `<button class="ucopen" type="button" data-open="uc" aria-label="${esc(T.name)} 자세히 보기"><img alt="" src="${portraitURL(T.id, 40)}"><span class="it"><span class="l1"><b>${esc(T.name)}</b>${cap > 1 ? `<span class="tchip stackchip">${u.c}/${cap}</span>` : ''}<span class="tchip" style="--g:${Tr.color}">${Tr.name}</span>${roleChip(T)}</span><small><span data-tip="${T.id}">${esc(T.skill)}</span> · Lv ${lvN}${lvTag(T, lvN)} · ${fmtC(killsOf(u))}마리 잡음${earnOf(u) ? ` · <span style="color:#f2c94a">엽전 +${fmtC(earnOf(u))}</span>` : ''}</small><small>공격력 ${fmt(dmg)} ${upTag(dmg, T)} · ${unitInterval(u, G.sel).toFixed(2)}초마다</small></span><span class="more" aria-hidden="true">${R.ucOpen ? '‹' : '›'}</span></button><div class="ibtns">${canM ? '<button class="mergebtn" type="button" id="mergeBtn">합성</button>' : ''}<button class="sell${armed ? ' is-arm' : ''}" type="button" id="sellBtn">${armed ? '정말 팔까요? 한 번 더' : `${u.c > 1 ? '1명 ' : ''}팔기 <i class="coin-ico"></i>${fmtC(Tr.sell)}`}</button></div>`;
   /* 전설 and above are hard to get back: the first tap only arms the button */
   $('sellBtn').addEventListener('click', () => {
     const v = G.units[G.sel]; if (!v) return;
@@ -186,7 +190,7 @@ el.rlist.addEventListener('click', e => {
   R.recipeHi = R.recipeHi && R.recipeHi.id === id ? null : { id, cells: [] };
   renderRecipes(true);
 });
-function openRecipes() { if (el.csheet) el.csheet.hidden = true; el.gsheet.hidden = true; el.rsheet.hidden = false; renderRecipes(true); sfx('click'); }
+function openRecipes() { closeSide(); if (el.csheet) el.csheet.hidden = true; el.gsheet.hidden = true; el.rsheet.hidden = false; renderRecipes(true); sfx('click'); }
 function closeRecipes() { el.rsheet.hidden = true; R.recipeHi = null; }
 $('rClose').addEventListener('click', closeRecipes);
 /* ---------- challenge sheet ---------- */
@@ -229,7 +233,7 @@ el.clist.addEventListener('click', e => {
   const b = e.target.closest('[data-call]'); if (b && callChallenge(+b.dataset.call)) { closeChal(); return; }
   const x = e.target.closest('[data-exp]'); if (x && expReady()) { closeChal(); G.sel = -1; R.pickExp = true; R.pickSel = []; R.expInfo = false; cache.infoKey = ''; refreshInfo(); sfx('click'); }
 });
-function openChal() { closeRecipes(); el.gsheet.hidden = true; el.csheet.hidden = false; renderChal(true); sfx('click'); }
+function openChal() { closeSide(); closeRecipes(); el.gsheet.hidden = true; el.csheet.hidden = false; renderChal(true); sfx('click'); }
 function closeChal() { el.csheet.hidden = true; }
 $('cClose').addEventListener('click', closeChal);
 /* ---------- 굿 sheet: 재수굿, 대동굿, 별신굿, 신명 부적 ---------- */
@@ -253,7 +257,7 @@ el.glist.addEventListener('click', e => {
   const b = e.target.closest('[data-gut]'); if (b) { auInit(); gamble(+b.dataset.gut); renderGut(true); return; }
   if (e.target.closest('[data-charm]')) { auInit(); charm(); renderGut(true); }
 });
-function openGut() { closeRecipes(); closeChal(); el.gsheet.hidden = false; renderGut(true); sfx('click'); }
+function openGut() { closeSide(); closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = false; renderGut(true); sfx('click'); }
 function closeGut() { el.gsheet.hidden = true; }
 $('gClose').addEventListener('click', closeGut);
 /* ---------- unit card: everything about the tapped unit, on the side away from it ---------- */
@@ -347,7 +351,8 @@ function partsNote(T) {
 /* the badge after a level: 각성 and 신물 for mythics, 최고 at the top */
 function lvTag(T, lv) { if (lv >= lvTop(T)) return ' 최고'; if (T.tier >= 4) return lv >= 10 ? ' 신물' : lv >= 5 ? ' 각성' : ''; return ''; }
 function renderUcard() {
-  const c = el.ucard, i = G.sel, u = G.phase === 'play' && i >= 0 && !R.pickExp && !(drag && drag.moved) ? G.units[i] : null;
+  if (cache.ucSel !== G.sel) { cache.ucSel = G.sel; R.ucOpen = false; }
+  const c = el.ucard, i = G.sel, u = R.ucOpen && G.phase === 'play' && i >= 0 && !R.pickExp && !(drag && drag.moved) ? G.units[i] : null;
   if (!u) { if (!c.hidden) { c.hidden = true; cache.ucKey = ''; } return; }
   const T = TYPES[u.t], ult = ULTS[T.id];
   const key = [u.id, u.c, i, killsOf(u), earnOf(u), G.up.join(','), G.spd[i], G.dmgN[i], G.rngB && G.rngB[i], G.bossN && G.bossN[i], gradeMulOf(T), Math.ceil(G.charmT || 0), Math.ceil(G.lotusT || 0), G.tierBuff && G.tierBuff[T.tier] && Math.ceil(G.tierBuff[T.tier].t), ult ? Math.floor((u.mana || 0) / 10) : 0, R.H].join('|');
@@ -639,11 +644,11 @@ function savedRun() { try { const s = JSON.parse(localStorage.getItem(RUN_KEY) |
 function resumeRun() {
   const s = savedRun(); if (!s) return;
   auInit(); sfx('click');
-  el.lobby.hidden = true; el.endOv.hidden = true; closeRecipes(); closeChal();
+  el.lobby.hidden = true; el.endOv.hidden = true; closeRecipes(); closeChal(); closeSide();
   R.lobby = false; document.body.classList.remove('in-lobby');
   UVIS.clear(); FX.length = 0; PART.length = 0; TEXT.length = 0; FLY.length = 0;
   if (!restore(s)) { clearRun(); goLobby(); return; }
-  if (s.ai) aiResume(s.ai); else R.mode = 'solo';
+  if (s.ai) aiResume(s.ai); else { R.mode = 'solo'; R.duo = false; }
   G.paused = false; cache.infoKey = ''; cache.vo = -1; cache.coinShow = null;
   R.theme = STAGES[G.stage].theme;
   layout(); refreshInfo(); refreshUps();
@@ -934,7 +939,7 @@ el.lobby.addEventListener('click', e => {
 onEnd = reason => {
   AI.on = false;
   if (netCoop() && COOP.onEnd) COOP.onEnd(reason);
-  closeRecipes(); closeChal(); drag = null; clearRun(); R.pickExp = false; R.expInfo = false;
+  closeRecipes(); closeChal(); closeSide(); drag = null; clearRun(); R.pickExp = false; R.expInfo = false;
   const r = finishGame(), S = STAGES[G.stage];
   musicMode('off'); sfx(reason === 'win' ? 'win' : 'lose');
   const B = bossAt(G.wave);
@@ -967,22 +972,58 @@ $('againBtn').addEventListener('click', () => {
 $('homeBtn').addEventListener('click', () => { el.endOv.hidden = true; goLobby(); setTimeout(() => tweenSilver(true), 250); });
 
 /* ---------- HUD tick ---------- */
-/* ---------- 판 안 임무: three pills under the boss bar ---------- */
-const missRow = $('missRow');
-function renderMissions() {
-  if (!missRow) return;
-  const M = G.phase === 'play' && G.miss;
-  /* the partner's strip sits under the top bar, so it moves when this row comes or goes */
-  if (!M) { if (!missRow.hidden) { missRow.hidden = true; if (!el.coopBox.hidden) placeCoopBox(); } return; }
-  const shown = missRow.hidden; if (shown) missRow.hidden = false;
-  const sig = M.list.map(m => m.id + ':' + missProg(m) + '/' + m.goal).join('|');
-  if (sig === cache.missSig && missRow.firstChild) { if (shown && !el.coopBox.hidden) placeCoopBox(); return; }
-  const fresh = cache.missSig && cache.missIds && M.list.map((m, k) => cache.missIds[k] !== m.id + m.from);
-  cache.missSig = sig; cache.missIds = M.list.map(m => m.id + m.from);
-  missRow.innerHTML = M.list.map((m, k) => { const D = missDef(m.id), rw = missReward(m), p = missProg(m); return `<button class="mp${fresh && fresh[k] ? ' is-new' : ''}" type="button" data-mk="${k}" aria-label="임무 ${esc(missText(m))} ${p}/${m.goal}"><b>${esc(D.short)}</b><span class="num">${p}/${m.goal}</span><span class="mr">${rw.coins ? `<i class="coin-ico"></i>${fmtC(rw.coins)}` : ''}${rw.hon ? `<i class="hon-ico"></i>${rw.hon}` : ''}</span><i class="mbar" style="width:${Math.round(p / m.goal * 100)}%"></i></button>`; }).join('');
-  if (shown && !el.coopBox.hidden) placeCoopBox();
+/* ---------- 임무 장부 and 도움말: two sheets, opened from the bar under the yard ---------- */
+const msheet = $('msheet'), mlist = $('mlist'), hsheet = $('hsheet'), hlist = $('hlist');
+function renderMissSheet(force) {
+  if (msheet.hidden || !G.miss) return;
+  const sig = MISSIONS.map(D => (G.miss.done[D.id] ? 'd' : missProg(D))).join(',') + (R.duo ? 'D' : '');
+  if (!force && sig === cache.msSig) return;
+  cache.msSig = sig;
+  const mb = G.mb || [0, 0, 0, 0, 0], buf = mb.map((v, i) => (v ? `${BUF_NAME[i]} +${Math.round(v * 100)}%` : '')).filter(Boolean);
+  $('mSub').textContent = `${missDoneN()}/${missAllN()} 끝냄${buf.length ? ` · 받은 힘 ${buf.join(' · ')}` : ' · 끝내면 이번 판이 쉬워져요'}`;
+  mlist.innerHTML = MISS_GROUPS.map(([g, name]) => {
+    const L = MISSIONS.filter(D => D.g === g && (missOn(D) || (D.duo && R.duo)));
+    if (!L.length) return '';
+    return `<div class="mg">${name}</div>` + L.map(D => {
+      const done = !!G.miss.done[D.id], p = missProg(D), goal = missGoal(D), rw = rewardText(missReward(D));
+      return `<div class="mrow${done ? ' is-done' : ''}"><span class="mck" aria-hidden="true">${done ? '✓' : ''}</span><div class="mt"><div class="mtx">${esc(D.text)}</div><div class="mrw${rw.includes('공격') || rw.includes('운') ? ' is-buff' : ''}">${esc(rw)}</div></div><div class="mpg"><span class="num">${done ? '끝' : `${fmtC(p)}/${fmtC(goal)}`}</span><span class="mbar"><i style="width:${done ? 100 : Math.round(p / goal * 100)}%"></i></span></div></div>`;
+    }).join('');
+  }).join('');
 }
-if (missRow) missRow.addEventListener('click', e => { const b = e.target.closest('[data-mk]'); if (!b || !G.miss) return; const m = G.miss.list[+b.dataset.mk]; if (m) toast(`임무 · ${missText(m)} · ${missProg(m)}/${m.goal}`); });
+/* the 임무 and 도움말 sheets close when another sheet opens */
+function closeSide() { const a = $('msheet'), b = $('hsheet'); if (a) a.hidden = true; if (b) b.hidden = true; }
+function openMiss() { closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; hsheet.hidden = true; msheet.hidden = false; renderMissSheet(true); sfx('click'); }
+function closeMiss() { msheet.hidden = true; }
+$('mClose').addEventListener('click', closeMiss);
+const HELP = [
+  ['기본', [0, 6, 5, 26, 10]],
+  ['강화와 소환 운', [7, 15, 25]],
+  ['신화', [8, 4, 9, 11, 21, 31, 29, 30]],
+  ['굿', [23, 24]],
+  ['도전과 출정', [16, 17, 18]],
+  ['자리 잡기', [12, 13, 14, 28, 20]],
+  ['도깨비와 고을', [1, 2, 3, 19, 22]],
+];
+function openHelp() {
+  closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = true;
+  hlist.innerHTML = `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 가운데 길은 둘이 같이 써요. 가운데 길을 지나는 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
+    HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
+    `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
+  hsheet.hidden = false; sfx('click');
+}
+function closeHelp() { hsheet.hidden = true; }
+$('hClose').addEventListener('click', closeHelp);
+el.info.addEventListener('click', e => {
+  if (e.target.closest('[data-tip]')) return;
+  const b = e.target.closest('[data-open]'); if (!b) return;
+  const k = b.dataset.open;
+  if (k === 'miss') { if (msheet.hidden) openMiss(); else closeMiss(); }
+  else if (k === 'help') { if (hsheet.hidden) openHelp(); else closeHelp(); }
+  else if (k === 'uc') { R.ucOpen = !R.ucOpen; cache.ucKey = ''; cache.infoKey = ''; refreshInfo(); renderUcard(); }
+});
+function renderMissions() {
+  renderMissSheet(false);
+}
 function uiTick(dt) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) el.toast.classList.remove('is-on'); }
   vig = Math.max(0, vig - dt * 1.2);
@@ -1077,12 +1118,13 @@ function titleTick(dt) {
 }
 function startGame() {
   auInit(); sfx('click');
-  el.lobby.hidden = true; el.endOv.hidden = true; closeRecipes(); closeChal(); clearRun(); cache.pow = 0;
+  el.lobby.hidden = true; el.endOv.hidden = true; closeRecipes(); closeChal(); closeSide(); clearRun(); cache.pow = 0;
   R.lobby = false; document.body.classList.remove('in-lobby');
   UVIS.clear(); FX.length = 0; PART.length = 0; TEXT.length = 0; FLY.length = 0;
   const st = R.coopStage != null ? R.coopStage : stageUnlocked(SAVE.stageSel) ? SAVE.stageSel : 0;
   R.theme = STAGES[st].theme;
   R.pickExp = false; R.pickSel = []; R.expInfo = false;
+  R.duo = !!COOP.on; PVIS.clear();
   newGame(lvMulArr(), lvSpdArr(), st, relicBonuses()); cache.save = 0; cache.coinShow = null;
   cache.infoKey = ''; cache.vo = -1;
   layout(); refreshInfo(); refreshUps();
@@ -1091,10 +1133,10 @@ function startGame() {
 function goLobby() {
   saveRun();
   const wasCoop = COOP.on || NET.kind === 'ai'; if (wasCoop) coopLeaveRun();
-  closeRecipes(); closeChal(); el.codexOv.hidden = true;
+  closeRecipes(); closeChal(); closeSide(); el.codexOv.hidden = true;
   R.theme = STAGES[SAVE.stageSel || 0].theme;
   setupTitle();
-  R.lobby = true; document.body.classList.add('in-lobby');
+  R.lobby = true; R.duo = false; document.body.classList.add('in-lobby');
   el.lobby.hidden = false; FX.length = 0; PART.length = 0; TEXT.length = 0;
   layout(); selectTab('home');
   musicMode('title');
@@ -1119,12 +1161,21 @@ el.pauseBtn.addEventListener('click', () => { if (netCoop()) { toast('같이 할
 const setPanel = $('setPanel'), gearBtn = $('gearBtn');
 R.cutin = true; try { R.cutin = localStorage.getItem('talnori-cutin') !== '0'; } catch (err) { /* ignore */ }
 R.names = false; try { R.names = localStorage.getItem('talnori-names') === '1'; } catch (err) { /* ignore */ }
+R.fxLite = false; try { R.fxLite = localStorage.getItem('talnori-fx') === '0'; } catch (err) { /* ignore */ }
+function setFxLite(v) {
+  R.fxLite = !!v; try { localStorage.setItem('talnori-fx', v ? '0' : '1'); } catch (err) { /* ignore */ }
+  if (v) { FX.length = 0; PART.length = 0; R.shake = 0; }
+  const b = $('fxBtn'); if (b) { b.classList.toggle('off', R.fxLite); b.setAttribute('aria-pressed', R.fxLite ? 'false' : 'true'); }
+}
+setFxLite(R.fxLite);
+$('fxBtn').addEventListener('click', () => { setFxLite(!R.fxLite); toast(R.fxLite ? '화려한 효과를 껐어요 · 공격과 큰 숫자만 보여요' : '화려한 효과를 켰어요'); if (!setPanel.hidden) renderSettings(); });
 let setAnchor = null;
 function renderSettings() {
   const C = AU.cfg, on = AU.on, row = (label, key, val, vol) => `<div class="sp-row${vol && !on ? ' dim' : ''}"><span>${label}</span>${vol ? `<input type="range" min="0" max="100" step="5" value="${Math.round(C[vol] * 100)}" data-vol="${vol}" aria-label="${label} 크기">` : ''}<button class="tog${val ? ' on' : ''}" type="button" data-sp="${key}">${val ? '켜짐' : '꺼짐'}</button></div>`;
   setPanel.innerHTML = `<div class="sp-h"><b>설정</b><button class="ib" type="button" id="spClose" aria-label="닫기">✕</button></div>
     ${row('소리 전체', 'on', on)}${row('배경음악', 'mus', C.mus, 'musV')}${row('효과음', 'fx', C.fx, 'fxV')}
     <div class="sp-row"><span>유닛 이름 보기</span><button class="tog${R.names ? ' on' : ''}" type="button" data-sp="names">${R.names ? '켜짐' : '꺼짐'}</button></div>
+    <div class="sp-row"><span>화려한 효과<small class="sp-sub">빛, 고리, 파편, 흔들림</small></span><button class="tog${R.fxLite ? '' : ' on'}" type="button" data-sp="fxl">${R.fxLite ? '꺼짐' : '켜짐'}</button></div>
     <div class="sp-row"><span>궁극기 연출</span><button class="tog${R.cutin ? ' on' : ''}" type="button" data-sp="cut">${R.cutin ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>화질</span><button class="tog on" type="button" data-sp="q">${QUALITY[R.q].name}</button></div>
     <div class="sp-row"><span>그림</span><button class="tog on" type="button" data-sp="pix">${PIXEL ? '도트' : '선명'}</button></div>
@@ -1151,6 +1202,7 @@ setPanel.addEventListener('click', e => {
   else if (k === 'fx') { setAudio({ fx: !AU.cfg.fx }); if (AU.cfg.fx) sfx('tap'); }
   else if (k === 'q') { R.autoQ = false; setQuality((R.q + 1) % 3); }
   else if (k === 'pix') setPixel(!PIXEL);
+  else if (k === 'fxl') setFxLite(!R.fxLite);
   else if (k === 'names') { R.names = !R.names; try { localStorage.setItem('talnori-names', R.names ? '1' : '0'); } catch (err) { /* ignore */ } }
   else if (k === 'cut') { R.cutin = !R.cutin; try { localStorage.setItem('talnori-cutin', R.cutin ? '1' : '0'); } catch (err) { /* ignore */ } }
   renderSettings();
@@ -1216,6 +1268,7 @@ document.addEventListener('pointerdown', () => { if (!AU.ctx && AU.on) { auInit(
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !setPanel.hidden) { closeSettings(); return; }
   if (e.key === 'Escape' && !saveOv.hidden) { closeSaveCode(); return; }
+  if (e.key === 'Escape' && (!$('msheet').hidden || !$('hsheet').hidden)) { closeSide(); return; }
   if (!saveOv.hidden) return;
   if (e.key === 'Escape' && el.coopOv && !el.coopOv.hidden) { closeCoop(); return; }
   if (e.key === 'Escape') { if (R.pickExp) { R.pickExp = false; R.pickSel = []; cache.infoKey = ''; refreshInfo(); return; } if (!el.pouchOv.hidden) { $('pouchOk').click(); return; } if (!el.rewardOv.hidden) $('rwOk').click(); else if (!el.codexOv.hidden) closeCodex(); else if (!el.gsheet.hidden) closeGut(); else if (!el.rsheet.hidden) closeRecipes(); else if (!el.csheet.hidden) closeChal(); return; }
@@ -1254,12 +1307,20 @@ function frame(now) {
 /* ---------- live update & boot ---------- */
 function serialize() {
   if (!G || G.phase !== 'play') return null;
-  const s = Object.assign({}, G, { shots: [], pend: [], ev: [], addQ: [], boss: null, v: 8 });
+  const s = Object.assign({}, G, { shots: [], pend: [], ev: [], addQ: [], boss: null, ghosts: [], ghostMap: null, outHits: [], v: 8 });
   s.foes = G.foes.map(f => Object.assign({}, f));
   return JSON.parse(JSON.stringify(s));
 }
 function restore(state) {
-  if (!state || !(state.v >= 6 && state.v <= 8) || state.phase !== 'play' || !Array.isArray(state.units) || state.units.length !== NCELL) return false;
+  if (!state || !(state.v >= 6 && state.v <= 8) || state.phase !== 'play' || !Array.isArray(state.units)) return false;
+  /* the yard shrank to 6 by 3 for the shared road: companions keep their order, any beyond 18 cells are sold */
+  if (state.units.length !== NCELL) {
+    const live = state.units.filter(Boolean), keep = live.slice(0, NCELL);
+    for (const u of live.slice(NCELL)) state.coins = (state.coins || 0) + (TIERS[TYPES[u.t] ? TYPES[u.t].tier : 0].sell || 0) * (u.c || 1);
+    state.units = keep.concat(Array(NCELL - keep.length).fill(null));
+    state.spd = Array(NCELL).fill(1); state.dmgN = Array(NCELL).fill(1); state.rngB = Array(NCELL).fill(0); delete state.bossN;
+    if (state.exp && state.exp.run) state.exp.run = null;
+  }
   const base = makeState('play', state.speed || 1);
   G = Object.assign(base, state, { paused: true, sel: -1, ev: [], shots: [], pend: [], auraDirty: true });
   if (state.v < 8 && Array.isArray(state.up)) { const m = Math.max(0, ...state.up.slice(0, 4)); G.up = [m, m, m, m, state.up[4] || 0]; delete G.famMul; delete G.famBuff; G.tierBuff = {}; G.gradeMul = [1, 1, 1, 1]; G.pity = 0; G.fields = []; }

@@ -19,7 +19,8 @@ function fmt(n) {
 }
 
 /* ================= board & path (cell units) ================= */
-const COLS = 5, ROWS = 6, NCELL = COLS * ROWS;
+/* six across and three down, like a 운빨존많겜 board: two yards fit one above the other on a phone */
+const COLS = 6, ROWS = 3, NCELL = COLS * ROWS;
 const cellX = i => (i % COLS) - (COLS - 1) / 2;
 const cellY = i => Math.floor(i / COLS) - (ROWS - 1) / 2;
 function cellAt(x, y) {
@@ -36,7 +37,9 @@ for (let i = 0; i < NCELL; i++) {
   }
   NEIGH.push(list);
 }
-const HX = 3.22, HY = 3.72, RC = 0.55, LANE = 0.72;
+const HX = COLS / 2 + 0.72, HY = ROWS / 2 + 0.72, RC = 0.55, LANE = 0.72;
+/* the partner's yard sits above yours, turned half a circle, so its top road and yours are the same road */
+const flipX = x => -x, flipY = y => -2 * HY - y;
 const SEGS = []; let PERIM = 0;
 function segLine(x0, y0, x1, y1) { const len = Math.hypot(x1 - x0, y1 - y0); SEGS.push({ arc: false, x0, y0, x1, y1, len, s: PERIM, dx: (x1 - x0) / len, dy: (y1 - y0) / len }); PERIM += len; }
 function segArc(cx, cy, a0, a1) { const len = Math.abs(a1 - a0) * RC; SEGS.push({ arc: true, cx, cy, a0, a1, len, s: PERIM }); PERIM += len; }
@@ -440,7 +443,7 @@ function makeState(phase, speed = 1) {
     phase, wave: 0, waveT: 0, spawnLeft: 0, spawnT: 0, coins: BAL.startCoins, hon: 0, summons: 0, stage: 0,
     units: Array(NCELL).fill(null), foes: [], shots: [], pend: [], addQ: [], up: [0, 0, 0, 0, 0],
     speed, paused: false, sel: -1, time: 0, boss: null, nextId: 1, endReason: '',
-    ev: [], spd: Array(NCELL).fill(1), dmgN: Array(NCELL).fill(1), rngB: Array(NCELL).fill(0), auraDirty: true, gradeMul: [1, 1, 1, 1], pity: 0, fields: [],
+    ev: [], spd: Array(NCELL).fill(1), dmgN: Array(NCELL).fill(1), rngB: Array(NCELL).fill(0), auraDirty: true, gradeMul: [1, 1, 1, 1], pity: 0, fields: [], ghosts: [], outHits: [], mb: [0, 0, 0, 0, 0],
     rel: noRelics(), bossTimeMax: BOSS_TIME,
     lvMul: TYPES.map(() => 1), lvSpd: TYPES.map(() => 1), chalCd: CHALS.map(C => C.cd * 0.3), tierBuff: {}, killBy: {}, earnBy: {}, charmT: 0, lotusT: 0, sky: null, skyT: 0, exp: { floor: 1, cd: 0, run: null, wins: 0 },
     stats: { kills: 0, merges: 0, guts: 0, bossKills: 0, crafts: 0, crafted: {}, seen: {}, foeSeen: {}, summons: 0, chalWins: 0, chalHard: 0, chalTop: 0, silverBonus: 0, caveTop: 0, missions: 0 },
@@ -516,54 +519,88 @@ function spawnBoss(B) {
    after that they come from a pool, and the rewards grow with the 마당 */
 const tierOnYard = t => (G.units.some(u => u && TYPES[u.t].tier >= t) ? 1 : 0);
 const upSum = () => G.up[0] + G.up[1] + G.up[2] + G.up[3];
-const MISS_TEACH = [
-  { id: 'sum', short: '소환', text: '동료 10번 소환하기', cur: () => G.stats.summons, add: 10, coins: 150 },
-  { id: 'merge', short: '합성', text: '같은 동료 셋을 모아 합성하기', cur: () => G.stats.merges, add: 1, coins: 200 },
-  { id: 'gut', short: '굿', text: '혼으로 굿 벌이기', cur: () => G.stats.guts, add: 1, hon: 2 },
-  { id: 'up', short: '강화', text: '아래 등급 강화 3번 하기', cur: upSum, add: 3, coins: 300 },
-  { id: 'hero', short: '영웅', text: '영웅 동료 모으기 · 희귀 셋 합성이나 대동굿', cur: () => tierOnYard(2), add: 1, abs: true, hon: 2 },
-  { id: 'leg', short: '전설', text: '전설 동료 모으기 · 영웅 셋 합성이나 별신굿', cur: () => tierOnYard(3), add: 1, abs: true, hon: 3 },
-  { id: 'myth', short: '신화', text: '신화 조합하기 · 신화 버튼에서 재료를 확인해요', cur: () => G.stats.crafts, add: 1, coins: 600, hon: 2 },
+/* 임무 장부: every goal of the run on one page, each paid once. collecting a whole grade, selling, merging,
+   bad luck at the 굿, helping on the shared road. the rewards make the rest of the run easier:
+   엽전 and 혼 now, or attack for a grade until the run ends (b: [일반·희귀, 영웅, 전설, 신화, 모두]) */
+const tierSetOwned = t => { const P = STAGES[G.stage || 0].pool[t]; const have = new Set(); for (const u of G.units) if (u) have.add(u.t); let n = 0; for (const k of new Set(P)) if (have.has(k)) n++; return n; };
+const tierSetSize = t => new Set(STAGES[G.stage || 0].pool[t]).size;
+const mythOnYard = () => G.units.filter(u => u && TYPES[u.t].tier >= 4).length;
+const MISS_GROUPS = [['first', '첫걸음'], ['set', '모으기'], ['hand', '손놀림'], ['gut', '굿'], ['fight', '싸움'], ['duo', '둘이서']];
+const MISSIONS = [
+  { id: 'sum', g: 'first', text: '동료 10번 소환하기', cur: () => G.stats.summons, goal: 10, coins: 150 },
+  { id: 'merge', g: 'first', text: '같은 동료 셋을 모아 합성하기', cur: () => G.stats.merges, goal: 1, coins: 200 },
+  { id: 'gut', g: 'first', text: '혼으로 굿 벌이기', cur: () => G.stats.guts, goal: 1, hon: 2 },
+  { id: 'up', g: 'first', text: '강화 3번 하기', cur: upSum, goal: 3, coins: 300 },
+  { id: 'all0', g: 'set', text: '일반 동료 다섯 모두 마당에 두기', cur: () => tierSetOwned(0), goal: () => tierSetSize(0), coins: 300, b: [0.1, 0, 0, 0, 0] },
+  { id: 'all1', g: 'set', text: '희귀 동료 다섯 모두 마당에 두기', cur: () => tierSetOwned(1), goal: () => tierSetSize(1), hon: 2, b: [0.1, 0, 0, 0, 0] },
+  { id: 'all2', g: 'set', text: '영웅 동료 다섯 모두 마당에 두기', cur: () => tierSetOwned(2), goal: () => tierSetSize(2), hon: 3, b: [0, 0.15, 0, 0, 0] },
+  { id: 'all3', g: 'set', text: '전설 동료 넷 모두 마당에 두기', cur: () => tierSetOwned(3), goal: () => tierSetSize(3), hon: 4, b: [0, 0, 0.15, 0, 0] },
+  { id: 'myth1', g: 'set', text: '신화 조합하기', cur: () => G.stats.crafts, goal: 1, coins: 600, hon: 2 },
+  { id: 'myth3', g: 'set', text: '신화 셋을 한꺼번에 마당에 두기', cur: mythOnYard, goal: 3, hon: 5, b: [0, 0, 0, 0.1, 0] },
+  { id: 'sell5', g: 'hand', text: '동료 5번 팔기', cur: () => G.stats.sells || 0, goal: 5, coins: 300 },
+  { id: 'sell20', g: 'hand', text: '동료 20번 팔기', cur: () => G.stats.sells || 0, goal: 20, coins: 900 },
+  { id: 'merge10', g: 'hand', text: '합성 10번 하기', cur: () => G.stats.merges, goal: 10, luck: 1 },
+  { id: 'up10', g: 'hand', text: '강화 합쳐서 10번 하기', cur: upSum, goal: 10, coins: 1000 },
+  { id: 'sum50', g: 'hand', text: '동료 50번 소환하기', cur: () => G.stats.summons, goal: 50, hon: 3 },
+  { id: 'rich', g: 'hand', text: '엽전 3,000을 한꺼번에 쥐기', cur: () => Math.floor(G.coins), goal: 3000, hon: 2 },
+  { id: 'gut5', g: 'gut', text: '굿 5번 벌이기', cur: () => G.stats.guts, goal: 5, hon: 3 },
+  { id: 'gutbad', g: 'gut', text: '굿에서 내리 세 번 꽝 나기', cur: () => G.stats.gutFailTop || 0, goal: 3, hon: 4, note: '부정 탄 날엔 위로금' },
+  { id: 'gutleg', g: 'gut', text: '별신굿으로 전설 받기', cur: () => G.stats.gutLeg || 0, goal: 1, coins: 1000 },
+  { id: 'kill500', g: 'fight', text: '도깨비 500마리 잡기', cur: () => G.stats.kills, goal: 500, coins: 500 },
+  { id: 'kill2000', g: 'fight', text: '도깨비 2,000마리 잡기', cur: () => G.stats.kills, goal: 2000, b: [0, 0, 0, 0, 0.05] },
+  { id: 'boss3', g: 'fight', text: '보스 셋 잡기', cur: () => G.stats.bossKills, goal: 3, hon: 5 },
+  { id: 'chal3', g: 'fight', text: '도전 귀신 셋 잡기', cur: () => G.stats.chalWins, goal: 3, coins: 1000 },
+  { id: 'cave3', g: 'fight', text: '도깨비굴 3층 깨기', cur: () => (G.exp ? G.exp.wins : 0), goal: 3, hon: 3 },
+  { id: 'help50', g: 'duo', duo: true, text: '가운데 길에서 동료 쪽 도깨비 50마리 잡아 주기', cur: () => G.stats.assists || 0, goal: 50, coins: 500 },
+  { id: 'gift', g: 'duo', duo: true, text: '동료에게 엽전 보내기', cur: () => G.stats.gifts || 0, goal: 1, hon: 2 },
+  { id: 'help300', g: 'duo', duo: true, text: '가운데 길에서 300마리 잡아 주기', cur: () => G.stats.assists || 0, goal: 300, b: [0, 0, 0, 0, 0.05] },
 ];
-const MISS_POOL = [
-  { id: 'kill', short: '처치', text: n => `도깨비 ${n}마리 더 잡기`, cur: () => G.stats.kills, add: () => 120 + G.wave * 4, coins: 250 },
-  { id: 'boss', short: '보스', text: () => '다음 보스 잡기', cur: () => G.stats.bossKills, add: 1, hon: 3 },
-  { id: 'chal', short: '도전', text: () => '도전 귀신 하나 잡기', cur: () => G.stats.chalWins, add: 1, coins: 300, hon: 1 },
-  { id: 'merge2', short: '합성', text: n => `합성 ${n}번 더 하기`, cur: () => G.stats.merges, add: 4, coins: 250 },
-  { id: 'craft2', short: '신화', text: () => '신화 하나 더 조합하기', cur: () => G.stats.crafts, add: 1, hon: 3 },
-  { id: 'sum2', short: '소환', text: n => `동료 ${n}번 더 소환하기`, cur: () => G.stats.summons, add: 12, coins: 200 },
-  { id: 'up2', short: '강화', text: n => `등급 강화 ${n}번 더 하기`, cur: upSum, add: 3, coins: 300 },
-  { id: 'gut2', short: '굿', text: n => `굿 ${n}번 더 벌이기`, cur: () => G.stats.guts, add: 3, coins: 300 },
-  { id: 'cave', short: '출정', text: () => '도깨비굴 한 층 깨기', cur: () => (G.exp ? G.exp.wins : 0), add: 1, coins: 300, hon: 1 },
-];
-const missDef = id => MISS_TEACH.find(m => m.id === id) || MISS_POOL.find(m => m.id === id);
-function missNew(D) {
-  const add = typeof D.add === 'function' ? D.add() : D.add;
-  return { id: D.id, from: D.abs ? 0 : D.cur(), goal: add, w: G.wave };
+const MISS_BY = Object.fromEntries(MISSIONS.map(m => [m.id, m]));
+const missGoal = D => (typeof D.goal === 'function' ? D.goal() : D.goal);
+const missOn = D => !D.duo || COOP.on || (G && G.duo);
+function missInit() { G.miss = { done: {} }; if (!G.mb) G.mb = [0, 0, 0, 0, 0]; }
+function missProg(D) { return Math.min(missGoal(D), Math.max(0, D.cur() || 0)); }
+function missReward(D) {
+  const k = 1 + Math.min(4, Math.floor((G.wave || 1) / 10)) * 0.25;
+  return { coins: D.coins ? Math.round(D.coins * k / 10) * 10 : 0, hon: D.hon || 0, b: D.b || null, luck: D.luck || 0 };
 }
-function missInit() { G.miss = { list: MISS_TEACH.slice(0, 3).map(missNew), next: 3 }; }
-function missText(m) { const D = missDef(m.id); return typeof D.text === 'function' ? D.text(m.goal) : D.text; }
-function missProg(m) { const D = missDef(m.id); return Math.min(m.goal, Math.max(0, D.cur() - m.from)); }
-function missReward(m) { const D = missDef(m.id), k = 1 + Math.floor(m.w / 10) * 0.5; return { coins: D.coins ? Math.round(D.coins * k / 10) * 10 : 0, hon: D.hon || 0 }; }
-function missPick() {
-  const M = G.miss;
-  if (M.next < MISS_TEACH.length) return missNew(MISS_TEACH[M.next++]);
-  const busy = new Set(M.list.map(m => m.id));
-  const opts = MISS_POOL.filter(D => !busy.has(D.id) && (D.id !== 'cave' || G.wave >= 3) && (D.id !== 'chal' || G.wave >= 4));
-  return missNew(pick(opts.length ? opts : MISS_POOL));
+const BUF_NAME = ['일반·희귀', '영웅', '전설', '신화', '모두'];
+function rewardText(rw) {
+  const out = [];
+  if (rw.coins) out.push(`엽전 ${fmtC(rw.coins)}`);
+  if (rw.hon) out.push(`혼 ${rw.hon}`);
+  if (rw.b) rw.b.forEach((v, i) => { if (v) out.push(`${BUF_NAME[i]} 공격 +${Math.round(v * 100)}%`); });
+  if (rw.luck) out.push(`소환 운 +${rw.luck}`);
+  return out.join(' · ');
 }
+/* the goal shown at the bottom of the yard: the first-steps in order, then whatever is closest to done */
+function missNext() {
+  if (!G.miss) return null;
+  let best = null, bk = -1;
+  for (const D of MISSIONS) {
+    if (G.miss.done[D.id] || !missOn(D)) continue;
+    if (D.g === 'first') return D;
+    const k = missProg(D) / missGoal(D);
+    if (k > bk) { bk = k; best = D; }
+  }
+  return best;
+}
+const missDoneN = () => (G.miss ? Object.keys(G.miss.done).length : 0);
+const missAllN = () => MISSIONS.filter(missOn).length;
 function missTick(dt) {
-  if (!G.miss) missInit();
+  if (!G.miss || !G.miss.done) missInit();
+  if (!G.mb) G.mb = [0, 0, 0, 0, 0];
   G.missT = (G.missT || 0) - dt; if (G.missT > 0) return;
   G.missT = 0.4;
-  const M = G.miss;
-  for (let k = 0; k < M.list.length; k++) {
-    const m = M.list[k]; if (!missDef(m.id) || missProg(m) < m.goal) continue;
-    const rw = missReward(m);
+  for (const D of MISSIONS) {
+    if (G.miss.done[D.id] || !missOn(D) || missProg(D) < missGoal(D)) continue;
+    G.miss.done[D.id] = 1;
+    const rw = missReward(D);
     G.coins += rw.coins; G.hon += rw.hon; G.stats.missions = (G.stats.missions || 0) + 1;
-    emit({ k: 'mission', text: missText(m), coins: rw.coins, hon: rw.hon });
-    toast(`임무 완료! ${missText(m)} · ${[rw.coins ? `엽전 +${fmtC(rw.coins)}` : '', rw.hon ? `혼 +${rw.hon}` : ''].filter(Boolean).join(' · ')}`);
-    M.list[k] = missPick();
+    if (rw.b) { rw.b.forEach((v, i) => { G.mb[i] += v; }); G.auraDirty = true; }
+    if (rw.luck && G.up[LUCK] < LUCK_MAX) G.up[LUCK] = Math.min(LUCK_MAX, G.up[LUCK] + rw.luck);
+    emit({ k: 'mission', id: D.id, text: D.text, coins: rw.coins, hon: rw.hon });
+    toast(`임무 완료! ${D.text} · ${rewardText(rw)}`);
   }
 }
 
@@ -618,11 +655,13 @@ function gamble(k) {
   const sure = (G.pity || 0) >= PITY_MAX;
   if (!sure && Math.random() >= gutP(Gd)) {
     G.pity = Math.min(PITY_MAX, (G.pity || 0) + Gd.pity);
+    G.stats.gutFailRun = (G.stats.gutFailRun || 0) + 1; G.stats.gutFailTop = Math.max(G.stats.gutFailTop || 0, G.stats.gutFailRun);
     emit({ k: 'gutfail', cell: pick(empty) });
     toast(G.pity >= PITY_MAX ? '부정 탔다… 꽝. 그래도 정성이 가득 찼어요. 다음 굿은 꼭 돼요' : '부정 탔다… 꽝');
     return true;
   }
   if (sure) G.pity = 0;
+  G.stats.gutFailRun = 0; if (Gd.tier >= 3) G.stats.gutLeg = (G.stats.gutLeg || 0) + 1;
   const t = pick(poolOf(Gd.tier)), i = addUnit(t);
   emit({ k: 'gut', cell: i, tier: Gd.tier, sure });
   toast(`${sure ? '지성이면 감천!' : Gd.tier >= 3 ? '신이 내렸다!' : '굿 효험!'} ${TIERS[Gd.tier].name} ${TYPES[t].name}`);
@@ -652,6 +691,7 @@ function sell(i) {
   const u = G.units[i]; if (!u) return;
   const v = TIERS[TYPES[u.t].tier].sell;
   G.coins += v; u.c--; if (u.c <= 0) G.units[i] = null; G.auraDirty = true;
+  G.stats.sells = (G.stats.sells || 0) + 1;
   emit({ k: 'sell', cell: i, v });
   if (G.sel === i && !G.units[i]) G.sel = -1;
 }
@@ -691,9 +731,25 @@ function callChallenge(i) {
 /* 도깨비굴 출정 */
 function caveFloor() {
   const n = G.exp.floor, C = CAVE[Math.min(n, CAVE.length) - 1], extra = Math.max(0, n - CAVE.length);
-  return Object.assign({}, C, { n, hp: C.hp * Math.pow(2.2, extra) * STAGES[G.stage].hp });
+  /* 1.4: the estimate now counts every arrow and bolt, so the bosses got a little tougher to match */
+  return Object.assign({}, C, { n, hp: C.hp * 1.4 * Math.pow(2.2, extra) * STAGES[G.stage].hp });
 }
-function expDps(u) { const T = TYPES[u.t]; return dmgOf(u.t, -1) * (u.c || 1) / (T.cd * G.lvSpd[u.t]) * 1.05; }
+/* how many blows one attack lands on a single big cave boss: a fan of arrows only half meets it */
+function hitsOn1(T) {
+  switch (T.kind) {
+    case 'double': return 2;
+    case 'bolts': return T.bolts || 1;
+    case 'homing': return T.orbs || 1;
+    case 'clone': return T.clones || 1;
+    case 'volley': return Math.max(1, (T.arrows || 1) * 0.45);
+    case 'boomerang': return 2;
+    default: return 1;
+  }
+}
+function expDps(u) {
+  const T = TYPES[u.t], crit = 1 + Math.min(1, (T.crit || 0.05) + (G.rel ? G.rel.crit || 0 : 0)) * ((T.critMul || 2) - 1);
+  return dmgOf(u.t, -1) * (u.c || 1) * hitsOn1(T) * (T.bossMul || 1) * crit / (T.cd * G.lvSpd[u.t]) * 0.95;
+}
 /* buffs travel with the party. 선비 speeds up the others, 무동 and 솟대 add damage, 장승 말뚝이 무당 make the cave boss take more */
 function partyBuffs(cells) {
   const T = cells.filter(c => G.units[c]).map(c => TYPES[G.units[c].t]), b = { spd: 0, dmg: 0, sot: 0, mark: 0, curse: 0, markBy: '', curseBy: '' };
@@ -843,7 +899,7 @@ function relMul(T) { const r = G.rel; if (!r) return 1; const g = upGroup(T); re
 const upOf = T => G.up[upGroup(T)];
 const gradeMulOf = T => (T.tier < 4 && G.gradeMul ? G.gradeMul[T.tier] : 1);
 const tierBuffOf = T => { const b = G.tierBuff && G.tierBuff[T.tier]; return b && b.t > 0 ? b.mul : 1; };
-function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
+function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
 function topClusters(rad, n) {
   const out = [], used = new Set(), r2 = rad * rad;
   for (let k = 0; k < n; k++) {
@@ -962,9 +1018,37 @@ function unitDmg(u, critBonus) {
   if (crit) amt *= (T.critMul || 2);
   return { amt, crit };
 }
+/* ---------- the shared road ----------
+   a ghost is the partner's 도깨비 while it walks the road between the two yards, seen from your side.
+   your companions can hit it; the hit is sent over and the partner's game applies it */
+const tgtList = () => (G.ghosts && G.ghosts.length ? G.foes.concat(G.ghosts) : G.foes);
+const ALLY_SRC = [0, 1, 2, 3, 4].map(t => ({ tier: t, id: 'ally', ally: true }));
+function syncGhosts(list) {
+  if (!(G.ghostMap instanceof Map)) G.ghostMap = new Map();
+  const M = G.ghostMap, seen = new Set();
+  for (const f of list || []) {
+    if (!f || f.dead || f.hidden > 0 || f.y > -HY + 0.55) continue;
+    let g = M.get(f.id);
+    if (!g) { g = { ghost: true, pid: f.id, id: -1 - f.id, kind: f.kind, d: -1, lane: 0, slowT: 0, slowAmt: 0, stunT: 0, burnT: 0, burnDps: 0, markT: 0, markAmt: 0, curseT: 0, curseAmt: 0, revT: 0, flash: 0, age: 0, hx: 1, hy: 0, wob: 0 }; M.set(f.id, g); }
+    g.x = flipX(f.x); g.y = flipY(f.y); g.r = f.r || 0.28; g.big = !!f.big; g.boss = f.boss || null; g.chal = f.chal || null;
+    /* keep your own hits on it until the partner's game reports a new health */
+    if (g.rep !== f.hp) { g.rep = f.hp; g.hp = f.hp; }
+    g.max = f.max; g.dead = g.hp <= 0; seen.add(f.id);
+  }
+  for (const [id, g] of M) if (!seen.has(id)) { g.dead = true; M.delete(id); }
+  G.ghosts = [...M.values()].filter(g => !g.dead);
+}
+/* hits the partner sent for your 도깨비 */
+function applyHits(list) {
+  if (!list || !list.length) return;
+  const byId = new Map(); for (const f of G.foes) byId.set(f.id, f);
+  const keep = HIT_UID; HIT_UID = 0;
+  for (const [id, amt, tier] of list) { const f = byId.get(id); if (f && !f.dead) { damage(f, amt, ALLY_SRC[tier | 0] || ALLY_SRC[4], false); if (G.phase !== 'play') break; } }
+  HIT_UID = keep;
+}
 function pickTarget(x, y, range) {
   const r2 = range * range; let best = null, bs = -1;
-  for (const f of G.foes) {
+  for (const f of tgtList()) {
     if (f.dead || f.hidden > 0) continue;
     const dx = f.x - x, dy = f.y - y, rr = range + (f.big ? f.r : 0);
     if (dx * dx + dy * dy > (f.big ? rr * rr : r2)) continue;
@@ -975,7 +1059,7 @@ function pickTarget(x, y, range) {
 }
 function inRange(x, y, range) {
   const out = [];
-  for (const f of G.foes) {
+  for (const f of tgtList()) {
     if (f.dead || f.hidden > 0) continue;
     const rr = range + (f.big ? f.r : 0);
     if ((f.x - x) ** 2 + (f.y - y) ** 2 <= rr * rr) out.push(f);
@@ -1001,6 +1085,13 @@ function pickCluster(rad) {
 const DOT = { tier: 2, dot: true };
 function damage(f, amt, src, crit) {
   if (f.dead || f.hidden > 0) return 0;
+  if (f.ghost) {
+    if (!(amt > 0)) return 0;
+    if (G.outHits) G.outHits.push([f.pid, Math.round(amt), src && src.tier != null ? Math.min(4, src.tier) : 4]);
+    f.hp -= amt; f.flash = 0.09; if (f.hp <= 0) { f.dead = true; G.stats.assists = (G.stats.assists || 0) + 1; }
+    if (!src.dot && (crit || src.tier >= 4)) emit({ k: 'num', x: f.x, y: f.y, v: amt, crit: !!crit, res: false, boss: !!f.big });
+    return amt;
+  }
   if (f.markT > 0) amt *= 1 + f.markAmt;
   if (f.curseT > 0) amt *= 1 + f.curseAmt;
   if (f.bookT > 0) amt *= 1 + f.bookAmt;
@@ -1018,6 +1109,7 @@ function damage(f, amt, src, crit) {
 }
 function kill(f, final) {
   if (f.dead) return;
+  if (f.ghost) { damage(f, Math.max(1, f.hp) * 1.2 + 1, ALLY_SRC[4], false); return; }
   if (f.rev && !final && !(f.curseT > 0)) { f.rev = 0; f.hp = f.max * 0.5; f.stunT = Math.max(f.stunT, 1.0); f.down = 1.0; emit({ k: 'revive', x: f.x, y: f.y }); return; }
   f.dead = true; G.stats.kills++; G.coins += f.reward;
   if (HIT_UID) {
@@ -1046,6 +1138,8 @@ function kill(f, final) {
 }
 function slowFoe(f, amt, dur) { if (f.big) amt *= 0.5; f.slowAmt = f.slowT > 0 ? Math.max(f.slowAmt, amt) : amt; f.slowT = Math.max(f.slowT, dur); }
 function stunFoe(f, dur) { if (f.big) dur *= 0.25; f.stunT = Math.max(f.stunT, dur); }
+/* how fast a 도깨비 walks right now, for the partner's picture of it */
+function foeSpeedNow(f) { let v = f.speed; if (f.slowT > 0) v *= 1 - f.slowAmt; if (f.revT > 0) v = -0.6 * Math.abs(v); if (f.stunT > 0) v = 0; if (f.hidden > 0) v *= 1.6; return v; }
 function knock(f, d) { if (f.dead) return; f.d = Math.max(0, f.d - (f.big ? d * 0.25 : d)); placeFoe(f); }
 /* coins a companion earns are counted for it, like kills, so its card can say how much it brought in */
 function earnFor(uid, c) { if (!uid) return; if (!G.earnBy) G.earnBy = {}; G.earnBy[uid] = (G.earnBy[uid] || 0) + c; }
@@ -1113,7 +1207,7 @@ function attack(u, i, T, tgt) {
     case 'beam': {
       let dx = tgt.x - x, dy = tgt.y - y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
       const len = RG + (T.beamW ? 0.3 : 0.6), bw = T.beamW || 0.36;
-      for (const f of G.foes) {
+      for (const f of tgtList()) {
         if (f.dead || f.hidden > 0) continue;
         const px = f.x - x, py = f.y - y, t = px * dx + py * dy;
         if (t < 0 || t > len) continue;
@@ -1151,7 +1245,7 @@ function attack(u, i, T, tgt) {
     case 'cone': {
       let dx = tgt.x - x, dy = tgt.y - y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
       const cosC = Math.cos(T.cone), R = RG + 0.3;
-      for (const f of G.foes) {
+      for (const f of tgtList()) {
         if (f.dead || f.hidden > 0) continue;
         const px = f.x - x, py = f.y - y, d = Math.hypot(px, py);
         if (d > R + (f.big ? f.r : 0)) continue;
@@ -1216,7 +1310,7 @@ function attack(u, i, T, tgt) {
       if (T.breath && u.n % T.breath === 0) {
         let dx = tgt.x - x, dy = tgt.y - y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
         const cosC = Math.cos(T.cone), Rr = RG;
-        for (const f of G.foes) {
+        for (const f of tgtList()) {
           if (f.dead || f.hidden > 0) continue;
           const px = f.x - x, py = f.y - y, d = Math.hypot(px, py);
           if (d > Rr + (f.big ? f.r : 0)) continue;
@@ -1335,7 +1429,7 @@ function shotTick(s, dt) {
   if (s.straight) {
     const step = (s.spd || 6.5) * dt;
     s.x += s.vx * step; s.y += s.vy * step; s.gy = s.y; s.travel += step;
-    for (const f of G.foes) {
+    for (const f of tgtList()) {
       if (f.dead || f.hidden > 0 || s.hit.includes(f.id)) continue;
       const rr = (s.rr || 0.5) + (f.big ? f.r : 0);
       if ((f.x - s.x) ** 2 + (f.y - s.y) ** 2 < rr * rr) {
@@ -1356,7 +1450,7 @@ function shotTick(s, dt) {
     if (!s.back) { s.s += step; if (s.s >= s.max) { s.back = true; s.hit = []; } }
     else { s.s -= step * 1.15; if (s.s <= 0) { s.dead = true; return; } }
     s.x = s.ox + s.vx * s.s; s.y = s.oy + s.vy * s.s; s.gy = s.y;
-    for (const f of G.foes) {
+    for (const f of tgtList()) {
       if (f.dead || f.hidden > 0 || s.hit.includes(f.id)) continue;
       const rr = 0.42 + (f.big ? f.r : 0);
       if ((f.x - s.x) ** 2 + (f.y - s.y) ** 2 < rr * rr) {
@@ -1619,7 +1713,10 @@ function aiStep(dt) {
   G = AI.G; COOP.bossW = AI.co.bossW; COOP.bossDmg = AI.co.bossDmg; COOP.pApplied = AI.co.pApplied; COOP.sync = aiSyncAi;
   toast = noop; onEnd = noop; FX_ON = false;
   try {
-    update(dt);
+    /* the shared road: your 도깨비 there are the AI's ghosts, and your hits on its 도깨비 land now */
+    syncGhosts(me.foes);
+    applyHits(me.outHits); me.outHits.length = 0;
+    if (G.phase === 'play') update(dt);
     AI.t -= dt;
     if (AI.t <= 0 && G.phase === 'play') { AI.t = 0.3; aiThink(); }
     fell = G.phase !== 'play' && G.phase !== 'win';
@@ -1629,11 +1726,13 @@ function aiStep(dt) {
     G = me; COOP.bossW = mine.bossW; COOP.bossDmg = mine.bossDmg; COOP.pApplied = mine.pApplied; COOP.sync = mine.sync;
     toast = t0; onEnd = e0; FX_ON = fx;
   }
-  if (fell) aiFall();
+  if (fell) { aiFall(); return; }
+  syncGhosts(AI.G.foes);
+  if (AI.G.outHits.length) { applyHits(AI.G.outHits); AI.G.outHits.length = 0; }
 }
 /* the AI's yard fell: you go on alone, and bosses go back to one player's health */
 function aiFall() {
-  AI.out = true;
+  AI.out = true; G.ghosts = []; if (G.ghostMap) G.ghostMap.clear();
   if (COOP.on) {
     if (G.boss && !G.boss.dead) { G.boss.hp /= COOP.hpMul; G.boss.max /= COOP.hpMul; }
     COOP.on = false;
