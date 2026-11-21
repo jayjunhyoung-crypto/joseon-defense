@@ -133,6 +133,7 @@ function onEvent(e) {
     case 'coin': fxText(e.x, e.y - (e.big ? 1.25 : 0.8), `+${fmtC(e.v)}`, 'coin', e.big ? 1.25 : 0.95); if (e.big) burst(e.x, e.y - 0.6, 0.3, 8, ['#f2c94a', '#fff2b0'], 1.6, 0.05, 0.6, { up: 2, g: 1.2 }); flyCoin(e.x, e.y - 0.5, COIN_EL, 1); sfx('coin'); break;
     case 'kill': {
       if (e.boss) {
+        unlockStory('b_' + e.boss);
         fxFlash(e.x, e.y - 0.6, 2.2, '#fff3c0', 0.7, 0.55);
         for (let i = 0; i < 3; i++) FX.push({ k: 'ring', x: e.x, y: e.y, r0: 0.4, r1: 3 + i, col: i % 2 ? '#f2c14a' : '#ffffff', w: 6, life: 0.8 + i * 0.2, t: 0, flat: 0.55 });
         burst(e.x, e.y, 0.6, 50, OBANG, 4.5, 0.08, 1.3, { up: 2.2 });
@@ -176,7 +177,15 @@ function onEvent(e) {
       sfx('merge', e.tier);
       break;
     }
+    case 'combo': {
+      const C = COMBOS.find(c => c.id === e.id); if (!C) break;
+      showBanner(`합동기 · ${C.name}`, C.line, false, true);
+      fxFlash(0, -HY, 3.2, '#ffe6a0', 0.7, 0.5); fxRing(0, -HY, 0.3, 4.5, '#ffd36a', 7, 0.8); shake(0.35); pulseVignette();
+      sfx('gong'); setTimeout(() => sfx('ult'), 160);
+      break;
+    }
     case 'craft': {
+      unlockStory('m_' + e.id);
       const b = unitPos(e.cell), T = TYPES[TYPE_IX[e.id]];
       for (const fr of e.from) { const a = unitPos(fr.cell); for (let i = 0; i < 8; i++) { const t = rand(0.45, 0.7); part(a.x + rand(-0.15, 0.15), a.y, rand(0.3, 0.9), (b.x - a.x) / t, (b.y - a.y) / t, 0, pick(OBANG), 0.06, t, { g: 0, drag: 0 }); } puff(a.x, a.y, 2, '#e6dccb', 0.1, 0.4); }
       FX.push({ k: 'ring', x: b.x, y: b.y - 0.15, r0: 0.1, r1: 1.4, col: '#e2563c', w: 6, life: 0.7, t: -0.45, flat: 0.55 });

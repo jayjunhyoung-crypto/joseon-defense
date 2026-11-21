@@ -40,7 +40,7 @@ const MIGRATIONS = {
   },
 };
 function defaultSave() {
-  return { v: 1, fmt: SAVE_FMT, x10: 1, silver: 0, jade: 0, lv: {}, pcs: {}, made: {}, seen: {}, foes: {}, ach: {}, relics: {}, rlv: {}, rcp: {}, rpity: 0, wild: 0, road: {}, mopen: {}, scroll: 0, hyang: 0, guide: 0,
+  return { v: 1, fmt: SAVE_FMT, x10: 1, silver: 0, jade: 0, lv: {}, pcs: {}, made: {}, seen: {}, foes: {}, ach: {}, relics: {}, rlv: {}, rcp: {}, rpity: 0, wild: 0, road: {}, mopen: {}, scroll: 0, hyang: 0, guide: 0, stories: {}, combos: {},
     stats: { games: 0, kills: 0, best: 0, wins: 0, crafts: 0, chalWins: 0, chalHard: 0, bossKills: 0, pouches: 0, silverEarned: 0, jadeEarned: 0, income: 0, chalTop: 0, caveTop: 0, caveWins: 0 },
     stageMax: 0, stageSel: 0, stageBest: {}, stageClear: {}, clear40: {}, bossBest: {}, att: { day: '', n: 0 }, market: null, quests: null, weekly: null, qbonus: '', saved: 0 };
 }
@@ -52,7 +52,8 @@ function migrate(s) {
   while (s.fmt < SAVE_FMT) { const m = MIGRATIONS[s.fmt]; if (m) m(s); s.fmt++; }
   const d = defaultSave();
   const out = Object.assign(d, s, { stats: Object.assign(d.stats, s.stats || {}), att: Object.assign(d.att, s.att || {}) });
-  for (const k of ['lv', 'pcs', 'made', 'seen', 'foes', 'ach', 'stageBest', 'stageClear', 'clear40', 'bossBest', 'relics', 'rlv', 'rcp', 'road', 'mopen']) if (!out[k] || typeof out[k] !== 'object') out[k] = {};
+  for (const k of ['lv', 'pcs', 'made', 'seen', 'foes', 'ach', 'stageBest', 'stageClear', 'clear40', 'bossBest', 'relics', 'rlv', 'rcp', 'road', 'mopen', 'stories', 'combos']) if (!out[k] || typeof out[k] !== 'object') out[k] = {};
+  storyBackfill(out);
   if (typeof out.jade !== 'number') out.jade = 0;
   if (typeof out.scroll !== 'number') out.scroll = 0;
   if (typeof out.hyang !== 'number') out.hyang = 0;
@@ -74,7 +75,8 @@ function mergeSaves(a, b) {
   const base = gb > ga || (gb === ga && (b.saved || 0) > (a.saved || 0)) ? b : a, other = base === a ? b : a;
   const m = JSON.parse(JSON.stringify(base));
   for (const id in other.lv) m.lv[id] = Math.max(m.lv[id] || 1, other.lv[id] || 1);
-  for (const k of ['seen', 'foes', 'ach', 'stageClear', 'clear40', 'road', 'mopen']) { m[k] = m[k] || {}; for (const id in other[k] || {}) if (other[k][id]) m[k][id] = m[k][id] || other[k][id]; }
+  m.combos = m.combos || {}; for (const id in other.combos || {}) m.combos[id] = Math.max(m.combos[id] || 0, other.combos[id] || 0);
+  for (const k of ['seen', 'foes', 'ach', 'stageClear', 'clear40', 'road', 'mopen', 'stories']) { m[k] = m[k] || {}; for (const id in other[k] || {}) if (other[k][id]) m[k][id] = m[k][id] || other[k][id]; }
   m.relics = m.relics || {}; for (const id in other.relics || {}) m.relics[id] = Math.max(m.relics[id] || 0, other.relics[id] || 0);
   m.rlv = m.rlv || {}; for (const id in other.rlv || {}) m.rlv[id] = Math.max(m.rlv[id] || 0, other.rlv[id] || 0);
   m.bossBest = m.bossBest || {}; for (const id in other.bossBest || {}) m.bossBest[id] = Math.max(m.bossBest[id] || 0, other.bossBest[id] || 0);

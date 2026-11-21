@@ -265,7 +265,7 @@ const killsOf = u => (G.killBy && G.killBy[u.id]) || 0;
 const earnOf = u => (G.earnBy && G.earnBy[u.id]) || 0;
 const baseDmg = T => T.dmg * TIER_MUL[T.tier];
 function upTag(cur, T) { const d = cur - baseDmg(T); return d >= 1 ? `<span class="upv">▲${fmt(d)}</span>` : ''; }
-function unitInterval(u, i) { const T = TYPES[u.t]; return T.cd / ((i >= 0 && G.spd[i]) || 1) / (G.charmT > 0 ? CHARM.spd : 1) / (G.lotusT > 0 ? 1.6 : 1) * G.lvSpd[u.t] / (T.kind === 'pounce' ? 1 : (u.c || 1)); }
+function unitInterval(u, i) { const T = TYPES[u.t]; return T.cd / ((i >= 0 && G.spd[i]) || 1) / (G.charmT > 0 ? CHARM.spd : 1) / (G.lotusT > 0 ? 1.6 : 1) / (G.sea ? G.sea.as : 1) * G.lvSpd[u.t] / (T.kind === 'pounce' ? 1 : (u.c || 1)); }
 function hitNote(T) {
   switch (T.kind) {
     case 'double': return '한 번에 두 번';
@@ -637,7 +637,7 @@ const RUN_KEY = 'talnori-run-v4';
 const netCoop = () => COOP.on && NET.kind !== 'ai';
 function saveRun() {
   if (!G || G.phase !== 'play' || netCoop()) return;
-  try { const s = serialize(); if (NET.kind === 'ai') s.ai = aiSave(); localStorage.setItem(RUN_KEY, JSON.stringify(s)); } catch (err) { /* ignore */ }
+  try { const s = serialize(); s.hon += JOINT.a; if (NET.kind === 'ai') s.ai = aiSave(); localStorage.setItem(RUN_KEY, JSON.stringify(s)); } catch (err) { /* ignore */ }
 }
 function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (err) { /* ignore */ } }
 function savedRun() { try { const s = JSON.parse(localStorage.getItem(RUN_KEY) || 'null'); return s && s.v >= 6 && s.v <= 8 && s.phase === 'play' ? s : null; } catch (err) { return null; } }
@@ -846,8 +846,8 @@ function renderTab() {
     b.innerHTML = `<div class="sumcard"><div class="qhead"><h3 class="sect" style="--g:var(--dan-gold)"><i></i>도감 <span class="num">${cc}/${LIVE.length}</span> <small>도깨비 ${fc}/${FOE_KEYS.length}</small></h3>${curHTML(true)}</div><div class="bar"><i style="width:${Math.round((cc + fc) / (LIVE.length + FOE_KEYS.length) * 100)}%"></i></div>
       <p class="meta">판에서 처음 만난 동료와 도깨비가 도감에 올라가요. 못 만난 동료는 ???로 가려져 있어요. 새 동료는 은전 100, 새 도깨비는 은전 50을 줘요</p>
       <p class="meta">판이 끝나면 만난 동료의 조각과 향을 받아요. 동료는 레벨마다 공격력 15%, 3·6·9·12레벨에 새 능력. 신화는 레벨마다 12%, 5레벨 각성 10레벨 신물. 15레벨 승천은 곧 열려요</p>
-      <div class="chips"><button class="chipbtn" type="button" data-filter="all" aria-pressed="${codexFilter === 'all'}">동료</button><button class="chipbtn" type="button" data-filter="lv" aria-pressed="${codexFilter === 'lv'}">올릴 수 있는 동료 ${nl}</button><button class="chipbtn" type="button" data-filter="foe" aria-pressed="${codexFilter === 'foe'}">도깨비</button></div></div>
-      ${codexFilter === 'foe' ? foeHTML() : (codexHTML(true).replace(/^\s*$/, '') || '<p class="meta">지금 올릴 수 있는 동료가 없어요. 판을 더 돌거나 장터에서 조각을 모아 보세요</p>')}`;
+      <div class="chips"><button class="chipbtn" type="button" data-filter="all" aria-pressed="${codexFilter === 'all'}">동료</button><button class="chipbtn" type="button" data-filter="lv" aria-pressed="${codexFilter === 'lv'}">올릴 수 있는 동료 ${nl}</button><button class="chipbtn" type="button" data-filter="foe" aria-pressed="${codexFilter === 'foe'}">도깨비</button><button class="chipbtn" type="button" data-filter="story" aria-pressed="${codexFilter === 'story'}">이야기 ${storyN()}/${storyKeys().length}</button>${Object.keys(SAVE.combos || {}).length ? `<button class="chipbtn" type="button" data-filter="combo" aria-pressed="${codexFilter === 'combo'}">합동기 ${Object.keys(SAVE.combos).length}/${COMBOS.length}</button>` : ''}</div></div>
+      ${codexFilter === 'story' ? `<p class="meta">보스를 처음 물리치거나 신화를 처음 만들면 그 이야기가 열려요. 새 이야기마다 옥 ${STORY_JADE}</p>${storyHTML()}` : codexFilter === 'combo' ? comboHTML() : codexFilter === 'foe' ? foeHTML() : (codexHTML(true).replace(/^\s*$/, '') || '<p class="meta">지금 올릴 수 있는 동료가 없어요. 판을 더 돌거나 장터에서 조각을 모아 보세요</p>')}`;
   } else if (curTab === 'quest') {
     const all = SAVE.quests.list.every(q => q.claimed), got = SAVE.qbonus === SAVE.quests.day;
     b.innerHTML = `<div class="qhead"><h3 class="sect" style="--g:var(--dan-gold)"><i></i>오늘의 퀘스트</h3>${curHTML()}</div><p class="meta">${untilMidnight()} 뒤 새 퀘스트로 바뀌어요. 진행은 판이 끝날 때 쌓여요</p>${questRows(SAVE.quests.list, questDef, 'd')}
@@ -991,7 +991,7 @@ function renderMissSheet(force) {
   }).join('');
 }
 /* the 임무 and 도움말 sheets close when another sheet opens */
-function closeSide() { const a = $('msheet'), b = $('hsheet'); if (a) a.hidden = true; if (b) b.hidden = true; }
+function closeSide() { const a = $('msheet'), b = $('hsheet'), c = $('jsheet'); if (a) a.hidden = true; if (b) b.hidden = true; if (c) c.hidden = true; }
 function openMiss() { closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; hsheet.hidden = true; msheet.hidden = false; renderMissSheet(true); sfx('click'); }
 function closeMiss() { msheet.hidden = true; }
 $('mClose').addEventListener('click', closeMiss);
@@ -1006,13 +1006,16 @@ const HELP = [
 ];
 function openHelp() {
   closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = true;
-  hlist.innerHTML = `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 가운데 길은 둘이 같이 써요. 가운데 길을 지나는 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
+  const sea = seasonOf();
+  hlist.innerHTML = (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 가운데 길은 둘이 같이 써요. 가운데 길을 지나는 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
     HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
     `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
   hsheet.hidden = false; sfx('click');
 }
 function closeHelp() { hsheet.hidden = true; }
 $('hClose').addEventListener('click', closeHelp);
+/* tap the line under the 도깨비 bar to see what this 절기 does */
+$('bossRow').addEventListener('click', () => { const s = seasonOf(); if (s && G.phase === 'play' && !G.boss) toast(`${s.name} · ${s.line} · ${s.desc}`); });
 el.info.addEventListener('click', e => {
   if (e.target.closest('[data-tip]')) return;
   const b = e.target.closest('[data-open]'); if (!b) return;
@@ -1051,7 +1054,8 @@ function uiTick(dt) {
   } else {
     setClass(el.bossRow, 'br', 'is-on', false);
     const nb = Math.min(LAST_WAVE, Math.max(10, Math.ceil((Math.max(1, G.wave) + 1) / 10) * 10)), B = bossAt(nb), S = STAGES[G.stage];
-    setText(el.bossName, 'bn', B && G.wave <= nb ? `${S.name} · 다음 보스 · 제 ${nb} 마당 ${B.name}` : S.name);
+    const sea = seasonOf(), sn = sea ? ` · ${sea.name}` : '';
+    setText(el.bossName, 'bn', B && G.wave <= nb ? `${S.name}${sn} · 다음 보스 · 제 ${nb} 마당 ${B.name}` : `${S.name}${sn}`);
     setText(el.bossTime, 'bt', '');
   }
   setText(el.summonCost, 'sc', fmtC(summonCost()));
@@ -1124,8 +1128,11 @@ function startGame() {
   const st = R.coopStage != null ? R.coopStage : stageUnlocked(SAVE.stageSel) ? SAVE.stageSel : 0;
   R.theme = STAGES[st].theme;
   R.pickExp = false; R.pickSel = []; R.expInfo = false;
-  R.duo = !!COOP.on; PVIS.clear();
+  R.duo = !!COOP.on; PVIS.clear(); jointReset(); closeJoint();
   newGame(lvMulArr(), lvSpdArr(), st, relicBonuses()); cache.save = 0; cache.coinShow = null;
+  /* this run's 절기: from the round with a friend, otherwise any of the 24 */
+  const sea = applySeason(R.seaPick != null ? R.seaPick : Math.floor(Math.random() * SEASONS.length)); R.seaPick = null;
+  setTimeout(() => { if (G.phase === 'play' && G.wave <= 1) toast(`이번 판은 ${sea.name} · ${sea.line} · ${sea.desc}`); }, 2600);
   cache.infoKey = ''; cache.vo = -1;
   layout(); refreshInfo(); refreshUps();
   musicMode('play');
@@ -1295,6 +1302,7 @@ function frame(now) {
   if (G.phase === 'play' && !G.paused) {
     let simDt = dt * G.speed * (R.slowmo > 0 ? 0.3 : 1);
     while (simDt > 1e-6 && G.phase === 'play') { const s = Math.min(simDt, 1 / 60); update(s); if (AI.on && G.phase === 'play') aiStep(s); simDt -= s; }
+    if (R.duo) { jointTick(dt); comboTick(dt * G.speed); }
   } else if (G.phase === 'title') titleTick(dt);
   if (R.slowmo > 0) R.slowmo -= dt;
   if (G.phase === 'win' && Math.random() < dt * 3) { const x = rand(-3, 3), y = rand(-3, 2); burst(x, y, rand(1.5, 2.5), 24, OBANG, 3.5, 0.06, 1.4, { g: 2 }); }

@@ -3,7 +3,7 @@
    the partner's yard for the mini view, their damage to the current boss, coins they sent, the host's clock.
    transport, first that works: the claude.ai room (inside claude.ai), a direct browser to browser link through PeerJS
    (the standalone build, no accounts), or a BroadcastChannel between tabs of this browser (testing) */
-el.coopOv = $('coopOv'); el.coopCard = $('coopCard'); el.coopBox = $('coopBox'); el.coopCv = $('coopCv'); el.coopGift = $('coopGift');
+el.coopOv = $('coopOv'); el.coopCard = $('coopCard'); el.coopBox = $('coopBox'); el.coopCv = $('coopCv'); el.coopGift = $('coopGift'); el.coopJoint = $('coopJoint');
 const NET = { link: null, kind: '', code: '', role: '', peers: new Map(), srv: '', err: '' };
 const CO = { hitSeq: 0, hitIn: 0, hitAck: 0, hitLog: [], hitsQ: [], pAt: 0, nick: '', partner: null, rd: '', giftSent: 0, giftGot: 0, lost: false, ph: 'lobby', sendT: 0, big: false, left: false, imgs: new Map() };
 try { CO.nick = localStorage.getItem('talnori-nick') || ''; } catch (err) { /* ignore */ }
@@ -143,6 +143,7 @@ function coopSnap() {
     o.hz = CO.hitLog; o.ha = CO.hitIn;
     o.bw = COOP.bossW; o.bd = Math.round(COOP.bossDmg); o.bh = G.boss && !G.boss.dead ? Math.round(G.boss.hp / G.boss.max * 100) : -1;
     o.gs = CO.giftSent;
+    o.jg = [JOINT.n, JOINT.a]; if (CO.jr) o.jr = CO.jr;
     o.mo = STAGES[G.stage || 0].myths.filter(id => !MYTH_BY[id].secret && mythOpenSelf(id, G.stage || 0));
   }
   o.lost = CO.lost;
@@ -164,7 +165,7 @@ function onNet() {
       if (Array.isArray(np.hz)) for (const b of np.hz) if (Array.isArray(b) && b[0] > CO.hitIn) { CO.hitIn = b[0]; if (Array.isArray(b[1])) CO.hitsQ.push(...b[1]); }
     }
   }
-  if (!CO.partner && before && CO.ph === 'play') { toast(`${before.nm || '친구'}가 나갔어요 · 혼자 계속해요`); }
+  if (!CO.partner && before && CO.ph === 'play') { toast(`${before.nm || '친구'}가 나갔어요 · 혼자 계속해요`); jointGone(); }
   const p = CO.partner;
   /* the guest starts when the host does */
   if (p && NET.role === 'guest' && p.ph === 'start' && p.rd && p.rd !== CO.rd) coopBegin(p.st, p.rd);
@@ -182,12 +183,12 @@ function coopStart() {
   setTimeout(() => coopBegin(SAVE.stageSel || 0, rd, true), 600);
 }
 function coopBegin(st, rd, host) {
-  el.coopGift.hidden = false; R.duo = true; CO.hitSeq = 0; CO.hitIn = 0; CO.hitAck = 0; CO.hitLog = []; CO.hitsQ = []; NETF.clear();
+  el.coopGift.hidden = false; el.coopJoint.hidden = false; jointReset(); CO.jr = null; R.duo = true; CO.hitSeq = 0; CO.hitIn = 0; CO.hitAck = 0; CO.hitLog = []; CO.hitsQ = []; NETF.clear();
   CO.rd = rd; CO.st = st; CO.giftSent = 0; CO.giftGot = 0; CO.lost = false; CO.ph = 'play'; CO.mm = false; CO.mmAuto = false;
   AI.on = false; R.mode = 'net';
   COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0; COOP.sync = NET_SYNC;
   el.coopOv.hidden = true; el.endOv.hidden = true;
-  R.coopStage = st; startGame(); R.coopStage = null;
+  R.coopStage = st; R.seaPick = seaFromRd(rd); startGame(); R.coopStage = null;
   el.coopBox.hidden = false; placeCoopBox(); renderGiftBtn();
   toast(host ? `${pname()}와 같이 시작! 보스는 둘이 같이 잡아요` : `${pname()}의 방에서 같이 시작! 보스는 둘이 같이 잡아요`);
 }
@@ -217,11 +218,12 @@ COOP.sync = () => {
 };
 const NET_SYNC = COOP.sync;
 COOP.onEnd = reason => {
+  jointReset(); closeJoint();
   if (reason !== 'win' && reason !== 'partner') CO.lost = true;
   CO.ph = 'over';
   if (NET.link) NET.link.send(coopSnap());
 };
-function coopLeaveRun() { COOP.on = false; CO.ph = 'lobby'; el.coopBox.hidden = true; R.duo = false; NETF.clear(); if (NET.kind === 'ai') { aiStop(); netClose(); NET.role = ''; } }
+function coopLeaveRun() { jointReset(); closeJoint(); COOP.on = false; CO.ph = 'lobby'; el.coopBox.hidden = true; R.duo = false; NETF.clear(); if (NET.kind === 'ai') { aiStop(); netClose(); NET.role = ''; } }
 
 /* ---------- the partner's yard on your field ----------
    with the AI it is its real state. with a friend it is rebuilt from their last message: each 도깨비 keeps
@@ -274,7 +276,7 @@ function aiLink() {
   CO.rd = 'ai' + Math.random().toString(36).slice(2, 7); CO.giftSent = 0; CO.giftGot = 0; CO.lost = false; CO.ph = 'play'; CO.mm = false; CO.mmAuto = false;
 }
 function aiShow() {
-  CO.partner = aiSnap(); el.coopGift.hidden = false;
+  CO.partner = aiSnap(); el.coopGift.hidden = false; el.coopJoint.hidden = false;
   el.coopOv.hidden = true; el.endOv.hidden = true;
   el.coopBox.hidden = false; placeCoopBox(); renderGiftBtn();
 }
@@ -283,6 +285,7 @@ function aiBegin() {
   COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0; COOP.sync = aiSyncMe;
   R.mode = 'ai'; startGame();
   aiNew(lvMulArr(), lvSpdArr(), G.stage, relicBonuses());
+  const sk = G.sea ? G.sea.k : 0; withAI(() => applySeason(sk));
   aiShow();
   toast(`AI ${AI.nm}와 같이 시작! 마당은 각자, 보스는 둘이 같이 잡아요`);
 }
@@ -299,7 +302,7 @@ function aiSnap() {
 function aiSave() {
   if (NET.kind !== 'ai' || !AI.G) return null;
   const me = G; let st = null;
-  try { G = AI.G; st = AI.out ? null : serialize(); } finally { G = me; }
+  try { G = AI.G; st = AI.out ? null : serialize(); if (st) st.hon += JOINT.b; } finally { G = me; }
   return { st, co: AI.co, nm: AI.nm, out: AI.out || !st, gift: AI.gift, giftGot: AI.giftGot, sent: AI.sent, sentGot: AI.sentGot, coop: { on: COOP.on, bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied } };
 }
 function aiResume(a) {
@@ -320,7 +323,7 @@ setInterval(() => {
   const now = Date.now();
   if (NET.kind === 'local') { let gone = false; for (const [k, v] of NET.peers) if (now - v.at > 6000) { NET.peers.delete(k); gone = true; } if (gone) onNet(); }
   CO.sendT -= 0.25;
-  if (NET.kind === 'ai') { if (AI.G) CO.partner = aiSnap(); el.coopGift.hidden = AI.out || !AI.G; }
+  if (NET.kind === 'ai') { if (AI.G) CO.partner = aiSnap(); el.coopGift.hidden = el.coopJoint.hidden = AI.out || !AI.G; }
   else if (CO.ph === 'play' || CO.sendT <= 0) { CO.sendT = 1; NET.link.send(coopSnap()); }
   if (CO.ph === 'play' && !el.coopBox.hidden) drawPartner();
 }, 250);
@@ -568,6 +571,119 @@ el.coopGift.addEventListener('click', () => {
 });
 window.addEventListener('pagehide', () => { mmStop(); netClose(); });
 
+/* ---------- 합동 굿: the button, the sheet, and keeping the two tables in step ----------
+   with the AI everything is here. with a friend each side sends what it has on the table; the host rolls
+   and sends the grade, and the guest gets back any 혼 it added after the host rolled */
+const jsheet = $('jsheet'), jlist = $('jlist');
+const jointAuth = () => NET.kind === 'ai' || NET.role === 'host';
+function withAI(fn) { if (!AI.G) return; const me = G, t0 = toast; G = AI.G; toast = noop; try { return fn(); } finally { G.ev.length = 0; G = me; toast = t0; } }
+function jointPut() {
+  if (!R.duo || G.phase !== 'play') return;
+  if (NET.kind === 'ai' ? AI.out || !AI.G : !CO.partner) { toast('같이 할 동료가 없어요'); return; }
+  if (JOINT.a >= JOINT.MAX) { toast(`혼은 ${JOINT.MAX}까지 올릴 수 있어요`); return; }
+  if (G.hon < 1) { toast('혼이 모자라요'); return; }
+  if (!emptyCells().length) { toast('빈 칸이 하나 있어야 합동 굿 동료를 받을 수 있어요'); return; }
+  G.hon -= 1; JOINT.a++; sfx('click');
+  if (JOINT.a === 1 && !JOINT.b) toast(`굿상에 혼을 올렸어요 · ${pname()}가 같이 올리면 굿을 벌여요`);
+  renderJoint(true);
+}
+function jointTake() {
+  if (!JOINT.a) return;
+  if (JOINT.b) { toast(`${pname()}도 혼을 올려서 이제 거둘 수 없어요`); return; }
+  G.hon += JOINT.a; JOINT.a = 0; toast('올린 혼을 거뒀어요'); renderJoint(true);
+}
+/* the partner is gone: your 혼 comes back */
+function jointGone() { if (JOINT.a && G && G.phase === 'play') { G.hon += JOINT.a; toast(`굿상에 올린 혼 ${JOINT.a}을 돌려받았어요`); } jointReset(); renderJoint(true); }
+function jointResolve(tier, seen) {
+  const mine = JOINT.a, theirs = JOINT.b, T = Math.min(mine, seen == null ? mine : seen) + theirs;
+  if (seen != null && mine > seen) G.hon += mine - seen;
+  const t = mine ? jointAward(tier, Math.min(mine, seen == null ? mine : seen)) : -1;
+  if (NET.kind === 'ai' && theirs) withAI(() => jointAward(tier, theirs));
+  JOINT.n++; JOINT.a = 0; JOINT.b = 0; JOINT.t = JOINT.WAIT; JOINT.ka = 0; JOINT.kb = 0;
+  if (mine) {
+    const nm = t >= 0 ? TYPES[t].name : '';
+    if (tier >= 3) showBanner('합동 굿', `신이 내렸다! 둘 다 전설 · 나는 ${nm}`, false, true);
+    toast(t >= 0 ? `합동 굿 효험! 혼 ${T} · 둘 다 ${TIERS[tier].name} · 나는 ${nm}` : '빈 칸이 없어서 올린 혼을 돌려받았어요');
+    sfx(tier >= 3 ? 'craft' : 'gut');
+  }
+  renderJoint(true);
+}
+function jointTick(dt) {
+  if (!R.duo || G.phase !== 'play') return;
+  if (NET.kind !== 'ai') {
+    const p = CO.partner, live = p && p.rd === CO.rd && p.ph === 'play';
+    JOINT.b = live && Array.isArray(p.jg) && p.jg[0] === JOINT.n ? Math.max(0, Math.min(JOINT.MAX, p.jg[1] | 0)) : 0;
+    if (NET.role === 'guest' && live && Array.isArray(p.jr) && p.jr[0] === JOINT.n) { jointResolve(Math.max(1, Math.min(3, p.jr[1] | 0)), p.jr[2] | 0); return; }
+  }
+  /* the partner just opened a table, or put more on yours */
+  if (JOINT.b !== JOINT.kb) {
+    if (JOINT.b > JOINT.kb && !JOINT.a && !JOINT.kb) { toast(`${pname()}가 굿상에 혼 ${JOINT.b}을 올렸어요 · 합동 굿 단추로 같이 올려요`); sfx('click'); }
+    else if (JOINT.b > JOINT.kb && JOINT.a) toast(`${pname()}도 혼을 올렸어요 · 굿상에 혼 ${JOINT.a + JOINT.b}`);
+    JOINT.kb = JOINT.b; JOINT.t = JOINT.WAIT;
+  }
+  if (JOINT.a !== JOINT.ka) { JOINT.ka = JOINT.a; JOINT.t = JOINT.WAIT; }
+  if (JOINT.a > 0 && JOINT.b > 0) {
+    if (!G.paused) JOINT.t -= dt;
+    if (JOINT.t <= 0 && jointAuth()) {
+      const tier = jointRoll(JOINT.a + JOINT.b);
+      if (NET.kind !== 'ai') CO.jr = [JOINT.n, tier, JOINT.b];
+      jointResolve(tier, null);
+      return;
+    }
+  } else JOINT.t = JOINT.WAIT;
+  renderJoint(false);
+}
+function renderJoint(force) {
+  const b = el.coopJoint; if (!b) return;
+  const a = JOINT.a, o = JOINT.b, both = a > 0 && o > 0, sec = Math.max(0, Math.ceil(JOINT.t));
+  const label = both ? `합동 굿 · ${sec}초` : a ? `합동 굿 · 혼 ${a}` : o ? `합동 굿 · 동료 혼 ${o}!` : '합동 굿';
+  if (b.textContent !== label) b.textContent = label;
+  b.classList.toggle('is-call', !a && o > 0); b.classList.toggle('is-on', a > 0);
+  if (jsheet.hidden) return;
+  const key = [a, o, both ? sec : -1, Math.floor(G.hon), JOINT.n].join(':');
+  if (!force && key === cache.jgKey) return;
+  cache.jgKey = key;
+  const T = a + o, [pr, ph, pl] = jointOdds(Math.max(2, T)), dots = n => Array.from({ length: JOINT.MAX }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+  const state = both ? `${sec}초 뒤에 굿을 벌여요 · 더 올릴 수 있어요` : a ? `${pname()}를 기다려요` : o ? `${pname()}가 기다려요 · 혼을 올리면 같이 벌여요` : '먼저 혼을 올려 보세요';
+  jlist.innerHTML = `<div class="jtable"><div class="jside"><b>나</b><span class="jdots">${dots(a)}</span><small>혼 ${a}</small></div><div class="jmid">굿상<b>${T}</b>혼</div><div class="jside"><b>${esc(pname())}</b><span class="jdots">${dots(o)}</span><small>혼 ${o}</small></div></div>
+    <div class="jodds"><span>${T >= 2 ? '' : '둘 다 1씩이면 '}전설 ${Math.round(pl * 100)}%</span><span>영웅 ${Math.round(ph * 100)}%</span><span>희귀 ${Math.round(pr * 100)}%</span><span>꽝 없음</span></div>
+    <div class="jstate">${state}</div>
+    <div class="jbtns"><button class="btn-sub jput" type="button" id="jPut"${a >= JOINT.MAX || G.hon < 1 ? ' disabled' : ''}>혼 1 올리기 <small>(가진 혼 ${Math.floor(G.hon)})</small></button>${a && !o ? '<button class="btn-sub" type="button" id="jTake">거두기</button>' : ''}</div>
+    <p class="jnote">혼은 한 사람이 ${JOINT.MAX}까지 올릴 수 있고, 많이 올릴수록 좋은 등급이 나와요. 마지막으로 올린 뒤 ${JOINT.WAIT}초 있다가 굿을 벌이고, 둘 다 같은 등급의 동료를 각자 받아요. 그동안 내 굿 단추는 따로 쓸 수 있어요</p>`;
+}
+function openJoint() { closeSide(); closeRecipes(); closeChal(); el.gsheet.hidden = true; jsheet.hidden = false; renderJoint(true); sfx('click'); }
+function closeJoint() { if (jsheet) jsheet.hidden = true; }
+el.coopJoint.addEventListener('click', () => { if (jsheet.hidden) openJoint(); else closeJoint(); });
+$('jClose').addEventListener('click', closeJoint);
+jlist.addEventListener('click', e => { if (e.target.closest('#jPut')) jointPut(); else if (e.target.closest('#jTake')) jointTake(); });
+
+/* ---------- 절기 with a friend: both read it off the round id, so nobody has to send it ---------- */
+function seaFromRd(rd) { let h = 7; for (const ch of String(rd || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % SEASONS.length; }
+
+/* ---------- 숨은 합동기: each yard checks for itself what the two yards hold ---------- */
+let comboT = 0;
+function partnerTypes() {
+  if (NET.kind === 'ai') return AI.G && !AI.out ? new Set(AI.G.units.filter(Boolean).map(u => TYPES[u.t].id)) : null;
+  const p = CO.partner; if (!p || p.rd !== CO.rd || p.ph !== 'play') return null;
+  return new Set(netUnits(p).filter(Boolean).map(u => TYPES[u.t].id));
+}
+function comboTick(dt) {
+  if (!R.duo || G.phase !== 'play') return;
+  comboT -= dt; if (comboT > 0) return;
+  comboT = 0.5;
+  const theirs = partnerTypes(); if (!theirs || !theirs.size) return;
+  const mine = new Set(G.units.filter(Boolean).map(u => TYPES[u.t].id));
+  for (const C of COMBOS) {
+    if (!comboLive(C, mine, theirs) || !comboReady(C)) continue;
+    comboFire(C);
+    if (NET.kind === 'ai' && AI.G && !AI.out) withAI(() => { if (!(G.comboCd && G.comboCd[C.id] > 0)) comboFire(C); });
+    const first = !SAVE.combos[C.id];
+    SAVE.combos[C.id] = (SAVE.combos[C.id] || 0) + 1; persist();
+    if (first) setTimeout(() => toast(`숨은 합동기를 찾았어요! ${C.name} · 도감 합동기에 남았어요`), 2200);
+    if (G.phase !== 'play') return;
+  }
+}
+
 /* beside the yard when there is room (laptop, tablet on its side), otherwise a one-line strip under the top bar */
 function placeCoopBox() {
   const wide = document.body.classList.contains('wide'), hud = document.getElementById('hud');
@@ -700,5 +816,5 @@ if ('serviceWorker' in navigator && !window.claude && (location.protocol === 'ht
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 joinFromLink();
-window.__tal = { netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+window.__tal = { JOINT, jointPut, COMBOS, SEASONS, seasonOf, storyN, unlockStory, comboTick, netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 

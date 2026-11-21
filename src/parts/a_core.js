@@ -412,12 +412,12 @@ const UP_TIER = [0, 0, 1, 2, 3, 3, 3], upGroup = T => UP_TIER[T.tier];
 const UP_COLOR = [TIERS[1].color, TIERS[2].color, TIERS[3].color, TIERS[4].color];
 
 /* the first 40 마당 climb steeply; after that the curve eases so a grown yard can push on to 80 */
-const hpAt = w => BAL.hpBase * Math.pow(BAL.hpGrowth, Math.min(w, BREAK_WAVE) - 1) * Math.pow(BAL.hpGrowth2, Math.max(0, w - BREAK_WAVE)) * STAGES[G.stage || 0].hp;
+const hpAt = w => BAL.hpBase * Math.pow(BAL.hpGrowth, Math.min(w, BREAK_WAVE) - 1) * Math.pow(BAL.hpGrowth2, Math.max(0, w - BREAK_WAVE)) * STAGES[G.stage || 0].hp * (G && G.sea ? G.sea.hp : 1);
 const killCoins = w => BAL.coinUnit * (1 + BAL.coinsPer * Math.floor((w - 1) / BAL.coinsDiv)) * (G && G.rel ? 1 + G.rel.kill : 1);
 /* the first twenty calls are cheap so the yard grows fast early; from the fortieth on it is the old price again */
-const summonCost = () => { const n = G.summons, b = BAL.summonBase, st = BAL.summonStep; return n < 20 ? b + st * 0.5 * n : n < 40 ? b + st * 10 + st * 1.5 * (n - 20) : b + st * n; };
+const summonCost = () => { const n = G.summons, b = BAL.summonBase, st = BAL.summonStep, c = n < 20 ? b + st * 0.5 * n : n < 40 ? b + st * 10 + st * 1.5 * (n - 20) : b + st * n; return G.sea && G.sea.sum !== 1 ? Math.round(c * G.sea.sum / 10) * 10 : c; };
 const luckByHon = () => G.up[LUCK] >= LUCK_COIN;
-const upCost = g => g === LUCK ? (luckByHon() ? LUCK_HON[Math.min(G.up[LUCK] - LUCK_COIN, LUCK_HON.length - 1)] : BAL.luckCost[G.up[LUCK]]) : BAL.upBase[g] + BAL.upStep[g] * G.up[g];
+const upCost = g => g === LUCK ? (luckByHon() ? LUCK_HON[Math.min(G.up[LUCK] - LUCK_COIN, LUCK_HON.length - 1)] : BAL.luckCost[G.up[LUCK]]) : Math.round((BAL.upBase[g] + BAL.upStep[g] * G.up[g]) * (G.sea ? G.sea.up : 1) / 10) * 10;
 function summonOdds() {
   const L1 = Math.min(G.up[LUCK], LUCK_COIN), L2 = Math.max(0, G.up[LUCK] - LUCK_COIN), o = SUMMON_BASE.map((p, i) => Math.max(0, p + SUMMON_LUCK[i] * L1 + SUMMON_LUCK2[i] * L2));
   const s = o.reduce((a, b) => a + b, 0); return o.map(p => p / s);
@@ -461,7 +461,7 @@ function newGame(lvMul, lvSpd, stage, rel) {
 }
 function nextWave() {
   G.wave++;
-  if (G.wave > 1) { G.hon += BAL.honPerWave; payInterest(); }
+  if (G.wave > 1) { G.hon += (BAL.honPerWave + (G.sea ? G.sea.honW : 0)) * (G.sea ? G.sea.honMul : 1); payInterest(); }
   const B = bossAt(G.wave), S = STAGES[G.stage];
   if (B) {
     G.waveT = G.bossTimeMax || BOSS_TIME; G.spawnLeft = 0;
@@ -499,7 +499,7 @@ function spawnFoe() {
   if (S.special && w >= 3 && Math.random() < 0.25) kind = S.special;
   else if (w > BREAK_WAVE && Math.random() < 0.2) kind = 4 + Math.floor(Math.random() * 4);
   const F = FOES[kind];
-  const f = newFoe(kind, hpAt(w) * F.hpMul, F.speed * S.spd * (1 + w * 0.004), 0.28, { lane: rand(-0.18, 0.18), reward: killCoins(w) });
+  const f = newFoe(kind, hpAt(w) * F.hpMul, F.speed * S.spd * (1 + w * 0.004) * (G.sea ? G.sea.fspd : 1), 0.28, { lane: rand(-0.18, 0.18), reward: killCoins(w) });
   if (F.armor) f.armor = 1;
   if (F.revive) f.rev = 1;
   if (F.split) f.split = 1;
@@ -508,7 +508,7 @@ function spawnFoe() {
 }
 function spawnBoss(B) {
   if (COOP.on) { COOP.bossW = G.wave; COOP.bossDmg = 0; COOP.pApplied = 0; }
-  const f = newFoe(0, hpAt(G.wave) * BAL.bossMul[G.wave] * (B.hpF || 1) * (STAGES[G.stage].bossF || 1) * (COOP.on ? COOP.hpMul : 1), B.speed * STAGES[G.stage].spd, B.r, { boss: B.key, big: true, name: B.name, reward: BAL.coinUnit * (20 + G.wave * 3), skT: 4, skT2: 6, rage: false, wob: 0, hidden: 0 });
+  const f = newFoe(0, hpAt(G.wave) * BAL.bossMul[G.wave] * (B.hpF || 1) * (STAGES[G.stage].bossF || 1) * (COOP.on ? COOP.hpMul : 1) * (G.sea ? G.sea.bossHp : 1), B.speed * STAGES[G.stage].spd * (G.sea ? G.sea.fspd : 1), B.r, { boss: B.key, big: true, name: B.name, reward: BAL.coinUnit * (20 + G.wave * 3), skT: 4, skT2: 6, rage: false, wob: 0, hidden: 0 });
   placeFoe(f); G.foes.push(f); G.boss = f;
   G.stats.foeSeen['b_' + B.key] = 1;
   emit({ k: 'bossSpawn', key: B.key });
@@ -553,6 +553,8 @@ const MISSIONS = [
   { id: 'cave3', g: 'fight', text: '도깨비굴 3층 깨기', cur: () => (G.exp ? G.exp.wins : 0), goal: 3, hon: 3 },
   { id: 'help50', g: 'duo', duo: true, text: '가운데 길에서 동료 쪽 도깨비 50마리 잡아 주기', cur: () => G.stats.assists || 0, goal: 50, coins: 500 },
   { id: 'gift', g: 'duo', duo: true, text: '동료에게 엽전 보내기', cur: () => G.stats.gifts || 0, goal: 1, hon: 2 },
+  { id: 'joint', g: 'duo', duo: true, text: '합동 굿 벌이기', cur: () => G.stats.joint || 0, goal: 1, coins: 400, hon: 1 },
+  { id: 'joint3', g: 'duo', duo: true, text: '합동 굿 세 번 벌이기', cur: () => G.stats.joint || 0, goal: 3, b: [0, 0.05, 0.05, 0, 0] },
   { id: 'help300', g: 'duo', duo: true, text: '가운데 길에서 300마리 잡아 주기', cur: () => G.stats.assists || 0, goal: 300, b: [0, 0, 0, 0, 0.05] },
 ];
 const MISS_BY = Object.fromEntries(MISSIONS.map(m => [m.id, m]));
@@ -666,6 +668,105 @@ function gamble(k) {
   emit({ k: 'gut', cell: i, tier: Gd.tier, sure });
   toast(`${sure ? '지성이면 감천!' : Gd.tier >= 3 ? '신이 내렸다!' : '굿 효험!'} ${TIERS[Gd.tier].name} ${TYPES[t].name}`);
   return true;
+}
+/* ---------- 절기: every run falls on one of the 24 seasons of the old calendar ----------
+   each changes the run a little, mostly in your favour, sometimes a trade. with a partner both yards share one */
+const SEASONS = [
+  { id: 'ipchun', name: '입춘', s: 0, line: '봄이 서요', e: { sum: 0.9 }, desc: '소환 비용 10% 싸요' },
+  { id: 'usu', name: '우수', s: 0, line: '눈이 녹아 비가 돼요', e: { fspd: 0.92 }, desc: '도깨비가 8% 느려요' },
+  { id: 'gyeongchip', name: '경칩', s: 0, line: '개구리가 깨어나요', e: { fspd: 1.05, kill: 0.2 }, desc: '도깨비가 5% 빠르지만 잡을 때 엽전 20% 더' },
+  { id: 'chunbun', name: '춘분', s: 0, line: '낮과 밤이 같아요', e: { dmg: 1.06 }, desc: '모든 동료 공격력 6% 더' },
+  { id: 'cheongmyeong', name: '청명', s: 0, line: '하늘이 맑아요', e: { crit: 0.05 }, desc: '치명타 확률 5% 더' },
+  { id: 'gogu', name: '곡우', s: 0, line: '곡식을 깨우는 비가 와요', e: { coins0: 300 }, desc: '처음 엽전 300 더' },
+  { id: 'ipha', name: '입하', s: 1, line: '여름이 서요', e: { as: 1.06 }, desc: '공격 속도 6% 빨라요' },
+  { id: 'soman', name: '소만', s: 1, line: '온 들이 차올라요', e: { ult: 0.15 }, desc: '궁극기가 15% 빨리 차요' },
+  { id: 'mangjong', name: '망종', s: 1, line: '씨를 뿌려요', e: { hon0: 3 }, desc: '처음 혼 3 더' },
+  { id: 'haji', name: '하지', s: 1, line: '낮이 가장 길어요', e: { bossTime: 10 }, desc: '보스 제한 시간 10초 더' },
+  { id: 'soseo', name: '소서', s: 1, line: '더위가 와요', e: { hp: 1.08, kill: 0.2 }, desc: '도깨비 체력 8% 더, 엽전 20% 더' },
+  { id: 'daeseo', name: '대서', s: 1, line: '가장 더워요', e: { fspd: 0.9, as: 0.95 }, desc: '도깨비가 지쳐 10% 느리고 동료도 5% 느려요' },
+  { id: 'ipchu', name: '입추', s: 2, line: '가을이 서요', e: { gut: 0.15 }, desc: '굿 성공 확률 15% 올라요' },
+  { id: 'cheoseo', name: '처서', s: 2, line: '더위가 물러가요', e: { up: 0.85 }, desc: '강화 비용 15% 싸요' },
+  { id: 'baengno', name: '백로', s: 2, line: '이슬이 맺혀요', e: { boss: 0.15 }, desc: '보스에게 주는 피해 15% 더' },
+  { id: 'chubun', name: '추분', s: 2, line: '밤이 길어지기 시작해요', e: { dmg: 1.04, as: 1.04 }, desc: '공격력과 공격 속도 4%씩 더' },
+  { id: 'hallo', name: '한로', s: 2, line: '찬 이슬이 내려요', e: { hp: 0.95, bossHp: 1.1 }, desc: '도깨비 체력 5% 덜, 보스 체력 10% 더' },
+  { id: 'sanggang', name: '상강', s: 2, line: '서리가 내려요', e: { fspd: 0.88, kill: -0.1 }, desc: '도깨비가 12% 느리지만 엽전 10% 덜' },
+  { id: 'ipdong', name: '입동', s: 3, line: '겨울이 서요', e: { bossHon: 2 }, desc: '보스를 잡으면 혼 2 더' },
+  { id: 'soseol', name: '소설', s: 3, line: '첫눈이 와요', e: { fspd: 0.94, ult: 0.1 }, desc: '도깨비 6% 느리고 궁극기 10% 빨리 차요' },
+  { id: 'daeseol', name: '대설', s: 3, line: '큰 눈이 와요', e: { hp: 1.1, honW: 1 }, desc: '도깨비 체력 10% 더, 마당 넘길 때 혼 1 더' },
+  { id: 'dongji', name: '동지', s: 3, line: '밤이 가장 길어요 · 팥죽 먹는 날', e: { hp: 1.15, honMul: 2 }, desc: '도깨비 체력 15% 더, 혼은 두 배' },
+  { id: 'sohan', name: '소한', s: 3, line: '작은 추위', e: { as: 0.95, hon0: 4 }, desc: '공격 속도 5% 느리고 처음 혼 4 더' },
+  { id: 'daehan', name: '대한', s: 3, line: '가장 추워요', e: { hp: 1.2, kill: 0.3, honW: 1 }, desc: '도깨비 체력 20% 더, 엽전 30% 더, 마당 넘길 때 혼 1 더' },
+];
+const SEASON_NAMES = ['봄', '여름', '가을', '겨울'], SEASON_COLORS = ['#f3a6c0', '#7cc96b', '#e8a24a', '#9cc8ff'];
+const SEA_BASE = { dmg: 1, as: 1, fspd: 1, hp: 1, bossHp: 1, sum: 1, up: 1, honW: 0, honMul: 1, bossHon: 0 };
+/* put one on the run in G. the relic-like parts go straight into G.rel */
+function applySeason(k) {
+  const S = SEASONS[((k | 0) % SEASONS.length + SEASONS.length) % SEASONS.length], e = S.e;
+  G.sea = Object.assign({}, SEA_BASE, { id: S.id, k: SEASONS.indexOf(S) });
+  for (const key of Object.keys(SEA_BASE)) if (e[key] != null) G.sea[key] = e[key];
+  if (!G.rel) G.rel = noRelics();
+  for (const key of ['kill', 'crit', 'gut', 'boss', 'ult', 'bossTime']) if (e[key]) G.rel[key] = (G.rel[key] || 0) + e[key];
+  if (e.bossTime) G.bossTimeMax = (G.bossTimeMax || BOSS_TIME) + e.bossTime;
+  if (e.coins0) G.coins += e.coins0;
+  if (e.hon0) G.hon += e.hon0;
+  return S;
+}
+const seasonOf = () => (G && G.sea ? SEASONS[G.sea.k] : null);
+
+/* ---------- 숨은 합동기: two mythics from one story, one in each yard ----------
+   nothing in the game tells you about them. when both are out and the shared road is busy, they go off together */
+const COMBOS = [
+  { id: 'hakik', name: '학익진', a: 'geobukseon', b: 'choimuseon', fx: 'volley', line: '거북선과 최무선이 학의 날개처럼 가운데 길을 감싸 불화살을 퍼부어요' },
+  { id: 'pangut', name: '판굿', a: 'samulpae', b: 'samulpae', fx: 'haste', line: '두 사물놀이패가 장단을 맞춰요 · 두 마당 모두 신명 나게 빨라져요' },
+  { id: 'jeoseung', name: '저승길', a: 'bari', b: 'gangrim', fx: 'reap', line: '바리공주와 강림도령이 저승길을 열어요 · 다 죽어 가는 도깨비를 데려가요' },
+  { id: 'jwacheong', name: '좌청룡 우백호', a: 'cheongryong', b: 'baekho', fx: 'power', line: '청룡과 백호가 양쪽을 지켜요 · 두 마당 모두 15초 동안 공격력 20%' },
+  { id: 'namju', name: '남주작 북현무', a: 'jujak', b: 'hyeonmu', fx: 'burn', line: '불과 물이 가운데 길을 덮어요 · 느려지고 타올라요' },
+  { id: 'indangsu', name: '인당수', a: 'yongwang', b: 'simcheong', fx: 'sweep', line: '용왕이 심청을 맞으러 물길을 열어요 · 가운데 길 도깨비가 휩쓸려 가요' },
+  { id: 'hwalbin', name: '활빈당', a: 'honggildong', b: 'uibyeongdae', fx: 'loot', line: '홍길동과 의병이 도깨비 재물을 털어 나눠요' },
+  { id: 'daedonggang', name: '대동강 거래', a: 'jangbogo', b: 'gimseondal', fx: 'trade', line: '장보고와 김선달이 큰 거래를 터요 · 둘 다 엽전을 받아요' },
+];
+const COMBO_CD = 45, COMBO_SRC = { tier: 4, id: 'combo', ally: true };
+const onShared = f => !f.dead && !(f.hidden > 0) && f.y <= -HY + 0.55;
+function comboLive(C, mine, theirs) { return (mine.has(C.a) && theirs.has(C.b)) || (mine.has(C.b) && theirs.has(C.a)); }
+function comboReady(C) { const busy = G.foes.filter(onShared).length >= 3 || (G.boss && !G.boss.dead); return busy && !((G.comboCd && G.comboCd[C.id]) > 0); }
+/* goes off in whichever yard G is right now; each yard does its own half */
+function comboFire(C) {
+  if (G.phase !== 'play') return false;
+  G.comboCd = G.comboCd || {}; G.comboCd[C.id] = COMBO_CD;
+  G.stats.combos = (G.stats.combos || 0) + 1;
+  const w = G.wave, road = G.foes.filter(onShared), boss = G.boss && !G.boss.dead ? G.boss : null, hp = hpAt(w);
+  const hitBoss = k => { if (boss && G.phase === 'play') { HIT_UID = 0; damage(boss, boss.max * k, COMBO_SRC, true); } };
+  switch (C.fx) {
+    case 'volley': for (const f of road) { if (f.big) continue; HIT_UID = 0; damage(f, hp * 0.9, COMBO_SRC, true); if (G.phase !== 'play') return true; } hitBoss(0.05); break;
+    case 'haste': G.charmT = Math.max(G.charmT || 0, 12); break;
+    case 'reap': for (const f of G.foes.slice()) { if (f.dead || f.big || f.hp > f.max * 0.35) continue; HIT_UID = 0; kill(f); if (G.phase !== 'play') return true; } hitBoss(0.03); break;
+    case 'power': G.comboPowT = 15; break;
+    case 'burn': for (const f of road) { f.slowT = Math.max(f.slowT || 0, 6); f.slowAmt = Math.max(f.slowAmt || 0, 0.5); f.burnT = 6; f.burnUid = 0; f.burnDps = Math.max(f.burnDps || 0, hp * (f.big ? 0.02 : 0.12)); } break;
+    case 'sweep': for (const f of road) { if (f.big) continue; knock(f, 2.5); HIT_UID = 0; damage(f, hp * 0.3, COMBO_SRC, false); if (G.phase !== 'play') return true; } break;
+    case 'loot': G.coins += killCoins(w) * 30; hitBoss(0.04); break;
+    case 'trade': G.coins += killCoins(w) * 50; break;
+  }
+  emit({ k: 'combo', id: C.id });
+  return true;
+}
+function comboTickCd(dt) { if (G.comboCd) for (const k in G.comboCd) if (G.comboCd[k] > 0) G.comboCd[k] -= dt; if (G.comboPowT > 0) G.comboPowT -= dt; }
+
+/* ---------- 합동 굿: one 굿상 between the two yards ----------
+   each side puts 혼 on it, a hon at a time. once both are in, a few seconds to add more, then one roll for both:
+   no 꽝, both get a companion of the same grade, and the more 혼 on the table the better the grade.
+   a: your 혼 on the table, b: your partner's, n: which table (a new one after every roll) */
+const JOINT = { MAX: 5, WAIT: 5, n: 1, a: 0, b: 0, t: 5, ka: 0, kb: 0 };
+function jointOdds(T) { const leg = Math.min(0.4, 0.04 * T), hero = Math.min(1 - leg, 0.12 * T); return [Math.max(0, 1 - leg - hero), hero, leg]; }
+function jointRoll(T) { const [, h, l] = jointOdds(T), x = Math.random(); return x < l ? 3 : x < l + h ? 2 : 1; }
+function jointReset() { Object.assign(JOINT, { n: 1, a: 0, b: 0, t: JOINT.WAIT, ka: 0, kb: 0 }); }
+/* the roll lands in whichever yard G is right now */
+function jointAward(tier, stake) {
+  if (!emptyCells().length) { G.hon += stake; return -1; }
+  const t = pick(poolOf(tier)), i = addUnit(t);
+  G.stats.guts++; G.stats.joint = (G.stats.joint || 0) + 1; G.stats.gutFailRun = 0;
+  if (tier >= 3) G.stats.gutLeg = (G.stats.gutLeg || 0) + 1;
+  emit({ k: 'gut', cell: i, tier, sure: false });
+  return t;
 }
 function charm() {
   if (G.phase !== 'play') return false;
@@ -899,7 +1000,7 @@ function relMul(T) { const r = G.rel; if (!r) return 1; const g = upGroup(T); re
 const upOf = T => G.up[upGroup(T)];
 const gradeMulOf = T => (T.tier < 4 && G.gradeMul ? G.gradeMul[T.tier] : 1);
 const tierBuffOf = T => { const b = G.tierBuff && G.tierBuff[T.tier]; return b && b.t > 0 ? b.mul : 1; };
-function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
+function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * (G.sea ? G.sea.dmg : 1) * (G.comboPowT > 0 ? 1.2 : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
 function topClusters(rad, n) {
   const out = [], used = new Set(), r2 = rad * rad;
   for (let k = 0; k < n; k++) {
@@ -1130,9 +1231,10 @@ function kill(f, final) {
     toast(`${josa(C.name, '을', '를')} 잡았어요! 엽전 +${fmtC(coins)}${C.hon ? ` · 혼 +${C.hon}` : ''}${C.silver ? ` · 은전 +${fmtC(C.silver)}` : ''}`);
   }
   if (f.boss) {
-    G.hon += 3; G.boss = null; G.stats.bossKills++;
+    const bh = (3 + (G.sea ? G.sea.bossHon : 0)) * (G.sea ? G.sea.honMul : 1);
+    G.hon += bh; G.boss = null; G.stats.bossKills++;
     if (G.wave >= LAST_WAVE) { endGame('win'); return; }
-    emit({ k: 'banner', main: `${josa(f.name, '을', '를')} 물리쳤다!`, sub: `엽전 +${fmtC(f.reward)} · 혼 +3` });
+    emit({ k: 'banner', main: `${josa(f.name, '을', '를')} 물리쳤다!`, sub: `엽전 +${fmtC(f.reward)} · 혼 +${bh}` });
     G.waveT = Math.min(G.waveT, 3);
   }
 }
@@ -1600,7 +1702,7 @@ function unitTick(u, i, dt) {
   const tgt = T.global ? pickCluster(T.aoe) : pickTarget(cellX(i), cellY(i), rngOf(T, i));
   if (!tgt) { u.cd = 0; return; }
   u.ci = i;
-  u.cd = T.cd / G.spd[i] / (G.charmT > 0 ? CHARM.spd : 1) / (G.lotusT > 0 ? 1.6 : 1) * G.lvSpd[u.t] / (T.kind === 'pounce' ? 1 : (u.c || 1));
+  u.cd = T.cd / G.spd[i] / (G.charmT > 0 ? CHARM.spd : 1) / (G.lotusT > 0 ? 1.6 : 1) / (G.sea ? G.sea.as : 1) * G.lvSpd[u.t] / (T.kind === 'pounce' ? 1 : (u.c || 1));
   u.n++;
   u.dir = tgt.x < cellX(i) ? -1 : 1;
   u.tx = tgt.x; u.ty = tgt.y;
@@ -1621,6 +1723,7 @@ function update(dt) {
   for (let i = 0; i < CHALS.length; i++) if (G.chalCd[i] > 0) G.chalCd[i] = Math.max(0, G.chalCd[i] - dt);
   if (G.tierBuff) for (const k in G.tierBuff) { const b = G.tierBuff[k]; if (b.t > 0) b.t -= dt; }
   if (G.charmT > 0) G.charmT -= dt;
+  comboTickCd(dt);
   if (G.lotusT > 0) G.lotusT -= dt;
   if (G.skyT > 0) { G.skyT -= dt; if (G.skyT <= 0) G.sky = null; }
   expTick(dt);
@@ -1733,6 +1836,7 @@ function aiStep(dt) {
 /* the AI's yard fell: you go on alone, and bosses go back to one player's health */
 function aiFall() {
   AI.out = true; G.ghosts = []; if (G.ghostMap) G.ghostMap.clear();
+  if (JOINT.a) G.hon += JOINT.a; jointReset();
   if (COOP.on) {
     if (G.boss && !G.boss.dead) { G.boss.hp /= COOP.hpMul; G.boss.max /= COOP.hpMul; }
     COOP.on = false;
@@ -1751,9 +1855,18 @@ function aiThink() {
     if (need.has(TYPES[t].id) && !G.units.some((u, j) => j !== i && u && u.t === t)) continue;
     mergeAt(i);
   }
-  for (let n = 0; n < 4 && G.hon >= 1 && emptyCells().length; n++) {
-    const k = (G.pity || 0) >= PITY_MAX && G.hon >= 2 ? 2 : G.wave < 6 ? 0 : 1;
-    if (G.hon < GUTS[k].cost) break;
+  /* 합동 굿: match what you put on the 굿상, a hon at a time, and now and then set one up itself */
+  AI.jgT = (AI.jgT || 0) - 0.3;
+  if (JOINT.a > JOINT.b && JOINT.b < JOINT.MAX && G.hon >= 1 && emptyCells().length) {
+    if (AI.jgT <= 0) { G.hon -= 1; JOINT.b++; AI.jgT = rand(0.6, 1.6); AI.jgAge = 0; }
+  } else if (!JOINT.a && !JOINT.b && G.hon >= 5 && G.wave >= 5 && AI.jgT <= -20 && Math.random() < 0.03) {
+    G.hon -= 2; JOINT.b = 2; AI.jgAge = 0; AI.jgT = 0;
+  } else if (JOINT.b && !JOINT.a && (AI.jgAge = (AI.jgAge || 0) + 0.3) > 40) { G.hon += JOINT.b; JOINT.b = 0; AI.jgT = 0; }
+  /* with a partner it keeps two 혼 aside, so it can answer when you open a table */
+  const keep = Math.max(JOINT.a - JOINT.b, COOP.on && G.wave >= 3 ? 2 : 0, 0);
+  for (let n = 0; n < 4 && G.hon - keep >= 1 && emptyCells().length; n++) {
+    const k = (G.pity || 0) >= PITY_MAX && G.hon - keep >= 2 ? 2 : G.wave < 6 ? 0 : 1;
+    if (G.hon - keep < GUTS[k].cost) break;
     gamble(k);
   }
   const pw = [0, 0, 0, 0];

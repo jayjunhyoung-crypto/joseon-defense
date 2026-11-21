@@ -1125,6 +1125,35 @@ function drawPartnerUnit(g, v) {
     }
   } else drawPuppet(g, T.id, sx, sy, k, computePose(v.pose, D, R.time, v.ph, ap, false), face, 0.95);
 }
+/* the 합동 굿 table in the middle of the shared road: a red cloth, two candles, both piles of 혼 */
+function drawJointTable(g) {
+  const a = JOINT.a, b = JOINT.b; if (!a && !b) return;
+  const CS = R.CS, x = wx(0), y = wy(-HY), w = CS * 1.1, h = CS * 0.42, both = a > 0 && b > 0, t = R.time;
+  g.save();
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x, y + h * 0.55, w * 0.6, h * 0.35, 0, 0, TAU); g.fill();
+  g.fillStyle = '#7a2a22'; g.beginPath(); RR(g, x - w / 2, y - h / 2, w, h, h * 0.25); g.fill();
+  g.fillStyle = '#b8402f'; g.beginPath(); RR(g, x - w / 2 + 2, y - h / 2 + 2, w - 4, h * 0.45, h * 0.2); g.fill();
+  for (const s of [-1, 1]) {
+    const cx = x + s * w * 0.4, cy = y - h * 0.5;
+    g.fillStyle = '#f3ead2'; g.fillRect(cx - CS * 0.035, cy - CS * 0.2, CS * 0.07, CS * 0.2);
+    const fl = 1 + Math.sin(t * 13 + s) * 0.15;
+    g.fillStyle = 'rgba(255,190,80,.35)'; g.beginPath(); g.arc(cx, cy - CS * 0.25, CS * 0.1 * fl, 0, TAU); g.fill();
+    g.fillStyle = '#ffd36a'; g.beginPath(); g.ellipse(cx, cy - CS * 0.25, CS * 0.03, CS * 0.06 * fl, 0, 0, TAU); g.fill();
+  }
+  const fs = Math.min(14, Math.max(10, CS * 0.22));
+  g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff3d6'; g.fillText(`혼 ${a} · ${b}`, x, y + h * 0.08);
+  if (both) {
+    const k = Math.max(0, Math.min(1, JOINT.t / JOINT.WAIT));
+    g.strokeStyle = '#ffd36a'; g.lineWidth = 3; g.beginPath(); g.arc(x, y - h * 1.35, fs * 0.8, -PI / 2, -PI / 2 + TAU * k); g.stroke();
+    g.fillStyle = '#ffe6a0'; g.fillText(String(Math.max(0, Math.ceil(JOINT.t))), x, y - h * 1.35);
+  } else {
+    g.fillStyle = 'rgba(15,12,25,.7)'; const txt = a ? '동료를 기다려요' : '혼을 같이 올려요', tw = g.measureText(txt).width + fs;
+    g.beginPath(); RR(g, x - tw / 2, y - h * 1.35 - fs * 0.65, tw, fs * 1.3, fs * 0.65); g.fill();
+    g.fillStyle = '#e8d8ff'; g.fillText(txt, x, y - h * 1.35);
+  }
+  g.restore();
+}
 /* their name and crowd, on the far edge of their yard */
 function drawPartnerTag(g, P) {
   const fs = Math.min(15, Math.max(11, R.CS * 0.24)), y = wy(-3 * HY - LANE / 2) - fs * 0.2, txt = `${P.nm}${P.out ? ' · 쓰러졌어요' : ` · 도깨비 ${P.n}/${BAL.cap}`}`;
@@ -1147,6 +1176,7 @@ function renderFrame(dt) {
   if (R.shake > 0) { const s = R.shake * R.CS * 0.12; g.translate(rand(-s, s), rand(-s, s)); R.shake = Math.max(0, R.shake - dt * 2.5); }
   drawPortal(g);
   const PV = R.duo && G.phase === 'play' ? drawPartnerSide(g) : null;
+  if (R.duo && G.phase === 'play') drawJointTable(g);
   drawHelpers(g);
   for (let i = 0; i < NCELL; i++) { const u = G.units[i]; if (u) { const v = UVIS.get(u.id); if (v && v.cell === i) drawUnitBase(g, v, TYPES[u.t]); } }
   if (G.phase === 'play' && G.exp && G.exp.run) drawExpCell(g, G.exp.run);

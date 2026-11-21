@@ -47,7 +47,7 @@ if '--sim' in sys.argv:
     core = (parts_dir / 'a_core.js').read_text(encoding='utf-8')
     names = ['TYPES', 'TYPE_IX', 'MYTHS', 'MYTH_BY', 'STAGES', 'BAL', 'TIERS', 'GUTS', 'PITY_MAX', 'ROSTER', 'ULTS', 'CHALS', 'LUCK', 'LUCK_MAX', 'UP_MAX', 'UP_NAMES', 'NCELL', 'LAST_WAVE',
              'makeState', 'newGame', 'update', 'summon', 'summonCost', 'mergeAt', 'canMergeAt', 'gamble', 'gutP', 'craft', 'recipeState', 'upgrade', 'upCost', 'luckByHon',
-             'emptyCells', 'hasRoom', 'capOf', 'sell', 'charm', 'callChallenge', 'chalReady', 'applyLevels', 'dmgOf', 'hpAt', 'mythOpen', 'poolOf', 'summonOdds', 'COOP', 'AI', 'aiNew', 'aiStep', 'aiSyncMe', 'aiThink']
+             'emptyCells', 'hasRoom', 'capOf', 'sell', 'charm', 'callChallenge', 'chalReady', 'applyLevels', 'dmgOf', 'hpAt', 'mythOpen', 'poolOf', 'summonOdds', 'COOP', 'AI', 'JOINT', 'SEASONS', 'applySeason', 'COMBOS', 'comboFire', 'comboLive', 'comboReady', 'jointAward', 'jointRoll', 'jointOdds', 'expDps', 'partyDps', 'caveFloor', 'applyHits', 'syncGhosts', 'aiNew', 'aiStep', 'aiSyncMe', 'aiThink']
     exports = ', '.join(names)
     (simdir / 'core.js').write_text("'use strict';\n" + core + "\nmodule.exports = { get G() { return G; }, setG: g => { G = g; }, " + exports + " };\n", encoding='utf-8')
 

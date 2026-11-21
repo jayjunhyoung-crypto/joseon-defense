@@ -528,6 +528,18 @@ details.mythrow>summary::before{content:'▸ ';color:var(--hanji-dim)}details.my
 .hlist li{margin:3px 0}
 .hduo{font-size:13px;line-height:1.5;color:var(--hanji-dim);background:rgba(242,201,74,.08);border:1px solid rgba(242,201,74,.25);border-radius:10px;padding:8px 12px}
 .hduo b{color:#ffe6a0;font-weight:400;margin-right:4px}
+.hduo.sea{background:rgba(156,200,255,.08);border-color:rgba(156,200,255,.3)}
+.story{display:flex;gap:12px;align-items:flex-start;background:var(--panel-2);border-radius:12px;padding:10px 12px;margin-top:8px}
+.story img{flex:none;width:52px;height:52px;border-radius:10px;background:rgba(0,0,0,.2)}
+.story .nm{font-size:16px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.story .nm small{font-size:12px;color:var(--hanji-dim)}
+.story p{margin:4px 0 0;font-size:13px;line-height:1.6;color:var(--hanji);word-break:keep-all}
+.story p.sg{color:#8fd6ff;font-size:12px}
+.story.is-lock{opacity:.6}
+.story.is-lock p{color:var(--hanji-dim)}
+.story .cpair{flex:none;display:flex}
+.story .cpair img{width:40px;height:40px}
+.story .cpair img+img{margin-left:-10px}
 .upv{color:#7fe0a8;font-size:.95em}
 [data-tip]{text-decoration:underline dotted rgba(230,178,74,.7);text-underline-offset:3px;cursor:help}
 @media (hover:hover){.ucard .usk{pointer-events:auto}}
@@ -636,6 +648,28 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 .ib.fxbtn{position:relative}
 .coopbox canvas{border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer}
 .coopbox .btn-sm{font-size:11px;padding:4px 8px}
+.coopbox.only-gift{flex-direction:row;align-items:center}
+.jgbtn{background:linear-gradient(#5a3e8c,#3e2a66);color:#f1e6ff}
+.jgbtn.is-call{animation:jgcall 1s ease-in-out infinite;background:linear-gradient(#8a5ad6,#5a3e8c)}
+.jgbtn.is-on{background:linear-gradient(#b0473a,#7d2c24);color:#fff3d6}
+@keyframes jgcall{50%{box-shadow:0 0 0 4px rgba(190,150,255,.45);transform:scale(1.05)}}
+.jtable{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;background:var(--panel-2);border-radius:12px;padding:12px}
+.jside{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;color:var(--hanji-dim)}
+.jside b{font-weight:400;color:var(--hanji);font-size:15px}
+.jdots{display:flex;gap:3px}
+.jdots i{width:12px;height:16px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:rgba(255,255,255,.12)}
+.jdots i.on{background:linear-gradient(#bfe6ff,#5aa9e6);box-shadow:0 0 6px rgba(120,190,255,.6)}
+.jmid{text-align:center;font-size:12px;color:var(--hanji-dim)}
+.jmid b{display:block;font-size:26px;font-weight:400;color:#ffe6a0;line-height:1.1}
+.jodds{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;font-size:13px}
+.jodds span{background:var(--panel-2);border-radius:8px;padding:4px 8px}
+.jstate{text-align:center;font-size:14px;color:#ffe6a0;min-height:20px}
+.jbtns{display:flex;gap:8px}
+.jbtns .btn-sub{flex:1}
+.jbtns .jput{flex:2;background:linear-gradient(#6a4aa6,#45307a);color:#f4ecff}
+.jbtns .jput small{font-size:12px;opacity:.8}
+.jbtns .jput:disabled{opacity:.45}
+.jnote{font-size:12px;line-height:1.5;color:var(--hanji-dim);margin:0}
 .tip{position:fixed;z-index:60;box-sizing:border-box;background:rgba(18,15,28,.97);border:1px solid rgba(230,178,74,.4);border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.45;color:var(--hanji);box-shadow:0 10px 28px rgba(0,0,0,.5);pointer-events:none}
 .tip b{font-weight:400;font-size:15px;color:var(--dan-gold)}
 .tip .tt{margin-left:6px;color:var(--hanji-dim);font-size:11px}
@@ -707,6 +741,12 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 
 <aside class="ucard" id="ucard" hidden aria-live="polite"></aside>
 
+<section class="rsheet" id="jsheet" hidden>
+  <div class="rsheet-in">
+    <div class="rhead"><div class="rh"><h2>합동 굿</h2><small>둘이 혼을 올리면 꽝 없이 둘 다 동료를 받아요</small></div><button class="btn-sm" id="jClose" type="button">닫기</button></div>
+    <div class="rlist jlist" id="jlist"></div>
+  </div>
+</section>
 <section class="rsheet" id="msheet" hidden>
   <div class="rsheet-in">
     <div class="rhead"><div class="rh"><h2>임무 장부</h2><small id="mSub">끝내면 이번 판이 쉬워져요</small></div><button class="btn-sm" id="mClose" type="button">닫기</button></div>
@@ -771,7 +811,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 
 <section class="ov ov-end ov-coop" id="coopOv" hidden><div class="card" id="coopCard"></div></section>
 <section class="ov ov-end ov-coop ov-save" id="saveOv" hidden><div class="card" id="saveCard" role="dialog" aria-label="기록 옮기기"></div></section>
-<div class="coopbox" id="coopBox" hidden><canvas id="coopCv" aria-label="친구 마당"></canvas><button class="btn-sm" id="coopGift" type="button">엽전 보내기</button></div>
+<div class="coopbox" id="coopBox" hidden><canvas id="coopCv" aria-label="친구 마당"></canvas><button class="btn-sm" id="coopGift" type="button">엽전 보내기</button><button class="btn-sm jgbtn" id="coopJoint" type="button">합동 굿</button></div>
 <section class="ov ov-end ov-coop ov-myth" id="mythOv" hidden><div class="card" id="mythCard" role="dialog" aria-label="신화"></div></section>
 <section class="ov ov-end" id="rewardOv" hidden>
   <div class="card">
@@ -1211,12 +1251,12 @@ const UP_TIER = [0, 0, 1, 2, 3, 3, 3], upGroup = T => UP_TIER[T.tier];
 const UP_COLOR = [TIERS[1].color, TIERS[2].color, TIERS[3].color, TIERS[4].color];
 
 /* the first 40 마당 climb steeply; after that the curve eases so a grown yard can push on to 80 */
-const hpAt = w => BAL.hpBase * Math.pow(BAL.hpGrowth, Math.min(w, BREAK_WAVE) - 1) * Math.pow(BAL.hpGrowth2, Math.max(0, w - BREAK_WAVE)) * STAGES[G.stage || 0].hp;
+const hpAt = w => BAL.hpBase * Math.pow(BAL.hpGrowth, Math.min(w, BREAK_WAVE) - 1) * Math.pow(BAL.hpGrowth2, Math.max(0, w - BREAK_WAVE)) * STAGES[G.stage || 0].hp * (G && G.sea ? G.sea.hp : 1);
 const killCoins = w => BAL.coinUnit * (1 + BAL.coinsPer * Math.floor((w - 1) / BAL.coinsDiv)) * (G && G.rel ? 1 + G.rel.kill : 1);
 /* the first twenty calls are cheap so the yard grows fast early; from the fortieth on it is the old price again */
-const summonCost = () => { const n = G.summons, b = BAL.summonBase, st = BAL.summonStep; return n < 20 ? b + st * 0.5 * n : n < 40 ? b + st * 10 + st * 1.5 * (n - 20) : b + st * n; };
+const summonCost = () => { const n = G.summons, b = BAL.summonBase, st = BAL.summonStep, c = n < 20 ? b + st * 0.5 * n : n < 40 ? b + st * 10 + st * 1.5 * (n - 20) : b + st * n; return G.sea && G.sea.sum !== 1 ? Math.round(c * G.sea.sum / 10) * 10 : c; };
 const luckByHon = () => G.up[LUCK] >= LUCK_COIN;
-const upCost = g => g === LUCK ? (luckByHon() ? LUCK_HON[Math.min(G.up[LUCK] - LUCK_COIN, LUCK_HON.length - 1)] : BAL.luckCost[G.up[LUCK]]) : BAL.upBase[g] + BAL.upStep[g] * G.up[g];
+const upCost = g => g === LUCK ? (luckByHon() ? LUCK_HON[Math.min(G.up[LUCK] - LUCK_COIN, LUCK_HON.length - 1)] : BAL.luckCost[G.up[LUCK]]) : Math.round((BAL.upBase[g] + BAL.upStep[g] * G.up[g]) * (G.sea ? G.sea.up : 1) / 10) * 10;
 function summonOdds() {
   const L1 = Math.min(G.up[LUCK], LUCK_COIN), L2 = Math.max(0, G.up[LUCK] - LUCK_COIN), o = SUMMON_BASE.map((p, i) => Math.max(0, p + SUMMON_LUCK[i] * L1 + SUMMON_LUCK2[i] * L2));
   const s = o.reduce((a, b) => a + b, 0); return o.map(p => p / s);
@@ -1260,7 +1300,7 @@ function newGame(lvMul, lvSpd, stage, rel) {
 }
 function nextWave() {
   G.wave++;
-  if (G.wave > 1) { G.hon += BAL.honPerWave; payInterest(); }
+  if (G.wave > 1) { G.hon += (BAL.honPerWave + (G.sea ? G.sea.honW : 0)) * (G.sea ? G.sea.honMul : 1); payInterest(); }
   const B = bossAt(G.wave), S = STAGES[G.stage];
   if (B) {
     G.waveT = G.bossTimeMax || BOSS_TIME; G.spawnLeft = 0;
@@ -1298,7 +1338,7 @@ function spawnFoe() {
   if (S.special && w >= 3 && Math.random() < 0.25) kind = S.special;
   else if (w > BREAK_WAVE && Math.random() < 0.2) kind = 4 + Math.floor(Math.random() * 4);
   const F = FOES[kind];
-  const f = newFoe(kind, hpAt(w) * F.hpMul, F.speed * S.spd * (1 + w * 0.004), 0.28, { lane: rand(-0.18, 0.18), reward: killCoins(w) });
+  const f = newFoe(kind, hpAt(w) * F.hpMul, F.speed * S.spd * (1 + w * 0.004) * (G.sea ? G.sea.fspd : 1), 0.28, { lane: rand(-0.18, 0.18), reward: killCoins(w) });
   if (F.armor) f.armor = 1;
   if (F.revive) f.rev = 1;
   if (F.split) f.split = 1;
@@ -1307,7 +1347,7 @@ function spawnFoe() {
 }
 function spawnBoss(B) {
   if (COOP.on) { COOP.bossW = G.wave; COOP.bossDmg = 0; COOP.pApplied = 0; }
-  const f = newFoe(0, hpAt(G.wave) * BAL.bossMul[G.wave] * (B.hpF || 1) * (STAGES[G.stage].bossF || 1) * (COOP.on ? COOP.hpMul : 1), B.speed * STAGES[G.stage].spd, B.r, { boss: B.key, big: true, name: B.name, reward: BAL.coinUnit * (20 + G.wave * 3), skT: 4, skT2: 6, rage: false, wob: 0, hidden: 0 });
+  const f = newFoe(0, hpAt(G.wave) * BAL.bossMul[G.wave] * (B.hpF || 1) * (STAGES[G.stage].bossF || 1) * (COOP.on ? COOP.hpMul : 1) * (G.sea ? G.sea.bossHp : 1), B.speed * STAGES[G.stage].spd * (G.sea ? G.sea.fspd : 1), B.r, { boss: B.key, big: true, name: B.name, reward: BAL.coinUnit * (20 + G.wave * 3), skT: 4, skT2: 6, rage: false, wob: 0, hidden: 0 });
   placeFoe(f); G.foes.push(f); G.boss = f;
   G.stats.foeSeen['b_' + B.key] = 1;
   emit({ k: 'bossSpawn', key: B.key });
@@ -1352,6 +1392,8 @@ const MISSIONS = [
   { id: 'cave3', g: 'fight', text: '도깨비굴 3층 깨기', cur: () => (G.exp ? G.exp.wins : 0), goal: 3, hon: 3 },
   { id: 'help50', g: 'duo', duo: true, text: '가운데 길에서 동료 쪽 도깨비 50마리 잡아 주기', cur: () => G.stats.assists || 0, goal: 50, coins: 500 },
   { id: 'gift', g: 'duo', duo: true, text: '동료에게 엽전 보내기', cur: () => G.stats.gifts || 0, goal: 1, hon: 2 },
+  { id: 'joint', g: 'duo', duo: true, text: '합동 굿 벌이기', cur: () => G.stats.joint || 0, goal: 1, coins: 400, hon: 1 },
+  { id: 'joint3', g: 'duo', duo: true, text: '합동 굿 세 번 벌이기', cur: () => G.stats.joint || 0, goal: 3, b: [0, 0.05, 0.05, 0, 0] },
   { id: 'help300', g: 'duo', duo: true, text: '가운데 길에서 300마리 잡아 주기', cur: () => G.stats.assists || 0, goal: 300, b: [0, 0, 0, 0, 0.05] },
 ];
 const MISS_BY = Object.fromEntries(MISSIONS.map(m => [m.id, m]));
@@ -1465,6 +1507,105 @@ function gamble(k) {
   emit({ k: 'gut', cell: i, tier: Gd.tier, sure });
   toast(`${sure ? '지성이면 감천!' : Gd.tier >= 3 ? '신이 내렸다!' : '굿 효험!'} ${TIERS[Gd.tier].name} ${TYPES[t].name}`);
   return true;
+}
+/* ---------- 절기: every run falls on one of the 24 seasons of the old calendar ----------
+   each changes the run a little, mostly in your favour, sometimes a trade. with a partner both yards share one */
+const SEASONS = [
+  { id: 'ipchun', name: '입춘', s: 0, line: '봄이 서요', e: { sum: 0.9 }, desc: '소환 비용 10% 싸요' },
+  { id: 'usu', name: '우수', s: 0, line: '눈이 녹아 비가 돼요', e: { fspd: 0.92 }, desc: '도깨비가 8% 느려요' },
+  { id: 'gyeongchip', name: '경칩', s: 0, line: '개구리가 깨어나요', e: { fspd: 1.05, kill: 0.2 }, desc: '도깨비가 5% 빠르지만 잡을 때 엽전 20% 더' },
+  { id: 'chunbun', name: '춘분', s: 0, line: '낮과 밤이 같아요', e: { dmg: 1.06 }, desc: '모든 동료 공격력 6% 더' },
+  { id: 'cheongmyeong', name: '청명', s: 0, line: '하늘이 맑아요', e: { crit: 0.05 }, desc: '치명타 확률 5% 더' },
+  { id: 'gogu', name: '곡우', s: 0, line: '곡식을 깨우는 비가 와요', e: { coins0: 300 }, desc: '처음 엽전 300 더' },
+  { id: 'ipha', name: '입하', s: 1, line: '여름이 서요', e: { as: 1.06 }, desc: '공격 속도 6% 빨라요' },
+  { id: 'soman', name: '소만', s: 1, line: '온 들이 차올라요', e: { ult: 0.15 }, desc: '궁극기가 15% 빨리 차요' },
+  { id: 'mangjong', name: '망종', s: 1, line: '씨를 뿌려요', e: { hon0: 3 }, desc: '처음 혼 3 더' },
+  { id: 'haji', name: '하지', s: 1, line: '낮이 가장 길어요', e: { bossTime: 10 }, desc: '보스 제한 시간 10초 더' },
+  { id: 'soseo', name: '소서', s: 1, line: '더위가 와요', e: { hp: 1.08, kill: 0.2 }, desc: '도깨비 체력 8% 더, 엽전 20% 더' },
+  { id: 'daeseo', name: '대서', s: 1, line: '가장 더워요', e: { fspd: 0.9, as: 0.95 }, desc: '도깨비가 지쳐 10% 느리고 동료도 5% 느려요' },
+  { id: 'ipchu', name: '입추', s: 2, line: '가을이 서요', e: { gut: 0.15 }, desc: '굿 성공 확률 15% 올라요' },
+  { id: 'cheoseo', name: '처서', s: 2, line: '더위가 물러가요', e: { up: 0.85 }, desc: '강화 비용 15% 싸요' },
+  { id: 'baengno', name: '백로', s: 2, line: '이슬이 맺혀요', e: { boss: 0.15 }, desc: '보스에게 주는 피해 15% 더' },
+  { id: 'chubun', name: '추분', s: 2, line: '밤이 길어지기 시작해요', e: { dmg: 1.04, as: 1.04 }, desc: '공격력과 공격 속도 4%씩 더' },
+  { id: 'hallo', name: '한로', s: 2, line: '찬 이슬이 내려요', e: { hp: 0.95, bossHp: 1.1 }, desc: '도깨비 체력 5% 덜, 보스 체력 10% 더' },
+  { id: 'sanggang', name: '상강', s: 2, line: '서리가 내려요', e: { fspd: 0.88, kill: -0.1 }, desc: '도깨비가 12% 느리지만 엽전 10% 덜' },
+  { id: 'ipdong', name: '입동', s: 3, line: '겨울이 서요', e: { bossHon: 2 }, desc: '보스를 잡으면 혼 2 더' },
+  { id: 'soseol', name: '소설', s: 3, line: '첫눈이 와요', e: { fspd: 0.94, ult: 0.1 }, desc: '도깨비 6% 느리고 궁극기 10% 빨리 차요' },
+  { id: 'daeseol', name: '대설', s: 3, line: '큰 눈이 와요', e: { hp: 1.1, honW: 1 }, desc: '도깨비 체력 10% 더, 마당 넘길 때 혼 1 더' },
+  { id: 'dongji', name: '동지', s: 3, line: '밤이 가장 길어요 · 팥죽 먹는 날', e: { hp: 1.15, honMul: 2 }, desc: '도깨비 체력 15% 더, 혼은 두 배' },
+  { id: 'sohan', name: '소한', s: 3, line: '작은 추위', e: { as: 0.95, hon0: 4 }, desc: '공격 속도 5% 느리고 처음 혼 4 더' },
+  { id: 'daehan', name: '대한', s: 3, line: '가장 추워요', e: { hp: 1.2, kill: 0.3, honW: 1 }, desc: '도깨비 체력 20% 더, 엽전 30% 더, 마당 넘길 때 혼 1 더' },
+];
+const SEASON_NAMES = ['봄', '여름', '가을', '겨울'], SEASON_COLORS = ['#f3a6c0', '#7cc96b', '#e8a24a', '#9cc8ff'];
+const SEA_BASE = { dmg: 1, as: 1, fspd: 1, hp: 1, bossHp: 1, sum: 1, up: 1, honW: 0, honMul: 1, bossHon: 0 };
+/* put one on the run in G. the relic-like parts go straight into G.rel */
+function applySeason(k) {
+  const S = SEASONS[((k | 0) % SEASONS.length + SEASONS.length) % SEASONS.length], e = S.e;
+  G.sea = Object.assign({}, SEA_BASE, { id: S.id, k: SEASONS.indexOf(S) });
+  for (const key of Object.keys(SEA_BASE)) if (e[key] != null) G.sea[key] = e[key];
+  if (!G.rel) G.rel = noRelics();
+  for (const key of ['kill', 'crit', 'gut', 'boss', 'ult', 'bossTime']) if (e[key]) G.rel[key] = (G.rel[key] || 0) + e[key];
+  if (e.bossTime) G.bossTimeMax = (G.bossTimeMax || BOSS_TIME) + e.bossTime;
+  if (e.coins0) G.coins += e.coins0;
+  if (e.hon0) G.hon += e.hon0;
+  return S;
+}
+const seasonOf = () => (G && G.sea ? SEASONS[G.sea.k] : null);
+
+/* ---------- 숨은 합동기: two mythics from one story, one in each yard ----------
+   nothing in the game tells you about them. when both are out and the shared road is busy, they go off together */
+const COMBOS = [
+  { id: 'hakik', name: '학익진', a: 'geobukseon', b: 'choimuseon', fx: 'volley', line: '거북선과 최무선이 학의 날개처럼 가운데 길을 감싸 불화살을 퍼부어요' },
+  { id: 'pangut', name: '판굿', a: 'samulpae', b: 'samulpae', fx: 'haste', line: '두 사물놀이패가 장단을 맞춰요 · 두 마당 모두 신명 나게 빨라져요' },
+  { id: 'jeoseung', name: '저승길', a: 'bari', b: 'gangrim', fx: 'reap', line: '바리공주와 강림도령이 저승길을 열어요 · 다 죽어 가는 도깨비를 데려가요' },
+  { id: 'jwacheong', name: '좌청룡 우백호', a: 'cheongryong', b: 'baekho', fx: 'power', line: '청룡과 백호가 양쪽을 지켜요 · 두 마당 모두 15초 동안 공격력 20%' },
+  { id: 'namju', name: '남주작 북현무', a: 'jujak', b: 'hyeonmu', fx: 'burn', line: '불과 물이 가운데 길을 덮어요 · 느려지고 타올라요' },
+  { id: 'indangsu', name: '인당수', a: 'yongwang', b: 'simcheong', fx: 'sweep', line: '용왕이 심청을 맞으러 물길을 열어요 · 가운데 길 도깨비가 휩쓸려 가요' },
+  { id: 'hwalbin', name: '활빈당', a: 'honggildong', b: 'uibyeongdae', fx: 'loot', line: '홍길동과 의병이 도깨비 재물을 털어 나눠요' },
+  { id: 'daedonggang', name: '대동강 거래', a: 'jangbogo', b: 'gimseondal', fx: 'trade', line: '장보고와 김선달이 큰 거래를 터요 · 둘 다 엽전을 받아요' },
+];
+const COMBO_CD = 45, COMBO_SRC = { tier: 4, id: 'combo', ally: true };
+const onShared = f => !f.dead && !(f.hidden > 0) && f.y <= -HY + 0.55;
+function comboLive(C, mine, theirs) { return (mine.has(C.a) && theirs.has(C.b)) || (mine.has(C.b) && theirs.has(C.a)); }
+function comboReady(C) { const busy = G.foes.filter(onShared).length >= 3 || (G.boss && !G.boss.dead); return busy && !((G.comboCd && G.comboCd[C.id]) > 0); }
+/* goes off in whichever yard G is right now; each yard does its own half */
+function comboFire(C) {
+  if (G.phase !== 'play') return false;
+  G.comboCd = G.comboCd || {}; G.comboCd[C.id] = COMBO_CD;
+  G.stats.combos = (G.stats.combos || 0) + 1;
+  const w = G.wave, road = G.foes.filter(onShared), boss = G.boss && !G.boss.dead ? G.boss : null, hp = hpAt(w);
+  const hitBoss = k => { if (boss && G.phase === 'play') { HIT_UID = 0; damage(boss, boss.max * k, COMBO_SRC, true); } };
+  switch (C.fx) {
+    case 'volley': for (const f of road) { if (f.big) continue; HIT_UID = 0; damage(f, hp * 0.9, COMBO_SRC, true); if (G.phase !== 'play') return true; } hitBoss(0.05); break;
+    case 'haste': G.charmT = Math.max(G.charmT || 0, 12); break;
+    case 'reap': for (const f of G.foes.slice()) { if (f.dead || f.big || f.hp > f.max * 0.35) continue; HIT_UID = 0; kill(f); if (G.phase !== 'play') return true; } hitBoss(0.03); break;
+    case 'power': G.comboPowT = 15; break;
+    case 'burn': for (const f of road) { f.slowT = Math.max(f.slowT || 0, 6); f.slowAmt = Math.max(f.slowAmt || 0, 0.5); f.burnT = 6; f.burnUid = 0; f.burnDps = Math.max(f.burnDps || 0, hp * (f.big ? 0.02 : 0.12)); } break;
+    case 'sweep': for (const f of road) { if (f.big) continue; knock(f, 2.5); HIT_UID = 0; damage(f, hp * 0.3, COMBO_SRC, false); if (G.phase !== 'play') return true; } break;
+    case 'loot': G.coins += killCoins(w) * 30; hitBoss(0.04); break;
+    case 'trade': G.coins += killCoins(w) * 50; break;
+  }
+  emit({ k: 'combo', id: C.id });
+  return true;
+}
+function comboTickCd(dt) { if (G.comboCd) for (const k in G.comboCd) if (G.comboCd[k] > 0) G.comboCd[k] -= dt; if (G.comboPowT > 0) G.comboPowT -= dt; }
+
+/* ---------- 합동 굿: one 굿상 between the two yards ----------
+   each side puts 혼 on it, a hon at a time. once both are in, a few seconds to add more, then one roll for both:
+   no 꽝, both get a companion of the same grade, and the more 혼 on the table the better the grade.
+   a: your 혼 on the table, b: your partner's, n: which table (a new one after every roll) */
+const JOINT = { MAX: 5, WAIT: 5, n: 1, a: 0, b: 0, t: 5, ka: 0, kb: 0 };
+function jointOdds(T) { const leg = Math.min(0.4, 0.04 * T), hero = Math.min(1 - leg, 0.12 * T); return [Math.max(0, 1 - leg - hero), hero, leg]; }
+function jointRoll(T) { const [, h, l] = jointOdds(T), x = Math.random(); return x < l ? 3 : x < l + h ? 2 : 1; }
+function jointReset() { Object.assign(JOINT, { n: 1, a: 0, b: 0, t: JOINT.WAIT, ka: 0, kb: 0 }); }
+/* the roll lands in whichever yard G is right now */
+function jointAward(tier, stake) {
+  if (!emptyCells().length) { G.hon += stake; return -1; }
+  const t = pick(poolOf(tier)), i = addUnit(t);
+  G.stats.guts++; G.stats.joint = (G.stats.joint || 0) + 1; G.stats.gutFailRun = 0;
+  if (tier >= 3) G.stats.gutLeg = (G.stats.gutLeg || 0) + 1;
+  emit({ k: 'gut', cell: i, tier, sure: false });
+  return t;
 }
 function charm() {
   if (G.phase !== 'play') return false;
@@ -1698,7 +1839,7 @@ function relMul(T) { const r = G.rel; if (!r) return 1; const g = upGroup(T); re
 const upOf = T => G.up[upGroup(T)];
 const gradeMulOf = T => (T.tier < 4 && G.gradeMul ? G.gradeMul[T.tier] : 1);
 const tierBuffOf = T => { const b = G.tierBuff && G.tierBuff[T.tier]; return b && b.t > 0 ? b.mul : 1; };
-function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
+function dmgOf(t, i) { const T = TYPES[t]; return (G.allMul || 1) * (G.mb ? 1 + G.mb[UP_TIER[T.tier]] + G.mb[4] : 1) * (G.sea ? G.sea.dmg : 1) * (G.comboPowT > 0 ? 1.2 : 1) * T.dmg * TIER_MUL[T.tier] * (1 + BAL.upBonus * upOf(T)) * G.lvMul[t] * gradeMulOf(T) * ((i >= 0 && G.dmgN[i]) || 1) * tierBuffOf(T) * relMul(T); }
 function topClusters(rad, n) {
   const out = [], used = new Set(), r2 = rad * rad;
   for (let k = 0; k < n; k++) {
@@ -1929,9 +2070,10 @@ function kill(f, final) {
     toast(`${josa(C.name, '을', '를')} 잡았어요! 엽전 +${fmtC(coins)}${C.hon ? ` · 혼 +${C.hon}` : ''}${C.silver ? ` · 은전 +${fmtC(C.silver)}` : ''}`);
   }
   if (f.boss) {
-    G.hon += 3; G.boss = null; G.stats.bossKills++;
+    const bh = (3 + (G.sea ? G.sea.bossHon : 0)) * (G.sea ? G.sea.honMul : 1);
+    G.hon += bh; G.boss = null; G.stats.bossKills++;
     if (G.wave >= LAST_WAVE) { endGame('win'); return; }
-    emit({ k: 'banner', main: `${josa(f.name, '을', '를')} 물리쳤다!`, sub: `엽전 +${fmtC(f.reward)} · 혼 +3` });
+    emit({ k: 'banner', main: `${josa(f.name, '을', '를')} 물리쳤다!`, sub: `엽전 +${fmtC(f.reward)} · 혼 +${bh}` });
     G.waveT = Math.min(G.waveT, 3);
   }
 }
@@ -2399,7 +2541,7 @@ function unitTick(u, i, dt) {
   const tgt = T.global ? pickCluster(T.aoe) : pickTarget(cellX(i), cellY(i), rngOf(T, i));
   if (!tgt) { u.cd = 0; return; }
   u.ci = i;
-  u.cd = T.cd / G.spd[i] / (G.charmT > 0 ? CHARM.spd : 1) / (G.lotusT > 0 ? 1.6 : 1) * G.lvSpd[u.t] / (T.kind === 'pounce' ? 1 : (u.c || 1));
+  u.cd = T.cd / G.spd[i] / (G.charmT > 0 ? CHARM.spd : 1) / (G.lotusT > 0 ? 1.6 : 1) / (G.sea ? G.sea.as : 1) * G.lvSpd[u.t] / (T.kind === 'pounce' ? 1 : (u.c || 1));
   u.n++;
   u.dir = tgt.x < cellX(i) ? -1 : 1;
   u.tx = tgt.x; u.ty = tgt.y;
@@ -2420,6 +2562,7 @@ function update(dt) {
   for (let i = 0; i < CHALS.length; i++) if (G.chalCd[i] > 0) G.chalCd[i] = Math.max(0, G.chalCd[i] - dt);
   if (G.tierBuff) for (const k in G.tierBuff) { const b = G.tierBuff[k]; if (b.t > 0) b.t -= dt; }
   if (G.charmT > 0) G.charmT -= dt;
+  comboTickCd(dt);
   if (G.lotusT > 0) G.lotusT -= dt;
   if (G.skyT > 0) { G.skyT -= dt; if (G.skyT <= 0) G.sky = null; }
   expTick(dt);
@@ -2532,6 +2675,7 @@ function aiStep(dt) {
 /* the AI's yard fell: you go on alone, and bosses go back to one player's health */
 function aiFall() {
   AI.out = true; G.ghosts = []; if (G.ghostMap) G.ghostMap.clear();
+  if (JOINT.a) G.hon += JOINT.a; jointReset();
   if (COOP.on) {
     if (G.boss && !G.boss.dead) { G.boss.hp /= COOP.hpMul; G.boss.max /= COOP.hpMul; }
     COOP.on = false;
@@ -2550,9 +2694,18 @@ function aiThink() {
     if (need.has(TYPES[t].id) && !G.units.some((u, j) => j !== i && u && u.t === t)) continue;
     mergeAt(i);
   }
-  for (let n = 0; n < 4 && G.hon >= 1 && emptyCells().length; n++) {
-    const k = (G.pity || 0) >= PITY_MAX && G.hon >= 2 ? 2 : G.wave < 6 ? 0 : 1;
-    if (G.hon < GUTS[k].cost) break;
+  /* 합동 굿: match what you put on the 굿상, a hon at a time, and now and then set one up itself */
+  AI.jgT = (AI.jgT || 0) - 0.3;
+  if (JOINT.a > JOINT.b && JOINT.b < JOINT.MAX && G.hon >= 1 && emptyCells().length) {
+    if (AI.jgT <= 0) { G.hon -= 1; JOINT.b++; AI.jgT = rand(0.6, 1.6); AI.jgAge = 0; }
+  } else if (!JOINT.a && !JOINT.b && G.hon >= 5 && G.wave >= 5 && AI.jgT <= -20 && Math.random() < 0.03) {
+    G.hon -= 2; JOINT.b = 2; AI.jgAge = 0; AI.jgT = 0;
+  } else if (JOINT.b && !JOINT.a && (AI.jgAge = (AI.jgAge || 0) + 0.3) > 40) { G.hon += JOINT.b; JOINT.b = 0; AI.jgT = 0; }
+  /* with a partner it keeps two 혼 aside, so it can answer when you open a table */
+  const keep = Math.max(JOINT.a - JOINT.b, COOP.on && G.wave >= 3 ? 2 : 0, 0);
+  for (let n = 0; n < 4 && G.hon - keep >= 1 && emptyCells().length; n++) {
+    const k = (G.pity || 0) >= PITY_MAX && G.hon - keep >= 2 ? 2 : G.wave < 6 ? 0 : 1;
+    if (G.hon - keep < GUTS[k].cost) break;
     gamble(k);
   }
   const pw = [0, 0, 0, 0];
@@ -5502,6 +5655,35 @@ function drawPartnerUnit(g, v) {
     }
   } else drawPuppet(g, T.id, sx, sy, k, computePose(v.pose, D, R.time, v.ph, ap, false), face, 0.95);
 }
+/* the 합동 굿 table in the middle of the shared road: a red cloth, two candles, both piles of 혼 */
+function drawJointTable(g) {
+  const a = JOINT.a, b = JOINT.b; if (!a && !b) return;
+  const CS = R.CS, x = wx(0), y = wy(-HY), w = CS * 1.1, h = CS * 0.42, both = a > 0 && b > 0, t = R.time;
+  g.save();
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x, y + h * 0.55, w * 0.6, h * 0.35, 0, 0, TAU); g.fill();
+  g.fillStyle = '#7a2a22'; g.beginPath(); RR(g, x - w / 2, y - h / 2, w, h, h * 0.25); g.fill();
+  g.fillStyle = '#b8402f'; g.beginPath(); RR(g, x - w / 2 + 2, y - h / 2 + 2, w - 4, h * 0.45, h * 0.2); g.fill();
+  for (const s of [-1, 1]) {
+    const cx = x + s * w * 0.4, cy = y - h * 0.5;
+    g.fillStyle = '#f3ead2'; g.fillRect(cx - CS * 0.035, cy - CS * 0.2, CS * 0.07, CS * 0.2);
+    const fl = 1 + Math.sin(t * 13 + s) * 0.15;
+    g.fillStyle = 'rgba(255,190,80,.35)'; g.beginPath(); g.arc(cx, cy - CS * 0.25, CS * 0.1 * fl, 0, TAU); g.fill();
+    g.fillStyle = '#ffd36a'; g.beginPath(); g.ellipse(cx, cy - CS * 0.25, CS * 0.03, CS * 0.06 * fl, 0, 0, TAU); g.fill();
+  }
+  const fs = Math.min(14, Math.max(10, CS * 0.22));
+  g.font = `${fs}px "Jua",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff3d6'; g.fillText(`혼 ${a} · ${b}`, x, y + h * 0.08);
+  if (both) {
+    const k = Math.max(0, Math.min(1, JOINT.t / JOINT.WAIT));
+    g.strokeStyle = '#ffd36a'; g.lineWidth = 3; g.beginPath(); g.arc(x, y - h * 1.35, fs * 0.8, -PI / 2, -PI / 2 + TAU * k); g.stroke();
+    g.fillStyle = '#ffe6a0'; g.fillText(String(Math.max(0, Math.ceil(JOINT.t))), x, y - h * 1.35);
+  } else {
+    g.fillStyle = 'rgba(15,12,25,.7)'; const txt = a ? '동료를 기다려요' : '혼을 같이 올려요', tw = g.measureText(txt).width + fs;
+    g.beginPath(); RR(g, x - tw / 2, y - h * 1.35 - fs * 0.65, tw, fs * 1.3, fs * 0.65); g.fill();
+    g.fillStyle = '#e8d8ff'; g.fillText(txt, x, y - h * 1.35);
+  }
+  g.restore();
+}
 /* their name and crowd, on the far edge of their yard */
 function drawPartnerTag(g, P) {
   const fs = Math.min(15, Math.max(11, R.CS * 0.24)), y = wy(-3 * HY - LANE / 2) - fs * 0.2, txt = `${P.nm}${P.out ? ' · 쓰러졌어요' : ` · 도깨비 ${P.n}/${BAL.cap}`}`;
@@ -5524,6 +5706,7 @@ function renderFrame(dt) {
   if (R.shake > 0) { const s = R.shake * R.CS * 0.12; g.translate(rand(-s, s), rand(-s, s)); R.shake = Math.max(0, R.shake - dt * 2.5); }
   drawPortal(g);
   const PV = R.duo && G.phase === 'play' ? drawPartnerSide(g) : null;
+  if (R.duo && G.phase === 'play') drawJointTable(g);
   drawHelpers(g);
   for (let i = 0; i < NCELL; i++) { const u = G.units[i]; if (u) { const v = UVIS.get(u.id); if (v && v.cell === i) drawUnitBase(g, v, TYPES[u.t]); } }
   if (G.phase === 'play' && G.exp && G.exp.run) drawExpCell(g, G.exp.run);
@@ -6002,6 +6185,7 @@ function onEvent(e) {
     case 'coin': fxText(e.x, e.y - (e.big ? 1.25 : 0.8), `+${fmtC(e.v)}`, 'coin', e.big ? 1.25 : 0.95); if (e.big) burst(e.x, e.y - 0.6, 0.3, 8, ['#f2c94a', '#fff2b0'], 1.6, 0.05, 0.6, { up: 2, g: 1.2 }); flyCoin(e.x, e.y - 0.5, COIN_EL, 1); sfx('coin'); break;
     case 'kill': {
       if (e.boss) {
+        unlockStory('b_' + e.boss);
         fxFlash(e.x, e.y - 0.6, 2.2, '#fff3c0', 0.7, 0.55);
         for (let i = 0; i < 3; i++) FX.push({ k: 'ring', x: e.x, y: e.y, r0: 0.4, r1: 3 + i, col: i % 2 ? '#f2c14a' : '#ffffff', w: 6, life: 0.8 + i * 0.2, t: 0, flat: 0.55 });
         burst(e.x, e.y, 0.6, 50, OBANG, 4.5, 0.08, 1.3, { up: 2.2 });
@@ -6045,7 +6229,15 @@ function onEvent(e) {
       sfx('merge', e.tier);
       break;
     }
+    case 'combo': {
+      const C = COMBOS.find(c => c.id === e.id); if (!C) break;
+      showBanner(`합동기 · ${C.name}`, C.line, false, true);
+      fxFlash(0, -HY, 3.2, '#ffe6a0', 0.7, 0.5); fxRing(0, -HY, 0.3, 4.5, '#ffd36a', 7, 0.8); shake(0.35); pulseVignette();
+      sfx('gong'); setTimeout(() => sfx('ult'), 160);
+      break;
+    }
     case 'craft': {
+      unlockStory('m_' + e.id);
       const b = unitPos(e.cell), T = TYPES[TYPE_IX[e.id]];
       for (const fr of e.from) { const a = unitPos(fr.cell); for (let i = 0; i < 8; i++) { const t = rand(0.45, 0.7); part(a.x + rand(-0.15, 0.15), a.y, rand(0.3, 0.9), (b.x - a.x) / t, (b.y - a.y) / t, 0, pick(OBANG), 0.06, t, { g: 0, drag: 0 }); } puff(a.x, a.y, 2, '#e6dccb', 0.1, 0.4); }
       FX.push({ k: 'ring', x: b.x, y: b.y - 0.15, r0: 0.1, r1: 1.4, col: '#e2563c', w: 6, life: 0.7, t: -0.45, flat: 0.55 });
@@ -6589,7 +6781,7 @@ const MIGRATIONS = {
   },
 };
 function defaultSave() {
-  return { v: 1, fmt: SAVE_FMT, x10: 1, silver: 0, jade: 0, lv: {}, pcs: {}, made: {}, seen: {}, foes: {}, ach: {}, relics: {}, rlv: {}, rcp: {}, rpity: 0, wild: 0, road: {}, mopen: {}, scroll: 0, hyang: 0, guide: 0,
+  return { v: 1, fmt: SAVE_FMT, x10: 1, silver: 0, jade: 0, lv: {}, pcs: {}, made: {}, seen: {}, foes: {}, ach: {}, relics: {}, rlv: {}, rcp: {}, rpity: 0, wild: 0, road: {}, mopen: {}, scroll: 0, hyang: 0, guide: 0, stories: {}, combos: {},
     stats: { games: 0, kills: 0, best: 0, wins: 0, crafts: 0, chalWins: 0, chalHard: 0, bossKills: 0, pouches: 0, silverEarned: 0, jadeEarned: 0, income: 0, chalTop: 0, caveTop: 0, caveWins: 0 },
     stageMax: 0, stageSel: 0, stageBest: {}, stageClear: {}, clear40: {}, bossBest: {}, att: { day: '', n: 0 }, market: null, quests: null, weekly: null, qbonus: '', saved: 0 };
 }
@@ -6601,7 +6793,8 @@ function migrate(s) {
   while (s.fmt < SAVE_FMT) { const m = MIGRATIONS[s.fmt]; if (m) m(s); s.fmt++; }
   const d = defaultSave();
   const out = Object.assign(d, s, { stats: Object.assign(d.stats, s.stats || {}), att: Object.assign(d.att, s.att || {}) });
-  for (const k of ['lv', 'pcs', 'made', 'seen', 'foes', 'ach', 'stageBest', 'stageClear', 'clear40', 'bossBest', 'relics', 'rlv', 'rcp', 'road', 'mopen']) if (!out[k] || typeof out[k] !== 'object') out[k] = {};
+  for (const k of ['lv', 'pcs', 'made', 'seen', 'foes', 'ach', 'stageBest', 'stageClear', 'clear40', 'bossBest', 'relics', 'rlv', 'rcp', 'road', 'mopen', 'stories', 'combos']) if (!out[k] || typeof out[k] !== 'object') out[k] = {};
+  storyBackfill(out);
   if (typeof out.jade !== 'number') out.jade = 0;
   if (typeof out.scroll !== 'number') out.scroll = 0;
   if (typeof out.hyang !== 'number') out.hyang = 0;
@@ -6623,7 +6816,8 @@ function mergeSaves(a, b) {
   const base = gb > ga || (gb === ga && (b.saved || 0) > (a.saved || 0)) ? b : a, other = base === a ? b : a;
   const m = JSON.parse(JSON.stringify(base));
   for (const id in other.lv) m.lv[id] = Math.max(m.lv[id] || 1, other.lv[id] || 1);
-  for (const k of ['seen', 'foes', 'ach', 'stageClear', 'clear40', 'road', 'mopen']) { m[k] = m[k] || {}; for (const id in other[k] || {}) if (other[k][id]) m[k][id] = m[k][id] || other[k][id]; }
+  m.combos = m.combos || {}; for (const id in other.combos || {}) m.combos[id] = Math.max(m.combos[id] || 0, other.combos[id] || 0);
+  for (const k of ['seen', 'foes', 'ach', 'stageClear', 'clear40', 'road', 'mopen', 'stories']) { m[k] = m[k] || {}; for (const id in other[k] || {}) if (other[k][id]) m[k][id] = m[k][id] || other[k][id]; }
   m.relics = m.relics || {}; for (const id in other.relics || {}) m.relics[id] = Math.max(m.relics[id] || 0, other.relics[id] || 0);
   m.rlv = m.rlv || {}; for (const id in other.rlv || {}) m.rlv[id] = Math.max(m.rlv[id] || 0, other.rlv[id] || 0);
   m.bossBest = m.bossBest || {}; for (const id in other.bossBest || {}) m.bossBest[id] = Math.max(m.bossBest[id] || 0, other.bossBest[id] || 0);
@@ -7266,6 +7460,89 @@ function relicIcon(id, size, dim) {
   return `<svg class="relic-svg${dim ? ' is-dim' : ''}" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">${body}</svg>`;
 }
 
+/* ---------- 전래동화 수집: the first time you beat a boss or make a mythic, its story opens in the codex ----------
+   short retellings of the old tales. each new page pays a little 옥 */
+const STORIES = {
+  b_beom: '부산 장산에 산다는 하얀 털의 짐승이에요. 아는 사람 목소리를 그대로 흉내 내서 사람을 산속 깊이 불러들인대요. 옛이야기라기보다 요즘 사람들 사이에서 퍼진 괴담인데, 그래서 더 으스스하죠.',
+  b_gumiho: '천 년을 산 여우는 꼬리가 아홉 개가 되고 사람으로 둔갑할 수 있다고 해요. 고운 여인의 모습으로 나타나 사람을 홀리고, 사람의 간을 먹으면 진짜 사람이 된다는 이야기가 많아요. 대개는 마지막 하루를 앞두고 정체가 들통나요.',
+  b_imugi: '용이 되지 못한 큰 뱀이에요. 물속에서 천 년을 기다려 여의주를 얻으면 하늘로 올라 용이 된대요. 그런데 오르는 순간 사람 눈에 띄면 그대로 떨어져 이무기로 남는다고 해요.',
+  b_bulgasari: '고려가 저물 무렵 송도에 나타났다는 괴물이에요. 밥알로 빚은 작은 짐승이 바늘을 먹더니 솥이며 칼이며 쇠붙이를 다 먹어 치우고 집채만 해졌대요. 칼로도 창으로도 죽일 수 없어 불가살이라 불렸는데, 불로는 죽일 수 있어서 불가살이라는 말장난도 남았어요.',
+  b_geumdwaeji: '신라 때 어느 고을 원님의 부인이 금빛 돼지에게 잡혀갔대요. 부인은 금돼지가 사슴 가죽을 무서워한다는 걸 알아내 물리쳤고, 돌아와 낳은 아이가 훗날 최치원이 되었다는 이야기가 전해져요.',
+  b_daejeok: '땅속 나라의 큰 도적이 마을 처녀들을 잡아갔대요. 한 장수가 깊은 굴을 타고 내려가 대적을 물리치고 처녀들을 구했지만, 위에서 기다리던 동료가 줄을 끊어 버렸어요. 장수는 갖은 고생 끝에 땅 위로 돌아와 배신자를 벌했다고 해요.',
+  b_heukryong: '먹구름을 몰고 다니는 검은 용이에요. 흰 용과 싸우던 흑룡을 활 잘 쏘는 사람이 쏘아 맞혀 흰 용을 도왔다는 이야기가 여러 고을에 전해져요. 흑룡이 나타나면 하늘이 어두워지고 큰비가 온대요.',
+  b_yeomra: '저승을 다스리며 죽은 사람이 살아서 한 일을 심판하는 왕이에요. 착하게 산 사람은 좋은 곳으로, 나쁘게 산 사람은 지옥으로 보낸대요. 제주 이야기에서는 강림도령이 이 염라대왕을 이승으로 잡아 오기도 해요.',
+  m_samulpae: '꽹과리, 징, 장구, 북 네 가지 악기로 노는 판이에요. 꽹과리는 천둥, 징은 바람, 장구는 비, 북은 구름 소리라고들 해요. 마을 풍물굿의 가락을 1978년에 무대에 맞게 다듬은 게 지금의 사물놀이예요.',
+  m_uibyeongdae: '나라에 큰 난리가 나면 벼슬도 없는 백성과 선비들이 스스로 칼을 들었어요. 임진왜란 때 곽재우는 붉은 옷을 입고 앞장서 홍의장군이라 불렸지요. 이름 없는 의병들이 팔도 고을마다 일어나 나라를 지켰어요.',
+  m_geobukseon: '임진왜란 때 이순신 장군이 앞세운 배예요. 등을 덮개로 덮어 적이 뛰어들지 못하게 하고, 용머리와 옆구리에서 포를 쏘았대요. 적진 한가운데로 뛰어들어 휘젓는 돌격선이었어요.',
+  m_choimuseon: '고려 말, 왜구가 바닷가를 괴롭히던 때 화약 만드는 법을 알아낸 사람이에요. 나라에 화통도감을 두어 화포를 만들었고, 진포에서 그 화포로 왜구의 배 수백 척을 불태웠대요.',
+  m_bari: '왕의 일곱째 딸로 태어나 버려진 공주예요. 부모가 큰 병에 걸리자 아무도 가지 않으려던 저승길을 홀로 걸어 약수를 구해 왔대요. 그래서 바리공주는 죽은 이를 저승으로 이끄는 무당들의 신이 되었어요.',
+  m_cheoyong: '신라 헌강왕 때 동해 용왕의 아들 처용이 서라벌에 와서 살았어요. 역신이 아내를 넘보자 처용은 화내지 않고 노래하며 춤을 췄고, 감복한 역신은 처용 얼굴만 봐도 들어오지 않겠다고 약속했대요. 그래서 사람들은 문에 처용 얼굴을 붙였어요.',
+  m_yeongno: '남쪽 바닷가 탈춤에 나오는 상상의 짐승이에요. 양반을 아흔아홉 명 잡아먹었고, 하나만 더 먹으면 하늘에 오른다며 양반을 쫓아다녀요. 거들먹거리던 양반이 쩔쩔매는 모습에 구경꾼들이 크게 웃었지요.',
+  m_gangrim: '제주에 전해 오는 이야기예요. 원님의 명을 받은 강림은 산 사람의 몸으로 저승에 가서 염라대왕을 이승으로 데려왔대요. 그 솜씨에 반한 염라대왕이 강림을 저승차사로 삼았다고 해요.',
+  m_saja: '정월이면 사자탈을 쓰고 집집을 돌며 잡귀를 쫓았어요. 사자가 마당에서 한바탕 놀고 나면 그해에는 나쁜 기운이 얼씬도 못 한다고 믿었지요. 북청 사자놀음이 그 놀이를 지금까지 이어 오고 있어요.',
+  m_daejanggun: '마을 어귀에 서서 마을을 지키는 장승이에요. 천하대장군과 지하여장군이 짝을 이뤄 서서 나쁜 기운과 병이 마을에 들어오지 못하게 막는대요. 길 가는 사람에게는 이정표 노릇도 했어요.',
+  m_yongwang: '바다 깊은 곳 용궁을 다스리는 왕이에요. 병이 들어 토끼 간을 구하려다 꾀 많은 토끼에게 속은 이야기도 있고, 인당수에 몸을 던진 심청을 구해 연꽃에 태워 보낸 이야기도 있어요. 뱃사람들은 바다에 나가기 전 용왕께 빌었지요.',
+  m_kkokdusoe: '남사당패의 우두머리를 꼭두쇠라 불렀어요. 남사당은 마을을 떠돌며 풍물, 대접 돌리기, 땅재주, 줄타기, 탈놀음, 인형극으로 사람들을 웃기고 울렸대요. 꼭두쇠는 그 모든 판을 이끄는 사람이었어요.',
+  m_gimseondal: '평양에 살던 꾀쟁이예요. 물장수들에게 미리 엽전을 쥐여 주고 물 값을 받는 척해서, 대동강 물이 제 것인 양 한양 상인에게 비싸게 팔았대요. 닭을 봉황이라 속여 판 장수를 거꾸로 골탕 먹인 일로 봉이 김선달이라 불렸어요.',
+  m_jangbogo: '신라 사람으로 당나라에 건너가 군인으로 이름을 떨쳤어요. 돌아와 완도에 청해진을 세우고 바다의 해적을 몰아냈고, 신라와 당과 일본을 잇는 바닷길 무역을 손에 쥐어 해상왕이라 불렸어요.',
+  m_honggildong: '판서의 아들이지만 서자로 태어나 아버지를 아버지라 부르지 못했대요. 집을 떠난 길동은 활빈당을 만들어 탐관오리의 재물을 빼앗아 가난한 백성에게 나눴고, 나중엔 바다 건너 율도국을 세웠어요. 허균이 쓴 소설로 전해져요.',
+  m_seolmundae: '제주를 만든 거인 할머니예요. 치마폭에 흙을 담아 날라 한라산을 쌓았고, 치마 구멍으로 흘린 흙덩이가 오름이 되었대요. 물이 깊다는 물장오리에 들어가 깊이를 재다 빠졌다는 이야기도 있어요.',
+  m_bihyeong: '신라 진지왕의 혼령과 도화녀 사이에서 태어났다고 해요. 밤마다 귀신들과 어울려 놀았는데, 왕이 시키자 귀신 무리를 부려 하룻밤 만에 다리를 놓았대요. 그래서 사람들은 비형랑의 이름을 적어 붙여 귀신을 쫓았어요.',
+  m_cheongryong: '동쪽을 지키는 푸른 용이에요. 고구려 무덤 벽에는 청룡, 백호, 주작, 현무 네 신이 방향마다 그려져 죽은 이를 지켰어요. 청룡은 봄과 나무의 기운을 맡는대요.',
+  m_jujak: '남쪽을 지키는 붉은 새예요. 여름과 불의 기운을 맡고, 날개를 펴면 불꽃이 인다고 해요. 고구려 강서대묘 벽화의 주작은 지금 봐도 날아오를 듯해요.',
+  m_baekho: '서쪽을 지키는 흰 호랑이예요. 가을과 쇠의 기운을 맡아 나쁜 기운을 막는대요. 집터나 묏자리를 볼 때도 좌청룡 우백호라 해서 양옆의 산을 청룡과 백호로 여겼어요.',
+  m_hyeonmu: '북쪽을 지키는 신으로 거북과 뱀이 한 몸으로 얽혀 있어요. 겨울과 물의 기운을 맡고, 단단한 등딱지로 무엇이든 막아 낸대요.',
+  m_hwangryong: '네 방향의 한가운데를 맡는 누런 용이에요. 청룡, 백호, 주작, 현무를 아우르는 으뜸이고 땅의 기운을 다스린대요. 신라는 궁궐을 지으려던 자리에 황룡이 나타나자 그곳에 황룡사를 지었어요.',
+  m_haedal: '떡 하나 주면 안 잡아먹지 하던 호랑이가 엄마를 잡아먹고, 엄마 옷을 입고 오누이를 찾아왔어요. 나무 위로 도망친 오누이가 하늘에 빌자 튼튼한 동아줄이 내려와 해와 달이 되었대요. 썩은 동아줄을 잡은 호랑이는 수수밭에 떨어졌고, 그래서 수숫대가 붉대요.',
+  m_hokburi: '턱에 큰 혹이 달린 영감이 산속 빈집에서 노래를 불렀더니 도깨비들이 몰려왔대요. 노래가 어디서 나오냐 묻자 영감은 혹에서 나온다고 둘러대, 혹도 떼고 보물도 받았어요. 이를 흉내 낸 욕심쟁이 영감은 혹을 하나 더 붙이고 돌아왔대요.',
+  m_namukkun: '사냥꾼에게 쫓기던 사슴을 숨겨 준 나무꾼이 그 보답으로 선녀의 날개옷 숨기는 법을 배웠어요. 아이 셋을 낳기 전엔 돌려주지 말라 했는데, 둘일 때 날개옷을 보여 주는 바람에 선녀는 아이들을 안고 하늘로 올라갔대요. 나무꾼은 두레박을 타고 하늘로 따라 올라갔어요.',
+  m_simcheong: '눈먼 아버지가 눈을 뜨게 하려고 공양미 삼백 석에 몸을 팔아 인당수에 뛰어든 효녀예요. 용왕이 심청을 구해 연꽃에 실어 보냈고, 왕비가 된 심청이 연 맹인 잔치에서 아버지는 눈을 번쩍 떴대요.',
+};
+const STORY_JADE = 5;
+/* bosses first in the order you meet them, then the mythics as the recipe book lists them */
+function storyKeys() {
+  const bosses = [];
+  for (const S of STAGES) for (const w of Object.keys(S.bosses).map(Number).sort((a, b) => a - b)) { const k = 'b_' + S.bosses[w]; if (!bosses.includes(k) && STORIES[k]) bosses.push(k); }
+  for (const k of Object.keys(BOSS_DEF)) if (!bosses.includes('b_' + k) && STORIES['b_' + k]) bosses.push('b_' + k);
+  return bosses.concat(MYTHS.map(M => 'm_' + M.id).filter(k => STORIES[k]));
+}
+const storyN = () => storyKeys().filter(k => SAVE.stories && SAVE.stories[k]).length;
+function storyTitle(k) { return k.startsWith('b_') ? (BOSS_DEF[k.slice(2)] || {}).name || '' : TYPES[TYPE_IX[k.slice(2)]].name; }
+/* a new page: a few 옥, a quiet toast, and the codex has it */
+function unlockStory(k) {
+  if (!STORIES[k] || !SAVE.stories || SAVE.stories[k]) return false;
+  SAVE.stories[k] = 1; SAVE.jade = (SAVE.jade || 0) + STORY_JADE; SAVE.stats.jadeEarned = (SAVE.stats.jadeEarned || 0) + STORY_JADE;
+  persist();
+  setTimeout(() => toast(`이야기 한 장이 열렸어요 · ${storyTitle(k)} · 옥 +${STORY_JADE} · 도감 이야기에서 볼 수 있어요`), 1400);
+  return true;
+}
+/* players from before this existed: what they already met opens quietly, without the 옥 */
+function storyBackfill(s) {
+  s.stories = s.stories && typeof s.stories === 'object' ? s.stories : {};
+  for (const id in s.made || {}) if (s.made[id] > 0 && STORIES['m_' + id]) s.stories['m_' + id] = s.stories['m_' + id] || 1;
+  /* bossBest holds the furthest boss wave beaten in each 고을, so every boss up to it was beaten */
+  STAGES.forEach((S, st) => { const top = (s.bossBest && s.bossBest[st]) || 0; for (const w in S.bosses) if (+w <= top && STORIES['b_' + S.bosses[w]]) s.stories['b_' + S.bosses[w]] = s.stories['b_' + S.bosses[w]] || 1; });
+}
+function storyHTML() {
+  return storyKeys().map(k => {
+    const open = SAVE.stories && SAVE.stories[k], boss = k.startsWith('b_'), id = k.slice(2);
+    const img = boss ? foePortraitURL(k, 52, !open) : portraitURL(id, 52, !open);
+    const T = boss ? null : TYPES[TYPE_IX[id]];
+    const game = boss ? (BOSS_DEF[id] || {}).note : T && T.skill ? `${T.skill}${T.desc ? ` · ${T.desc}` : ''}` : '';
+    if (!open) return `<div class="story is-lock"><img alt="" src="${img}"><div><div class="nm">???<small>${boss ? '보스' : '신화'}</small></div><p>${boss ? '이 보스를 처음 물리치면 열려요' : '이 신화를 처음 만들면 열려요'}</p></div></div>`;
+    return `<div class="story"><img alt="" src="${img}"><div><div class="nm">${esc(storyTitle(k))}<small>${boss ? '보스' : '신화'}</small></div><p>${esc(STORIES[k])}</p>${game ? `<p class="sg">게임에선 · ${esc(game)}</p>` : ''}</div></div>`;
+  }).join('');
+}
+/* the hidden 합동기: only the ones you found, and how many are still out there */
+function comboHTML() {
+  const found = COMBOS.filter(C => SAVE.combos && SAVE.combos[C.id]);
+  const rows = found.map(C => {
+    const A = TYPES[TYPE_IX[C.a]], B = TYPES[TYPE_IX[C.b]];
+    return `<div class="story combo"><span class="cpair"><img alt="" src="${portraitURL(A.id, 40)}"><img alt="" src="${portraitURL(B.id, 40)}"></span><div><div class="nm">${esc(C.name)}<small>${esc(A.name)} · ${esc(B.name)} · ${SAVE.combos[C.id]}번</small></div><p>${esc(C.line)}</p></div></div>`;
+  }).join('');
+  const left = COMBOS.length - found.length;
+  return rows + (left ? `<div class="story is-lock"><div><div class="nm">아직 못 찾은 합동기 ${left}개</div><p>둘이서 할 때 한 이야기에서 짝을 이루는 신화가 두 마당에 하나씩 있으면 가운데 길에서 같이 터져요</p></div></div>` : '<p class="meta">합동기를 모두 찾았어요!</p>');
+}
 /* ================= DOM UI, lobby, loop, boot ================= */
 const $ = id => document.getElementById(id);
 const el = {
@@ -7533,7 +7810,7 @@ const killsOf = u => (G.killBy && G.killBy[u.id]) || 0;
 const earnOf = u => (G.earnBy && G.earnBy[u.id]) || 0;
 const baseDmg = T => T.dmg * TIER_MUL[T.tier];
 function upTag(cur, T) { const d = cur - baseDmg(T); return d >= 1 ? `<span class="upv">▲${fmt(d)}</span>` : ''; }
-function unitInterval(u, i) { const T = TYPES[u.t]; return T.cd / ((i >= 0 && G.spd[i]) || 1) / (G.charmT > 0 ? CHARM.spd : 1) / (G.lotusT > 0 ? 1.6 : 1) * G.lvSpd[u.t] / (T.kind === 'pounce' ? 1 : (u.c || 1)); }
+function unitInterval(u, i) { const T = TYPES[u.t]; return T.cd / ((i >= 0 && G.spd[i]) || 1) / (G.charmT > 0 ? CHARM.spd : 1) / (G.lotusT > 0 ? 1.6 : 1) / (G.sea ? G.sea.as : 1) * G.lvSpd[u.t] / (T.kind === 'pounce' ? 1 : (u.c || 1)); }
 function hitNote(T) {
   switch (T.kind) {
     case 'double': return '한 번에 두 번';
@@ -7905,7 +8182,7 @@ const RUN_KEY = 'talnori-run-v4';
 const netCoop = () => COOP.on && NET.kind !== 'ai';
 function saveRun() {
   if (!G || G.phase !== 'play' || netCoop()) return;
-  try { const s = serialize(); if (NET.kind === 'ai') s.ai = aiSave(); localStorage.setItem(RUN_KEY, JSON.stringify(s)); } catch (err) { /* ignore */ }
+  try { const s = serialize(); s.hon += JOINT.a; if (NET.kind === 'ai') s.ai = aiSave(); localStorage.setItem(RUN_KEY, JSON.stringify(s)); } catch (err) { /* ignore */ }
 }
 function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (err) { /* ignore */ } }
 function savedRun() { try { const s = JSON.parse(localStorage.getItem(RUN_KEY) || 'null'); return s && s.v >= 6 && s.v <= 8 && s.phase === 'play' ? s : null; } catch (err) { return null; } }
@@ -8114,8 +8391,8 @@ function renderTab() {
     b.innerHTML = `<div class="sumcard"><div class="qhead"><h3 class="sect" style="--g:var(--dan-gold)"><i></i>도감 <span class="num">${cc}/${LIVE.length}</span> <small>도깨비 ${fc}/${FOE_KEYS.length}</small></h3>${curHTML(true)}</div><div class="bar"><i style="width:${Math.round((cc + fc) / (LIVE.length + FOE_KEYS.length) * 100)}%"></i></div>
       <p class="meta">판에서 처음 만난 동료와 도깨비가 도감에 올라가요. 못 만난 동료는 ???로 가려져 있어요. 새 동료는 은전 100, 새 도깨비는 은전 50을 줘요</p>
       <p class="meta">판이 끝나면 만난 동료의 조각과 향을 받아요. 동료는 레벨마다 공격력 15%, 3·6·9·12레벨에 새 능력. 신화는 레벨마다 12%, 5레벨 각성 10레벨 신물. 15레벨 승천은 곧 열려요</p>
-      <div class="chips"><button class="chipbtn" type="button" data-filter="all" aria-pressed="${codexFilter === 'all'}">동료</button><button class="chipbtn" type="button" data-filter="lv" aria-pressed="${codexFilter === 'lv'}">올릴 수 있는 동료 ${nl}</button><button class="chipbtn" type="button" data-filter="foe" aria-pressed="${codexFilter === 'foe'}">도깨비</button></div></div>
-      ${codexFilter === 'foe' ? foeHTML() : (codexHTML(true).replace(/^\s*$/, '') || '<p class="meta">지금 올릴 수 있는 동료가 없어요. 판을 더 돌거나 장터에서 조각을 모아 보세요</p>')}`;
+      <div class="chips"><button class="chipbtn" type="button" data-filter="all" aria-pressed="${codexFilter === 'all'}">동료</button><button class="chipbtn" type="button" data-filter="lv" aria-pressed="${codexFilter === 'lv'}">올릴 수 있는 동료 ${nl}</button><button class="chipbtn" type="button" data-filter="foe" aria-pressed="${codexFilter === 'foe'}">도깨비</button><button class="chipbtn" type="button" data-filter="story" aria-pressed="${codexFilter === 'story'}">이야기 ${storyN()}/${storyKeys().length}</button>${Object.keys(SAVE.combos || {}).length ? `<button class="chipbtn" type="button" data-filter="combo" aria-pressed="${codexFilter === 'combo'}">합동기 ${Object.keys(SAVE.combos).length}/${COMBOS.length}</button>` : ''}</div></div>
+      ${codexFilter === 'story' ? `<p class="meta">보스를 처음 물리치거나 신화를 처음 만들면 그 이야기가 열려요. 새 이야기마다 옥 ${STORY_JADE}</p>${storyHTML()}` : codexFilter === 'combo' ? comboHTML() : codexFilter === 'foe' ? foeHTML() : (codexHTML(true).replace(/^\s*$/, '') || '<p class="meta">지금 올릴 수 있는 동료가 없어요. 판을 더 돌거나 장터에서 조각을 모아 보세요</p>')}`;
   } else if (curTab === 'quest') {
     const all = SAVE.quests.list.every(q => q.claimed), got = SAVE.qbonus === SAVE.quests.day;
     b.innerHTML = `<div class="qhead"><h3 class="sect" style="--g:var(--dan-gold)"><i></i>오늘의 퀘스트</h3>${curHTML()}</div><p class="meta">${untilMidnight()} 뒤 새 퀘스트로 바뀌어요. 진행은 판이 끝날 때 쌓여요</p>${questRows(SAVE.quests.list, questDef, 'd')}
@@ -8259,7 +8536,7 @@ function renderMissSheet(force) {
   }).join('');
 }
 /* the 임무 and 도움말 sheets close when another sheet opens */
-function closeSide() { const a = $('msheet'), b = $('hsheet'); if (a) a.hidden = true; if (b) b.hidden = true; }
+function closeSide() { const a = $('msheet'), b = $('hsheet'), c = $('jsheet'); if (a) a.hidden = true; if (b) b.hidden = true; if (c) c.hidden = true; }
 function openMiss() { closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; hsheet.hidden = true; msheet.hidden = false; renderMissSheet(true); sfx('click'); }
 function closeMiss() { msheet.hidden = true; }
 $('mClose').addEventListener('click', closeMiss);
@@ -8274,13 +8551,16 @@ const HELP = [
 ];
 function openHelp() {
   closeRecipes(); closeChal(); closeSide(); el.gsheet.hidden = true; msheet.hidden = true;
-  hlist.innerHTML = `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 가운데 길은 둘이 같이 써요. 가운데 길을 지나는 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
+  const sea = seasonOf();
+  hlist.innerHTML = (sea ? `<div class="hduo sea"><b>절기 · ${sea.name}</b>${esc(sea.line)} · ${esc(sea.desc)}. 판마다 24절기 중 하나가 걸려요. 둘이서 하면 둘 다 같은 절기예요</div>` : '') + `<div class="hduo">${R.duo ? '<b>둘이서</b> 위가 동료 마당, 아래가 내 마당이에요. 가운데 길은 둘이 같이 써요. 가운데 길을 지나는 동료 쪽 도깨비도 내 동료가 때릴 수 있어요. 보스는 둘이 같이 잡아요' : '<b>혼자 하기</b> 둘이서 하면 가운데 길을 같이 쓰고 보스도 같이 잡아요'}</div>` +
     HELP.map(([name, ix]) => `<details${name === '기본' ? ' open' : ''}><summary>${name}</summary><ul>${ix.filter(i => HINTS[i]).map(i => `<li>${esc(HINTS[i])}</li>`).join('')}</ul></details>`).join('') +
     `<details><summary>화면 읽기</summary><ul><li>위 막대는 마당 위 도깨비 수예요. 100이 되면 져요</li><li>칸을 누르면 아래 막대에 그 동료가 나와요. 이름을 누르면 자세한 설명이 열려요</li><li>도깨비를 누르면 남은 체력을 볼 수 있어요</li><li>반짝이 단추로 화려한 효과를 끄고 켤 수 있어요</li></ul></details>`;
   hsheet.hidden = false; sfx('click');
 }
 function closeHelp() { hsheet.hidden = true; }
 $('hClose').addEventListener('click', closeHelp);
+/* tap the line under the 도깨비 bar to see what this 절기 does */
+$('bossRow').addEventListener('click', () => { const s = seasonOf(); if (s && G.phase === 'play' && !G.boss) toast(`${s.name} · ${s.line} · ${s.desc}`); });
 el.info.addEventListener('click', e => {
   if (e.target.closest('[data-tip]')) return;
   const b = e.target.closest('[data-open]'); if (!b) return;
@@ -8319,7 +8599,8 @@ function uiTick(dt) {
   } else {
     setClass(el.bossRow, 'br', 'is-on', false);
     const nb = Math.min(LAST_WAVE, Math.max(10, Math.ceil((Math.max(1, G.wave) + 1) / 10) * 10)), B = bossAt(nb), S = STAGES[G.stage];
-    setText(el.bossName, 'bn', B && G.wave <= nb ? `${S.name} · 다음 보스 · 제 ${nb} 마당 ${B.name}` : S.name);
+    const sea = seasonOf(), sn = sea ? ` · ${sea.name}` : '';
+    setText(el.bossName, 'bn', B && G.wave <= nb ? `${S.name}${sn} · 다음 보스 · 제 ${nb} 마당 ${B.name}` : `${S.name}${sn}`);
     setText(el.bossTime, 'bt', '');
   }
   setText(el.summonCost, 'sc', fmtC(summonCost()));
@@ -8392,8 +8673,11 @@ function startGame() {
   const st = R.coopStage != null ? R.coopStage : stageUnlocked(SAVE.stageSel) ? SAVE.stageSel : 0;
   R.theme = STAGES[st].theme;
   R.pickExp = false; R.pickSel = []; R.expInfo = false;
-  R.duo = !!COOP.on; PVIS.clear();
+  R.duo = !!COOP.on; PVIS.clear(); jointReset(); closeJoint();
   newGame(lvMulArr(), lvSpdArr(), st, relicBonuses()); cache.save = 0; cache.coinShow = null;
+  /* this run's 절기: from the round with a friend, otherwise any of the 24 */
+  const sea = applySeason(R.seaPick != null ? R.seaPick : Math.floor(Math.random() * SEASONS.length)); R.seaPick = null;
+  setTimeout(() => { if (G.phase === 'play' && G.wave <= 1) toast(`이번 판은 ${sea.name} · ${sea.line} · ${sea.desc}`); }, 2600);
   cache.infoKey = ''; cache.vo = -1;
   layout(); refreshInfo(); refreshUps();
   musicMode('play');
@@ -8563,6 +8847,7 @@ function frame(now) {
   if (G.phase === 'play' && !G.paused) {
     let simDt = dt * G.speed * (R.slowmo > 0 ? 0.3 : 1);
     while (simDt > 1e-6 && G.phase === 'play') { const s = Math.min(simDt, 1 / 60); update(s); if (AI.on && G.phase === 'play') aiStep(s); simDt -= s; }
+    if (R.duo) { jointTick(dt); comboTick(dt * G.speed); }
   } else if (G.phase === 'title') titleTick(dt);
   if (R.slowmo > 0) R.slowmo -= dt;
   if (G.phase === 'win' && Math.random() < dt * 3) { const x = rand(-3, 3), y = rand(-3, 2); burst(x, y, rand(1.5, 2.5), 24, OBANG, 3.5, 0.06, 1.4, { g: 2 }); }
@@ -8678,7 +8963,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !mythOv.hi
    the partner's yard for the mini view, their damage to the current boss, coins they sent, the host's clock.
    transport, first that works: the claude.ai room (inside claude.ai), a direct browser to browser link through PeerJS
    (the standalone build, no accounts), or a BroadcastChannel between tabs of this browser (testing) */
-el.coopOv = $('coopOv'); el.coopCard = $('coopCard'); el.coopBox = $('coopBox'); el.coopCv = $('coopCv'); el.coopGift = $('coopGift');
+el.coopOv = $('coopOv'); el.coopCard = $('coopCard'); el.coopBox = $('coopBox'); el.coopCv = $('coopCv'); el.coopGift = $('coopGift'); el.coopJoint = $('coopJoint');
 const NET = { link: null, kind: '', code: '', role: '', peers: new Map(), srv: '', err: '' };
 const CO = { hitSeq: 0, hitIn: 0, hitAck: 0, hitLog: [], hitsQ: [], pAt: 0, nick: '', partner: null, rd: '', giftSent: 0, giftGot: 0, lost: false, ph: 'lobby', sendT: 0, big: false, left: false, imgs: new Map() };
 try { CO.nick = localStorage.getItem('talnori-nick') || ''; } catch (err) { /* ignore */ }
@@ -8818,6 +9103,7 @@ function coopSnap() {
     o.hz = CO.hitLog; o.ha = CO.hitIn;
     o.bw = COOP.bossW; o.bd = Math.round(COOP.bossDmg); o.bh = G.boss && !G.boss.dead ? Math.round(G.boss.hp / G.boss.max * 100) : -1;
     o.gs = CO.giftSent;
+    o.jg = [JOINT.n, JOINT.a]; if (CO.jr) o.jr = CO.jr;
     o.mo = STAGES[G.stage || 0].myths.filter(id => !MYTH_BY[id].secret && mythOpenSelf(id, G.stage || 0));
   }
   o.lost = CO.lost;
@@ -8839,7 +9125,7 @@ function onNet() {
       if (Array.isArray(np.hz)) for (const b of np.hz) if (Array.isArray(b) && b[0] > CO.hitIn) { CO.hitIn = b[0]; if (Array.isArray(b[1])) CO.hitsQ.push(...b[1]); }
     }
   }
-  if (!CO.partner && before && CO.ph === 'play') { toast(`${before.nm || '친구'}가 나갔어요 · 혼자 계속해요`); }
+  if (!CO.partner && before && CO.ph === 'play') { toast(`${before.nm || '친구'}가 나갔어요 · 혼자 계속해요`); jointGone(); }
   const p = CO.partner;
   /* the guest starts when the host does */
   if (p && NET.role === 'guest' && p.ph === 'start' && p.rd && p.rd !== CO.rd) coopBegin(p.st, p.rd);
@@ -8857,12 +9143,12 @@ function coopStart() {
   setTimeout(() => coopBegin(SAVE.stageSel || 0, rd, true), 600);
 }
 function coopBegin(st, rd, host) {
-  el.coopGift.hidden = false; R.duo = true; CO.hitSeq = 0; CO.hitIn = 0; CO.hitAck = 0; CO.hitLog = []; CO.hitsQ = []; NETF.clear();
+  el.coopGift.hidden = false; el.coopJoint.hidden = false; jointReset(); CO.jr = null; R.duo = true; CO.hitSeq = 0; CO.hitIn = 0; CO.hitAck = 0; CO.hitLog = []; CO.hitsQ = []; NETF.clear();
   CO.rd = rd; CO.st = st; CO.giftSent = 0; CO.giftGot = 0; CO.lost = false; CO.ph = 'play'; CO.mm = false; CO.mmAuto = false;
   AI.on = false; R.mode = 'net';
   COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0; COOP.sync = NET_SYNC;
   el.coopOv.hidden = true; el.endOv.hidden = true;
-  R.coopStage = st; startGame(); R.coopStage = null;
+  R.coopStage = st; R.seaPick = seaFromRd(rd); startGame(); R.coopStage = null;
   el.coopBox.hidden = false; placeCoopBox(); renderGiftBtn();
   toast(host ? `${pname()}와 같이 시작! 보스는 둘이 같이 잡아요` : `${pname()}의 방에서 같이 시작! 보스는 둘이 같이 잡아요`);
 }
@@ -8892,11 +9178,12 @@ COOP.sync = () => {
 };
 const NET_SYNC = COOP.sync;
 COOP.onEnd = reason => {
+  jointReset(); closeJoint();
   if (reason !== 'win' && reason !== 'partner') CO.lost = true;
   CO.ph = 'over';
   if (NET.link) NET.link.send(coopSnap());
 };
-function coopLeaveRun() { COOP.on = false; CO.ph = 'lobby'; el.coopBox.hidden = true; R.duo = false; NETF.clear(); if (NET.kind === 'ai') { aiStop(); netClose(); NET.role = ''; } }
+function coopLeaveRun() { jointReset(); closeJoint(); COOP.on = false; CO.ph = 'lobby'; el.coopBox.hidden = true; R.duo = false; NETF.clear(); if (NET.kind === 'ai') { aiStop(); netClose(); NET.role = ''; } }
 
 /* ---------- the partner's yard on your field ----------
    with the AI it is its real state. with a friend it is rebuilt from their last message: each 도깨비 keeps
@@ -8949,7 +9236,7 @@ function aiLink() {
   CO.rd = 'ai' + Math.random().toString(36).slice(2, 7); CO.giftSent = 0; CO.giftGot = 0; CO.lost = false; CO.ph = 'play'; CO.mm = false; CO.mmAuto = false;
 }
 function aiShow() {
-  CO.partner = aiSnap(); el.coopGift.hidden = false;
+  CO.partner = aiSnap(); el.coopGift.hidden = false; el.coopJoint.hidden = false;
   el.coopOv.hidden = true; el.endOv.hidden = true;
   el.coopBox.hidden = false; placeCoopBox(); renderGiftBtn();
 }
@@ -8958,6 +9245,7 @@ function aiBegin() {
   COOP.on = true; COOP.bossW = 0; COOP.bossDmg = 0; COOP.pApplied = 0; COOP.sync = aiSyncMe;
   R.mode = 'ai'; startGame();
   aiNew(lvMulArr(), lvSpdArr(), G.stage, relicBonuses());
+  const sk = G.sea ? G.sea.k : 0; withAI(() => applySeason(sk));
   aiShow();
   toast(`AI ${AI.nm}와 같이 시작! 마당은 각자, 보스는 둘이 같이 잡아요`);
 }
@@ -8974,7 +9262,7 @@ function aiSnap() {
 function aiSave() {
   if (NET.kind !== 'ai' || !AI.G) return null;
   const me = G; let st = null;
-  try { G = AI.G; st = AI.out ? null : serialize(); } finally { G = me; }
+  try { G = AI.G; st = AI.out ? null : serialize(); if (st) st.hon += JOINT.b; } finally { G = me; }
   return { st, co: AI.co, nm: AI.nm, out: AI.out || !st, gift: AI.gift, giftGot: AI.giftGot, sent: AI.sent, sentGot: AI.sentGot, coop: { on: COOP.on, bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied } };
 }
 function aiResume(a) {
@@ -8995,7 +9283,7 @@ setInterval(() => {
   const now = Date.now();
   if (NET.kind === 'local') { let gone = false; for (const [k, v] of NET.peers) if (now - v.at > 6000) { NET.peers.delete(k); gone = true; } if (gone) onNet(); }
   CO.sendT -= 0.25;
-  if (NET.kind === 'ai') { if (AI.G) CO.partner = aiSnap(); el.coopGift.hidden = AI.out || !AI.G; }
+  if (NET.kind === 'ai') { if (AI.G) CO.partner = aiSnap(); el.coopGift.hidden = el.coopJoint.hidden = AI.out || !AI.G; }
   else if (CO.ph === 'play' || CO.sendT <= 0) { CO.sendT = 1; NET.link.send(coopSnap()); }
   if (CO.ph === 'play' && !el.coopBox.hidden) drawPartner();
 }, 250);
@@ -9243,6 +9531,119 @@ el.coopGift.addEventListener('click', () => {
 });
 window.addEventListener('pagehide', () => { mmStop(); netClose(); });
 
+/* ---------- 합동 굿: the button, the sheet, and keeping the two tables in step ----------
+   with the AI everything is here. with a friend each side sends what it has on the table; the host rolls
+   and sends the grade, and the guest gets back any 혼 it added after the host rolled */
+const jsheet = $('jsheet'), jlist = $('jlist');
+const jointAuth = () => NET.kind === 'ai' || NET.role === 'host';
+function withAI(fn) { if (!AI.G) return; const me = G, t0 = toast; G = AI.G; toast = noop; try { return fn(); } finally { G.ev.length = 0; G = me; toast = t0; } }
+function jointPut() {
+  if (!R.duo || G.phase !== 'play') return;
+  if (NET.kind === 'ai' ? AI.out || !AI.G : !CO.partner) { toast('같이 할 동료가 없어요'); return; }
+  if (JOINT.a >= JOINT.MAX) { toast(`혼은 ${JOINT.MAX}까지 올릴 수 있어요`); return; }
+  if (G.hon < 1) { toast('혼이 모자라요'); return; }
+  if (!emptyCells().length) { toast('빈 칸이 하나 있어야 합동 굿 동료를 받을 수 있어요'); return; }
+  G.hon -= 1; JOINT.a++; sfx('click');
+  if (JOINT.a === 1 && !JOINT.b) toast(`굿상에 혼을 올렸어요 · ${pname()}가 같이 올리면 굿을 벌여요`);
+  renderJoint(true);
+}
+function jointTake() {
+  if (!JOINT.a) return;
+  if (JOINT.b) { toast(`${pname()}도 혼을 올려서 이제 거둘 수 없어요`); return; }
+  G.hon += JOINT.a; JOINT.a = 0; toast('올린 혼을 거뒀어요'); renderJoint(true);
+}
+/* the partner is gone: your 혼 comes back */
+function jointGone() { if (JOINT.a && G && G.phase === 'play') { G.hon += JOINT.a; toast(`굿상에 올린 혼 ${JOINT.a}을 돌려받았어요`); } jointReset(); renderJoint(true); }
+function jointResolve(tier, seen) {
+  const mine = JOINT.a, theirs = JOINT.b, T = Math.min(mine, seen == null ? mine : seen) + theirs;
+  if (seen != null && mine > seen) G.hon += mine - seen;
+  const t = mine ? jointAward(tier, Math.min(mine, seen == null ? mine : seen)) : -1;
+  if (NET.kind === 'ai' && theirs) withAI(() => jointAward(tier, theirs));
+  JOINT.n++; JOINT.a = 0; JOINT.b = 0; JOINT.t = JOINT.WAIT; JOINT.ka = 0; JOINT.kb = 0;
+  if (mine) {
+    const nm = t >= 0 ? TYPES[t].name : '';
+    if (tier >= 3) showBanner('합동 굿', `신이 내렸다! 둘 다 전설 · 나는 ${nm}`, false, true);
+    toast(t >= 0 ? `합동 굿 효험! 혼 ${T} · 둘 다 ${TIERS[tier].name} · 나는 ${nm}` : '빈 칸이 없어서 올린 혼을 돌려받았어요');
+    sfx(tier >= 3 ? 'craft' : 'gut');
+  }
+  renderJoint(true);
+}
+function jointTick(dt) {
+  if (!R.duo || G.phase !== 'play') return;
+  if (NET.kind !== 'ai') {
+    const p = CO.partner, live = p && p.rd === CO.rd && p.ph === 'play';
+    JOINT.b = live && Array.isArray(p.jg) && p.jg[0] === JOINT.n ? Math.max(0, Math.min(JOINT.MAX, p.jg[1] | 0)) : 0;
+    if (NET.role === 'guest' && live && Array.isArray(p.jr) && p.jr[0] === JOINT.n) { jointResolve(Math.max(1, Math.min(3, p.jr[1] | 0)), p.jr[2] | 0); return; }
+  }
+  /* the partner just opened a table, or put more on yours */
+  if (JOINT.b !== JOINT.kb) {
+    if (JOINT.b > JOINT.kb && !JOINT.a && !JOINT.kb) { toast(`${pname()}가 굿상에 혼 ${JOINT.b}을 올렸어요 · 합동 굿 단추로 같이 올려요`); sfx('click'); }
+    else if (JOINT.b > JOINT.kb && JOINT.a) toast(`${pname()}도 혼을 올렸어요 · 굿상에 혼 ${JOINT.a + JOINT.b}`);
+    JOINT.kb = JOINT.b; JOINT.t = JOINT.WAIT;
+  }
+  if (JOINT.a !== JOINT.ka) { JOINT.ka = JOINT.a; JOINT.t = JOINT.WAIT; }
+  if (JOINT.a > 0 && JOINT.b > 0) {
+    if (!G.paused) JOINT.t -= dt;
+    if (JOINT.t <= 0 && jointAuth()) {
+      const tier = jointRoll(JOINT.a + JOINT.b);
+      if (NET.kind !== 'ai') CO.jr = [JOINT.n, tier, JOINT.b];
+      jointResolve(tier, null);
+      return;
+    }
+  } else JOINT.t = JOINT.WAIT;
+  renderJoint(false);
+}
+function renderJoint(force) {
+  const b = el.coopJoint; if (!b) return;
+  const a = JOINT.a, o = JOINT.b, both = a > 0 && o > 0, sec = Math.max(0, Math.ceil(JOINT.t));
+  const label = both ? `합동 굿 · ${sec}초` : a ? `합동 굿 · 혼 ${a}` : o ? `합동 굿 · 동료 혼 ${o}!` : '합동 굿';
+  if (b.textContent !== label) b.textContent = label;
+  b.classList.toggle('is-call', !a && o > 0); b.classList.toggle('is-on', a > 0);
+  if (jsheet.hidden) return;
+  const key = [a, o, both ? sec : -1, Math.floor(G.hon), JOINT.n].join(':');
+  if (!force && key === cache.jgKey) return;
+  cache.jgKey = key;
+  const T = a + o, [pr, ph, pl] = jointOdds(Math.max(2, T)), dots = n => Array.from({ length: JOINT.MAX }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+  const state = both ? `${sec}초 뒤에 굿을 벌여요 · 더 올릴 수 있어요` : a ? `${pname()}를 기다려요` : o ? `${pname()}가 기다려요 · 혼을 올리면 같이 벌여요` : '먼저 혼을 올려 보세요';
+  jlist.innerHTML = `<div class="jtable"><div class="jside"><b>나</b><span class="jdots">${dots(a)}</span><small>혼 ${a}</small></div><div class="jmid">굿상<b>${T}</b>혼</div><div class="jside"><b>${esc(pname())}</b><span class="jdots">${dots(o)}</span><small>혼 ${o}</small></div></div>
+    <div class="jodds"><span>${T >= 2 ? '' : '둘 다 1씩이면 '}전설 ${Math.round(pl * 100)}%</span><span>영웅 ${Math.round(ph * 100)}%</span><span>희귀 ${Math.round(pr * 100)}%</span><span>꽝 없음</span></div>
+    <div class="jstate">${state}</div>
+    <div class="jbtns"><button class="btn-sub jput" type="button" id="jPut"${a >= JOINT.MAX || G.hon < 1 ? ' disabled' : ''}>혼 1 올리기 <small>(가진 혼 ${Math.floor(G.hon)})</small></button>${a && !o ? '<button class="btn-sub" type="button" id="jTake">거두기</button>' : ''}</div>
+    <p class="jnote">혼은 한 사람이 ${JOINT.MAX}까지 올릴 수 있고, 많이 올릴수록 좋은 등급이 나와요. 마지막으로 올린 뒤 ${JOINT.WAIT}초 있다가 굿을 벌이고, 둘 다 같은 등급의 동료를 각자 받아요. 그동안 내 굿 단추는 따로 쓸 수 있어요</p>`;
+}
+function openJoint() { closeSide(); closeRecipes(); closeChal(); el.gsheet.hidden = true; jsheet.hidden = false; renderJoint(true); sfx('click'); }
+function closeJoint() { if (jsheet) jsheet.hidden = true; }
+el.coopJoint.addEventListener('click', () => { if (jsheet.hidden) openJoint(); else closeJoint(); });
+$('jClose').addEventListener('click', closeJoint);
+jlist.addEventListener('click', e => { if (e.target.closest('#jPut')) jointPut(); else if (e.target.closest('#jTake')) jointTake(); });
+
+/* ---------- 절기 with a friend: both read it off the round id, so nobody has to send it ---------- */
+function seaFromRd(rd) { let h = 7; for (const ch of String(rd || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % SEASONS.length; }
+
+/* ---------- 숨은 합동기: each yard checks for itself what the two yards hold ---------- */
+let comboT = 0;
+function partnerTypes() {
+  if (NET.kind === 'ai') return AI.G && !AI.out ? new Set(AI.G.units.filter(Boolean).map(u => TYPES[u.t].id)) : null;
+  const p = CO.partner; if (!p || p.rd !== CO.rd || p.ph !== 'play') return null;
+  return new Set(netUnits(p).filter(Boolean).map(u => TYPES[u.t].id));
+}
+function comboTick(dt) {
+  if (!R.duo || G.phase !== 'play') return;
+  comboT -= dt; if (comboT > 0) return;
+  comboT = 0.5;
+  const theirs = partnerTypes(); if (!theirs || !theirs.size) return;
+  const mine = new Set(G.units.filter(Boolean).map(u => TYPES[u.t].id));
+  for (const C of COMBOS) {
+    if (!comboLive(C, mine, theirs) || !comboReady(C)) continue;
+    comboFire(C);
+    if (NET.kind === 'ai' && AI.G && !AI.out) withAI(() => { if (!(G.comboCd && G.comboCd[C.id] > 0)) comboFire(C); });
+    const first = !SAVE.combos[C.id];
+    SAVE.combos[C.id] = (SAVE.combos[C.id] || 0) + 1; persist();
+    if (first) setTimeout(() => toast(`숨은 합동기를 찾았어요! ${C.name} · 도감 합동기에 남았어요`), 2200);
+    if (G.phase !== 'play') return;
+  }
+}
+
 /* beside the yard when there is room (laptop, tablet on its side), otherwise a one-line strip under the top bar */
 function placeCoopBox() {
   const wide = document.body.classList.contains('wide'), hud = document.getElementById('hud');
@@ -9275,7 +9676,7 @@ function joinFromLink() {
 }
 
 /* ---------- 폰 앱: install to the home screen, play offline, keep the screen on ---------- */
-const APP_BUILD = 'dde0248947';
+const APP_BUILD = '81377d8978';
 const APP = (() => {
   const ua = navigator.userAgent || '', mq = q => { try { return matchMedia(q).matches; } catch (err) { return false; } };
   const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -9375,7 +9776,7 @@ if ('serviceWorker' in navigator && !window.claude && (location.protocol === 'ht
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 joinFromLink();
-window.__tal = { netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+window.__tal = { JOINT, jointPut, COMBOS, SEASONS, seasonOf, storyN, unlockStory, comboTick, netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 
 })();
 </script>
