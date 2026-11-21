@@ -26,6 +26,25 @@ function auInit() {
     if (AU.want !== 'off') musicMode(AU.want, true);
   } catch (err) { AU.ctx = null; }
 }
+/* iPhone: the ringer switch silences web audio unless the page says it is a player, and sound only starts from a tap.
+   so on the first touch anywhere: ask to be a player, start the context, and play one silent sample to open the door */
+const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+function auUnlock() {
+  if (!AU.on) return;
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (err) { /* ignore */ }
+  auInit();
+  if (!AU.ctx) return;
+  if (AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {});
+  if (AU.unlocked) return;
+  AU.unlocked = true;
+  try { const s = AU.ctx.createBufferSource(); s.buffer = AU.ctx.createBuffer(1, 1, 22050); s.connect(AU.ctx.destination); s.start(0); } catch (err) { /* ignore */ }
+  /* older iPhones without that switch: a looping silent clip puts the page in player mode */
+  if (!navigator.audioSession && /iP(hone|ad|od)/.test(navigator.userAgent)) {
+    try { const a = new Audio(SILENT_WAV); a.loop = true; a.setAttribute('playsinline', ''); a.volume = 0.01; a.play().catch(() => {}); AU.keep = a; } catch (err) { /* ignore */ }
+  }
+}
+if (typeof window !== 'undefined') for (const ev of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(ev, auUnlock, { capture: true, passive: true });
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { if (!document.hidden && AU.ctx && AU.on && AU.ctx.state !== 'running') AU.ctx.resume().catch(() => {}); });
 function impulse(c, sec, decay) {
   const n = Math.floor(c.sampleRate * sec), b = c.createBuffer(2, n, c.sampleRate);
   for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay); }

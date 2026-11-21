@@ -9,7 +9,7 @@ const cv = typeof document !== 'undefined' ? document.getElementById('cv') : nul
 const ctx = cv ? cv.getContext('2d') : null;
 const BG = typeof document !== 'undefined' ? document.createElement('canvas') : null;
 const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const UNIT_H = 1.12, FOE_H = 0.6;
+const UNIT_H = 1.12, FOE_H = 0.52;
 /* R.flip draws the partner's yard: its own coordinates turned half a circle above yours */
 const wx = x => R.OX + x * R.CS, wy = y => R.OY + (R.flip ? -2 * HY - y : y) * R.CS;
 
@@ -211,7 +211,8 @@ function drawPuppetHi(g, id, x, y, k, pose, face, alpha = 1, tint = 0) {
 let PIXEL = false;
 const PIX = { cache: new Map(), fit: new Map(), px: 1, snap: 1, ol: true, art: 32 };
 const PIX_MAXH = 128;
-const PIX_UNIT = 0.74, UNIT_S = PIX_UNIT, PIX_BOX = [-170, -240, 170, 30];
+/* companions drawn a little smaller than the pixel set, so a full yard still reads at a glance */
+const PIX_UNIT = 0.74, UNIT_S = 0.62, PIX_BOX = [-170, -240, 170, 30];
 function pixBake(key, sA, box, render, noOl) {
   const ck = key + '@' + Math.round(sA * 500);
   let e = PIX.cache.get(ck); if (e) return e;
@@ -1197,7 +1198,7 @@ function renderFrame(dt) {
   for (const f of G.foes) if (!f.dead) DRAWLIST.push({ y: f.y + (f.boss ? 0.2 : 0.06), k: 1, o: f });
   DRAWLIST.sort((a, b) => a.y - b.y);
   for (const d of DRAWLIST) { if (d.k) drawFoe(g, d.o); else drawUnit(g, d.o); }
-  if (R.names && G.phase === 'play') drawNames(g);
+
   if (G.phase === 'play' && R.pickExp) drawExpPick(g);
   for (const s of G.shots) if (!s.dead) drawShot(g, s);
   if (G.sky) { R.skyA = Math.min(1, (R.skyA || 0) + dt * 2); R.skyK = G.sky; } else R.skyA = Math.max(0, (R.skyA || 0) - dt * 2);

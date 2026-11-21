@@ -564,7 +564,7 @@ function spawnFoe() {
   if (S.special && w >= 3 && Math.random() < 0.25) kind = S.special;
   else if (w > BREAK_WAVE && Math.random() < 0.2) kind = 4 + Math.floor(Math.random() * 4);
   const F = FOES[kind];
-  const f = newFoe(kind, hpAt(w) * F.hpMul, F.speed * S.spd * (1 + w * 0.004) * (G.sea ? G.sea.fspd : 1), 0.28, { lane: rand(-0.18, 0.18), reward: killCoins(w) });
+  const f = newFoe(kind, hpAt(w) * F.hpMul, F.speed * S.spd * (1 + w * 0.004) * (G.sea ? G.sea.fspd : 1), 0.28, { lane: nextLane(), reward: killCoins(w) });
   if (F.armor) f.armor = 1;
   if (F.revive) f.rev = 1;
   if (F.split) f.split = 1;
@@ -1339,6 +1339,8 @@ function kill(f, final) {
 function slowFoe(f, amt, dur) { if (f.big) amt *= 0.5; f.slowAmt = f.slowT > 0 ? Math.max(f.slowAmt, amt) : amt; f.slowT = Math.max(f.slowT, dur); }
 function stunFoe(f, dur) { if (f.big) dur *= 0.25; f.stunT = Math.max(f.stunT, dur); }
 /* how fast a 도깨비 walks right now, for the partner's picture of it */
+/* each new 도깨비 takes the next lane across the road, so a crowd fans out instead of stacking on one line */
+function nextLane() { G.laneK = ((G.laneK || 0) + 0.618034) % 1; return (G.laneK - 0.5) * 0.5; }
 function foeSpeedNow(f) { let v = f.speed; if (f.slowT > 0) v *= 1 - f.slowAmt; if (f.revT > 0) v = -0.6 * Math.abs(v); if (f.stunT > 0) v = 0; if (f.hidden > 0) v *= 1.6; return v; }
 function knock(f, d) { if (f.dead) return; f.d = Math.max(0, f.d - (f.big ? d * 0.25 : d)); placeFoe(f); }
 /* coins a companion earns are counted for it, like kills, so its card can say how much it brought in */
@@ -1908,7 +1910,7 @@ function aiSyncAi() {
 }
 function aiStep(dt) {
   if (!AI.on || AI.out || !AI.G || AI.G.phase !== 'play') return;
-  AI.me = { bd: COOP.bossDmg, bw: COOP.bossW, wave: G.wave, waveT: G.waveT, coins: G.coins };
+  AI.me = { bd: COOP.bossDmg, bw: COOP.bossW, wave: G.wave, waveT: G.waveT, coins: G.coins, myth: G.units.filter(u => u && TYPES[u.t].tier >= 4).length };
   const me = G, mine = { bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied, sync: COOP.sync }, t0 = toast, e0 = onEnd, fx = FX_ON;
   let fell = false;
   G = AI.G; COOP.bossW = AI.co.bossW; COOP.bossDmg = AI.co.bossDmg; COOP.pApplied = AI.co.pApplied; COOP.sync = aiSyncAi;
@@ -1919,7 +1921,7 @@ function aiStep(dt) {
     applyHits(me.outHits); me.outHits.length = 0;
     if (G.phase === 'play') update(dt);
     AI.t -= dt;
-    if (AI.t <= 0 && G.phase === 'play') { AI.t = 0.3; aiThink(); }
+    if (AI.t <= 0 && G.phase === 'play') { AI.t = AI_THINK; aiThink(); }
     fell = G.phase !== 'play' && G.phase !== 'win';
   } finally {
     AI.co = { bossW: COOP.bossW, bossDmg: COOP.bossDmg, pApplied: COOP.pApplied };
@@ -1943,8 +1945,12 @@ function aiFall() {
   toast(`AI ${AI.nm}의 마당이 무너졌어요 · 혼자 계속해요`);
 }
 /* what the AI does a few times a second: make mythics, merge, 굿, summon and 강화, sell spares, call 도전 귀신 */
+/* the AI is a teammate, not a showcase: it thinks about as often as a person taps,
+   and it never runs more than one mythic ahead of you */
+const AI_THINK = 0.8;
 function aiThink() {
-  for (const M of MYTHS) if (mythOpen(M.id) && recipeState(M).ready) craft(M.id);
+  const lead = () => G.units.filter(u => u && TYPES[u.t].tier >= 4).length - ((AI.me && AI.me.myth) || 0);
+  for (const M of MYTHS) if (lead() < 1 && mythOpen(M.id) && recipeState(M).ready) craft(M.id);
   const need = new Set();
   for (const M of MYTHS) { if (!mythOpen(M.id)) continue; const st = recipeState(M); if (st.have >= M.parts.length - 2) M.parts.forEach(p => need.add(p)); }
   for (let i = 0; i < NCELL; i++) {
@@ -1954,12 +1960,12 @@ function aiThink() {
     mergeAt(i);
   }
   /* 합동 굿: match what you put on the 굿상, a hon at a time, and now and then set one up itself */
-  AI.jgT = (AI.jgT || 0) - 0.3;
+  AI.jgT = (AI.jgT || 0) - AI_THINK;
   if (JOINT.a > JOINT.b && JOINT.b < JOINT.MAX && G.hon >= 1 && emptyCells().length) {
     if (AI.jgT <= 0) { G.hon -= 1; JOINT.b++; AI.jgT = rand(0.6, 1.6); AI.jgAge = 0; }
   } else if (!JOINT.a && !JOINT.b && G.hon >= 5 && G.wave >= 5 && AI.jgT <= -20 && Math.random() < 0.03) {
     G.hon -= 2; JOINT.b = 2; AI.jgAge = 0; AI.jgT = 0;
-  } else if (JOINT.b && !JOINT.a && (AI.jgAge = (AI.jgAge || 0) + 0.3) > 40) { G.hon += JOINT.b; JOINT.b = 0; AI.jgT = 0; }
+  } else if (JOINT.b && !JOINT.a && (AI.jgAge = (AI.jgAge || 0) + AI_THINK) > 40) { G.hon += JOINT.b; JOINT.b = 0; AI.jgT = 0; }
   /* with a partner it keeps two 혼 aside, so it can answer when you open a table */
   const keep = Math.max(JOINT.a - JOINT.b, COOP.on && G.wave >= 3 ? 2 : 0, 0);
   for (let n = 0; n < 4 && G.hon - keep >= 1 && emptyCells().length; n++) {

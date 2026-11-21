@@ -373,6 +373,19 @@ body.in-lobby .hud,body.in-lobby .deck{opacity:0;visibility:hidden;pointer-event
 .hud,.deck{transition:opacity .5s}
 /* ---------- a quiet default screen: the round, the crowd and a few icons on top; purses, small tools and five buttons below ---------- */
 .hud-hidden{display:none}
+/* 도감 as a picture grid: grade colour on the frame, a dot when it can level up */
+.cxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;margin:6px 0 12px}
+.cxt{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px 7px;border-radius:12px;background:var(--panel-2);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--c) 70%,transparent);color:var(--hanji);min-width:0}
+.cxt img{width:52px;height:52px;border-radius:10px;background:rgba(0,0,0,.18)}
+.cxt .cxn{font-size:12px;line-height:1.2;max-width:100%;padding:0 3px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cxt.is-locked{box-shadow:inset 0 0 0 1px var(--line);opacity:.6}
+.cxt .cxl{position:absolute;top:3px;left:4px;font-size:10px;line-height:1;padding:2px 4px;border-radius:6px;background:rgba(0,0,0,.55);color:#ffe6a0}
+.cxt .cxup{position:absolute;top:3px;right:4px;width:10px;height:10px;border-radius:50%;background:#5fd39a;box-shadow:0 0 0 2px rgba(22,19,31,.9)}
+.cxhelp{margin:6px 0 2px}
+.cxhelp summary{font-size:13px;color:var(--hanji-dim);cursor:pointer}
+.cxcard{max-width:420px;max-height:86vh;overflow:auto;text-align:left}
+.cxcard .cxbody>*{margin:0}
+.cxcard .cxfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 .wbadge{position:relative;flex:none;width:40px;height:40px;display:grid;place-items:center;cursor:pointer}
 .wbadge svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
 .wbadge .wr-bg{fill:rgba(22,19,31,.7);stroke:rgba(255,255,255,.12);stroke-width:3}
@@ -816,7 +829,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 <section class="ov lobby" id="lobby" hidden>
   <div class="ltop">
     <h1 class="title">조선<br><span class="red">디펜스</span></h1>
-    <p class="sub">도깨비가 고을을 돈다. 놀이패와 장수를 불러 막아라</p>
+
     <div class="appchips" id="appChips" hidden><button class="appchip" id="appChip" type="button" hidden>📱 앱으로 설치</button><button class="appchip upd" id="updChip" type="button" hidden>새 버전 받기</button></div>
   </div>
   <div class="sheet">
@@ -859,6 +872,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
 <section class="ov ov-end ov-coop ov-save" id="saveOv" hidden><div class="card" id="saveCard" role="dialog" aria-label="기록 옮기기"></div></section>
 <div class="coopbox" id="coopBox" hidden><canvas id="coopCv" aria-label="친구 마당"></canvas><button class="btn-sm" id="coopGift" type="button">엽전 보내기</button><button class="btn-sm jgbtn" id="coopJoint" type="button">합동 굿</button></div>
 <section class="ov ov-end ov-coop ov-myth" id="mythOv" hidden><div class="card" id="mythCard" role="dialog" aria-label="신화"></div></section>
+<section class="ov ov-end ov-coop ov-myth ov-cx" id="cxOv" hidden><div class="card cxcard" id="cxCard" role="dialog" aria-label="도감"></div></section>
 <section class="ov ov-end" id="rewardOv" hidden>
   <div class="card">
     <h2 class="title" id="rwTitle" style="font-size:40px"></h2>

@@ -677,42 +677,70 @@ function mythOpenNote(M) {
   if (SAVE.mopen[M.id]) return '<div class="pc">두루마리로 열었어요</div>';
   return `<div class="pc lk">🔒 신화 두루마리 ${scrollCost(M)}개로 열어요</div>`;
 }
-function codexHTML(interactive) {
-  const out = [], onlyLv = interactive && codexFilter === 'lv';
-  let head = '';
-  const flush = () => { if (head) { out.push(head); head = ''; } };
-  const madeN = MYTHS.filter(M => SAVE.made[M.id]).length;
-  for (const [rk, Ro] of Object.entries(ROLES)) {
-    head = (rk === 'aoe' ? `<h3 class="sect" style="--g:${TIERS[4].color}"><i></i>신화 ${madeN}/${MYTHS.length} <small>어느 고을에서든 만들 수 있어요. 숨은 신화는 직접 찾아요</small></h3>` : '') + `<h4 class="subsect" style="--g:${Ro.color}">${Ro.name}</h4>`;
-    for (const M of MYTHS.filter(m => TYPES[m.ix].role === rk)) {
-      const T = TYPES[M.ix], made = SAVE.made[M.id] || 0;
-      if (onlyLv && (!canLevel(T.id) || isHiddenMyth(M))) continue;
-      flush();
-      if (isHiddenMyth(M)) { out.push(`<div class="recipe is-secret"><img class="mi" alt="" src="${portraitURL(T.id, 52, true)}"><div><div class="nm">숨은 신화${roleChip(T)}<small>아직 아무도 몰라요</small></div><p style="margin:2px 0 0;font-size:12px;line-height:1.4">재료 ${M.parts.length}가지를 우연히 모으면 신화 버튼에 조합이 떠요</p><div class="ings">${M.parts.map(() => '<span class="ing">?</span>').join('')}</div></div><div class="lvb"></div></div>`); continue; }
-      const known = made > 0, grp = T.grp ? `${GRP[T.grp]} · ` : '';
-      out.push(`<div class="recipe${known ? '' : ' is-unmade'}"><img class="mi" alt="" src="${portraitURL(T.id, 52, !known)}"><div><div class="nm">${known ? esc(T.name) : '???'}${roleChip(T)}<small>${grp}${known ? `${esc(T.origin)} · ${made}번 조합` : '아직 못 만듦'}</small></div>${known ? `<div class="unit-sk" data-tip="${T.id}" style="font-size:12px;color:var(--dan-gold)">${esc(T.skill)}</div><p style="margin:2px 0 0;font-size:12px;line-height:1.4">${esc(T.desc)}</p>${ULTS[T.id] ? `<p class="ultline">궁극기 ${esc(ULTS[T.id].name)} · ${esc(ULTS[T.id].desc)} · ${ULTS[T.id].t}초마다</p>` : ''}${perksHTML(T)}` : '<p style="margin:2px 0 0;font-size:12px;line-height:1.4">처음 조합하면 정체가 밝혀져요</p>'}<div class="ings">${M.parts.map(p => WILD[p] ? wildHTML(p, false) : TYPES[TYPE_IX[p]].tier >= 4 ? (SAVE.made[p] ? ingHTML(p, false) : `<span class="ing" style="border-left:3px solid ${TIERS[4].color}">${isHiddenMyth(MYTH_BY[p]) ? '숨은 신화' : '???'}</span>`) : ingMasked(p)).join('')}</div>${mythOpenNote(M)}</div>${unitLvHTML(T, interactive)}</div>`);
-    }
+/* ---------- 도감: pictures first. one tap opens the full card ---------- */
+function cxCardHTML(id, interactive) {
+  const T = TYPES[TYPE_IX[id]];
+  if (T.tier >= 4) {
+    const M = MYTH_BY[id], made = SAVE.made[M.id] || 0;
+    if (isHiddenMyth(M)) return `<div class="recipe is-secret"><img class="mi" alt="" src="${portraitURL(T.id, 52, true)}"><div><div class="nm">숨은 신화${roleChip(T)}<small>아직 아무도 몰라요</small></div><p style="margin:2px 0 0;font-size:12px;line-height:1.4">재료 ${M.parts.length}가지를 우연히 모으면 신화 버튼에 조합이 떠요</p><div class="ings">${M.parts.map(() => '<span class="ing">?</span>').join('')}</div></div><div class="lvb"></div></div>`;
+    const known = made > 0, grp = T.grp ? `${GRP[T.grp]} · ` : '';
+    return `<div class="recipe${known ? '' : ' is-unmade'}"><img class="mi" alt="" src="${portraitURL(T.id, 52, !known)}"><div><div class="nm">${known ? esc(T.name) : '???'}${roleChip(T)}<small>${grp}${known ? `${esc(T.origin)} · ${made}번 조합` : '아직 못 만듦'}</small></div>${known ? `<div class="unit-sk" data-tip="${T.id}" style="font-size:12px;color:var(--dan-gold)">${esc(T.skill)}</div><p style="margin:2px 0 0;font-size:12px;line-height:1.4">${esc(T.desc)}</p>${ULTS[T.id] ? `<p class="ultline">궁극기 ${esc(ULTS[T.id].name)} · ${esc(ULTS[T.id].desc)} · ${ULTS[T.id].t}초마다</p>` : ''}${perksHTML(T)}` : '<p style="margin:2px 0 0;font-size:12px;line-height:1.4">처음 조합하면 정체가 밝혀져요</p>'}<div class="ings">${M.parts.map(p => WILD[p] ? wildHTML(p, false) : TYPES[TYPE_IX[p]].tier >= 4 ? (SAVE.made[p] ? ingHTML(p, false) : `<span class="ing" style="border-left:3px solid ${TIERS[4].color}">${isHiddenMyth(MYTH_BY[p]) ? '숨은 신화' : '???'}</span>`) : ingMasked(p)).join('')}</div>${mythOpenNote(M)}</div>${unitLvHTML(T, interactive)}</div>`;
   }
-  const notes = ['소환하면 대부분 이 등급이 나와요. 같은 동료 셋을 합성하면 희귀가 돼요', '같은 일반 셋을 합성하거나 소환·재수굿에서 나와요', '같은 희귀 셋을 합성하거나 대동굿에서 나와요', '같은 영웅 셋을 합성하거나 별신굿에서 나와요'];
-  for (let t = 0; t < 4; t++) {
-    head = `<h3 class="sect" style="--g:${TIERS[t].color}"><i></i>${TIERS[t].name} <small>${notes[t]}</small></h3>`;
-    for (const id of ROSTER) {
-      const T = TYPES[TYPE_IX[id]]; if (T.tier !== t) continue;
-      const seen = seenNow(T.id);
-      if (onlyLv && (!canLevel(T.id) || !seen)) continue;
-      flush();
-      if (!seen) { out.push(`<div class="unit is-new"><img alt="" src="${portraitURL(T.id, 52, true)}"><div><div class="nm">???<small style="color:${FAMS[T.fam].color}">${esc(FAMS[T.fam].name)}</small></div><p>아직 못 만났어요. 판에서 만나면 정체가 밝혀져요</p></div>${unitLvHTML(T, false)}</div>`); continue; }
-      const pn = partsNote(T);
-      out.push(`<div class="unit"><img alt="" src="${portraitURL(T.id, 52)}"><div><div class="nm">${esc(T.name)}<small style="color:${FAMS[T.fam].color}">${esc(FAMS[T.fam].name)}</small><small>${esc(T.origin)}</small></div><div class="sk" data-tip="${T.id}">${esc(T.skill)}</div><p>${esc(T.desc)}</p>${perksHTML(T)}${pn ? `<div class="pc">${esc(pn)}</div>` : ''}</div>${unitLvHTML(T, interactive)}</div>`);
-    }
-  }
-  return out.join('');
+  const seen = seenNow(T.id);
+  if (!seen) return `<div class="unit is-new"><img alt="" src="${portraitURL(T.id, 52, true)}"><div><div class="nm">???<small style="color:${FAMS[T.fam].color}">${esc(FAMS[T.fam].name)}</small></div><p>아직 못 만났어요. 판에서 만나면 정체가 밝혀져요</p></div>${unitLvHTML(T, false)}</div>`;
+  const pn = partsNote(T);
+  return `<div class="unit"><img alt="" src="${portraitURL(T.id, 52)}"><div><div class="nm">${esc(T.name)}<small style="color:${FAMS[T.fam].color}">${esc(FAMS[T.fam].name)}</small><small>${esc(T.origin)}</small></div><div class="sk" data-tip="${T.id}">${esc(T.skill)}</div><p>${esc(T.desc)}</p>${perksHTML(T)}${pn ? `<div class="pc">${esc(pn)}</div>` : ''}</div>${unitLvHTML(T, interactive)}</div>`;
 }
+function cxTile(T, known, hidden) {
+  const lv = lvOf(T.id), up = known && canLevel(T.id), col = T.tier >= 4 ? (T.role ? ROLES[T.role].color : TIERS[4].color) : TIERS[T.tier].color;
+  return `<button class="cxt${known ? '' : ' is-locked'}${up ? ' can-lv' : ''}" type="button" data-cx="${T.id}" style="--c:${col}"><img alt="" src="${portraitURL(T.id, 64, !known)}"><span class="cxn">${known ? esc(T.name) : hidden ? '숨은 신화' : '???'}</span>${known && lv > 1 ? `<span class="cxl num">${lv}</span>` : ''}${up ? '<i class="cxup" aria-label="올릴 수 있어요"></i>' : ''}</button>`;
+}
+function codexHTML(interactive) {
+  const onlyLv = interactive && codexFilter === 'lv', out = [];
+  const madeN = MYTHS.filter(M => SAVE.made[M.id]).length;
+  const myth = MYTHS.filter(M => !onlyLv || (canLevel(TYPES[M.ix].id) && !isHiddenMyth(M))).map(M => cxTile(TYPES[M.ix], (SAVE.made[M.id] || 0) > 0, isHiddenMyth(M)));
+  if (myth.length) out.push(`<h3 class="sect" style="--g:${TIERS[4].color}"><i></i>신화 <small>${madeN}/${MYTHS.length}</small></h3><div class="cxgrid">${myth.join('')}</div>`);
+  for (let t = 3; t >= 0; t--) {
+    const L = ROSTER.map(id => TYPES[TYPE_IX[id]]).filter(T => T.tier === t && (!onlyLv || (canLevel(T.id) && seenNow(T.id))));
+    if (!L.length) continue;
+    out.push(`<h3 class="sect" style="--g:${TIERS[t].color}"><i></i>${TIERS[t].name} <small>${L.filter(T => seenNow(T.id)).length}/${L.length}</small></h3><div class="cxgrid">${L.map(T => cxTile(T, seenNow(T.id), false)).join('')}</div>`);
+  }
+  return out.join('') || '<p class="meta">올릴 수 있는 동료가 없어요</p>';
+}
+function doLevelUp(id) {
+  if (!levelUp(id)) return false;
+  const T = TYPES[TYPE_IX[id]], lv = lvOf(id), pk = lvPerks(T).find(([at]) => at === lv);
+  toast(`${T.name} ${lv}레벨! 공격력 +${Math.round((lvMulOf(T) - 1) * 100)}%${pk ? ` · ${pk[1]}` : ''}`); sfx('merge', pk ? 3 : 2);
+  const bc = $('body-codex'), sc = bc ? bc.scrollTop : 0; if (R.lobby) { renderTab(); if (bc) bc.scrollTop = sc; tweenSilver(false); }
+  return true;
+}
+/* the full card behind a tile, for companions and 도깨비 alike */
+const cxOv = $('cxOv'), cxCard = $('cxCard');
+function openCx(kind, id) { cxOv.dataset.k = kind; cxOv.dataset.id = id; renderCx(); cxOv.hidden = false; sfx('click'); }
+function renderCx() {
+  const k = cxOv.dataset.k, id = cxOv.dataset.id;
+  const T = k === 'foe' ? null : TYPES[TYPE_IX[id]];
+  const more = T && T.tier >= 4 && !isHiddenMyth(MYTH_BY[id]) ? `<button class="btn-sm" type="button" data-myth="${id}">조합 자세히</button>` : '';
+  cxCard.innerHTML = `<div class="cxbody">${k === 'foe' ? foeCardHTML(id) : cxCardHTML(id, !!R.lobby)}</div><div class="cxfoot">${more}<button class="btn-sm" type="button" id="cxClose">닫기</button></div>`;
+}
+cxOv.addEventListener('click', e => {
+  if (e.target === cxOv || e.target.closest('#cxClose')) { cxOv.hidden = true; return; }
+  const m = e.target.closest('[data-myth]'); if (m) { cxOv.hidden = true; openMythCard(m.dataset.myth); return; }
+  const l = e.target.closest('[data-lv]'); if (l) { doLevelUp(l.dataset.lv); renderCx(); }
+});
+el.codexBody.addEventListener('click', e => {
+  const cx = e.target.closest('[data-cx]'); if (cx) { openCx('unit', cx.dataset.cx); return; }
+  const cf = e.target.closest('[data-cf]'); if (cf) openCx('foe', cf.dataset.cf);
+});
 function foeHTML() {
-  return FOE_KEYS.map(k => {
-    const I = foeInfo(k), seen = SAVE.foes[k];
-    return `<div class="unit${seen ? '' : ' is-new'}"><img alt="" src="${foePortraitURL(k, 52, !seen)}"><div><div class="nm">${seen ? esc(I.name) : '???'}<small>${I.kind}</small><small>${esc(I.where)}</small></div><p>${seen ? esc(I.desc) : '아직 만나지 못했어요'}</p></div><div class="lvb"></div></div>`;
-  }).join('');
+  return `<div class="cxgrid">${FOE_KEYS.map(k => {
+    const I = foeInfo(k), seen = SAVE.foes[k], col = k.startsWith('b_') ? '#ef5a3a' : k.startsWith('c_') ? '#b06aff' : '#8a96a8';
+    return `<button class="cxt${seen ? '' : ' is-locked'}" type="button" data-cf="${k}" style="--c:${col}"><img alt="" src="${foePortraitURL(k, 64, !seen)}"><span class="cxn">${seen ? esc(I.name) : '???'}</span></button>`;
+  }).join('')}</div>`;
+}
+function foeCardHTML(k) {
+  const I = foeInfo(k), seen = SAVE.foes[k];
+  return `<div class="unit${seen ? '' : ' is-new'}"><img alt="" src="${foePortraitURL(k, 52, !seen)}"><div><div class="nm">${seen ? esc(I.name) : '???'}<small>${I.kind}</small><small>${esc(I.where)}</small></div><p>${seen ? esc(I.desc) : '아직 만나지 못했어요'}</p></div><div class="lvb"></div></div>`;
 }
 function whereHTML() { return '<div class="pc">모든 고을에서 나와요</div>'; }
 function unitLvHTML(T, interactive) {
@@ -755,8 +783,8 @@ function stageCardsHTML() {
   return STAGES.map((S, i) => {
     const open = stageUnlocked(i), sel = SAVE.stageSel === i, best = SAVE.stageBest[i], clear = SAVE.stageClear[i], rn = roadReady(i);
     const stars = '★'.repeat(i + 1) + '☆'.repeat(STAGES.length - 1 - i);
-    const status = !open ? '앞 고을 80 마당을 지키면 열려요' : clear ? '80 마당 지켜냄' : best ? `최고 제 ${Math.min(best, LAST_WAVE)} 마당` : '아직 안 가 봄';
-    return `<button class="stg th-${S.theme}${sel ? ' is-sel' : ''}${open ? '' : ' is-lock'}" type="button" data-stage="${i}" aria-pressed="${sel}"><span class="sn">${esc(S.name)}${rn ? `<i class="dotb">${rn}</i>` : ''}</span><span class="sd">${stars}</span><span class="sb">${status}</span><span class="sr">권장 Lv ${STAGE_REC[i]}+</span><span class="sx">출정 · ${destOf(i).place}</span></button>`;
+    const status = !open ? '' : clear ? '지켜냄' : best ? `최고 ${Math.min(best, LAST_WAVE)}` : '';
+    return `<button class="stg th-${S.theme}${sel ? ' is-sel' : ''}${open ? '' : ' is-lock'}" type="button" data-stage="${i}" aria-pressed="${sel}"><span class="sn">${esc(S.name)}${rn ? `<i class="dotb">${rn}</i>` : ''}</span><span class="sd">${stars}</span>${status ? `<span class="sb">${status}</span>` : ''}</button>`;
   }).join('');
 }
 function roadHTML(st) {
@@ -813,22 +841,15 @@ function renderTab() {
     const run = savedRun(), S = STAGES[SAVE.stageSel] || STAGES[0];
     const bosses = [10, 40, 80].map(w => `${w} ${BOSS_DEF[S.bosses[w]].name}`).join(' · ');
     b.innerHTML = (run ? `<div class="homegrid"><button class="btn-main" id="resumeBtn" type="button">이어하기 · ${esc(STAGES[run.stage || 0].name)} ${run.wave}마당${run.ai ? '<small class="bsub">AI 동료와 같이</small>' : ''}</button>${curHTML()}</div><button class="btn-sub" id="startBtn" type="button">새로 시작 · AI 동료와 ${esc(S.name)} <small style="font-size:12px;color:var(--hanji-dim)">(하던 판은 사라져요)</small></button>`
-        : `<div class="homegrid"><button class="btn-main" id="startBtn" type="button">놀이 시작<small class="bsub">${esc(S.name)} · AI 동료와 둘이서</small></button>${curHTML()}</div>`) + `
-      <div class="duo"><button class="btn-sub" id="mmBtn" type="button">랜덤 매칭<small>모르는 사람과</small></button><button class="btn-sub" id="coopBtn" type="button">친구랑 같이<small>${NET.link && NET.kind !== 'ai' ? `방 ${esc(NET.code)}` : '코드로 초대'}</small></button></div>
+        : `<div class="homegrid"><button class="btn-main" id="startBtn" type="button">놀이 시작<small class="bsub">${esc(S.name)} · AI와 둘이서</small></button>${curHTML()}</div>`) + `
+      <div class="duo"><button class="btn-sub" id="mmBtn" type="button">랜덤 매칭</button><button class="btn-sub" id="coopBtn" type="button">친구랑 같이${NET.link && NET.kind !== 'ai' ? `<small>방 ${esc(NET.code)}</small>` : ''}</button></div>
       <button class="linkbtn solo" id="soloBtn" type="button">혼자 하기</button>
       ${guideHTML()}
-      <h3 class="sect" style="--g:#c9a878"><i></i>고을 고르기 <small>80 마당을 지키면 다음 고을</small></h3>
       <div class="stages">${stageCardsHTML()}</div>
-      <p class="meta">${esc(S.rule)} · 보스 ${esc(bosses)}${S.reward > 1 ? ` · 은전 보상 ×${S.reward}` : ''} · 내 동료 평균 Lv ${avgLevel().toFixed(1)}</p>
-      ${roadHTML(SAVE.stageSel || 0)}
+      ${roadReady(SAVE.stageSel || 0) ? roadHTML(SAVE.stageSel || 0) : `<details class="mythrow"><summary>${esc(S.name)} 자세히</summary><p class="meta">${esc(S.rule)} · 보스 ${esc(bosses)}${S.reward > 1 ? ` · 은전 보상 ×${S.reward}` : ''} · 권장 Lv ${STAGE_REC[SAVE.stageSel || 0]}+ · 출정 ${esc(destOf(SAVE.stageSel || 0).place)}</p>${roadHTML(SAVE.stageSel || 0)}</details>`}
       <details class="mythrow"><summary>신화 ${MYTHS.filter(M => mythOpenSelf(M.id)).length}/${MYTHS.length} 열림 · <span class="scr-n">신화 두루마리 ${SAVE.scroll || 0}</span> · <span class="hy-n"><i class="hyang-ico"></i>향 ${fmtC(SAVE.hyang || 0)}</span></summary>${MYTHS.map(M => { const id = M.id; if (isHiddenMyth(M)) return `<span class="ing"><img alt="" src="${portraitURL(id, 22, true)}">숨은 신화</span>`; const open = mythOpenSelf(id), afford = !open && (SAVE.scroll || 0) >= scrollCost(M); return `<button class="ing mchip${open ? '' : ' is-lock'}${afford ? ' can' : ''}" type="button" data-myth="${id}"><img alt="" src="${portraitURL(id, 22, !SAVE.made[id])}">${SAVE.made[id] ? esc(TYPES[TYPE_IX[id]].name) : '???'}${open ? '' : '<i class="lk" aria-label="잠김">🔒</i>'}</button>`; }).join('')}<small>동료 19명은 모든 고을에서 똑같아요 · 🔒 누르면 두루마리로 열 수 있어요</small></details>
-      ${attHTML()}
-      <div class="qrow"><div><div class="qt">퀘스트 · 오늘 ${SAVE.quests.list.filter(q => q.claimed).length}/3 · 이번 주 ${SAVE.weekly.list.filter(q => q.claimed).length}/3</div><div class="qr">${nq ? `받을 보상이 ${nq}개 있어요` : `오늘 것은 ${untilMidnight()} 뒤 바뀌어요`}</div></div><button class="btn-sm${nq ? ' is-go' : ''}" type="button" data-goto="quest">보러 가기</button></div>
-      <div class="qrow"><div><div class="qt">유물 ${relicCount()}/${RELICS.length}</div><div class="qr">${esc(relicSummary())}</div></div><button class="btn-sm${nr ? ' is-go' : ''}" type="button" data-goto="relic">유물로</button></div>
-      <div class="qrow"><div><div class="qt">장터</div><div class="qr">복주머니를 열고 오늘의 조각을 사요. 레벨 올릴 수 있는 동료 ${nl}명</div></div><button class="btn-sm" type="button" data-goto="shop">장터로</button></div>
-      <p class="meta">최고 기록 ${SAVE.stats.best ? (SAVE.stats.best > LAST_WAVE ? '고을 지킴' : `제 ${SAVE.stats.best} 마당`) : '아직 없음'} · ${SAVE.stats.games}판 · 신화 조합 ${SAVE.stats.crafts}번 · 보스 ${SAVE.stats.bossKills || 0}마리</p>
-      <p class="meta" id="syncLine">${syncText()}</p>
-      <p class="meta">하던 판은 이 브라우저에서만 이어할 수 있어요. Space 소환 · G 굿 · M 신화 · C 도전 · P 멈춤</p>`;
+      ${attReady() ? attHTML() : ''}
+      <p class="meta" id="syncLine">${syncText()}</p>`;
     $('startBtn').addEventListener('click', () => aiBegin());
     $('mmBtn').addEventListener('click', mmStart);
     $('soloBtn').addEventListener('click', () => { R.mode = 'solo'; startGame(); });
@@ -852,10 +873,9 @@ function renderTab() {
   } else if (curTab === 'codex') {
     const cc = codexCount(), fc = foeCount();
     b.innerHTML = `<div class="sumcard"><div class="qhead"><h3 class="sect" style="--g:var(--dan-gold)"><i></i>도감 <span class="num">${cc}/${LIVE.length}</span> <small>도깨비 ${fc}/${FOE_KEYS.length}</small></h3>${curHTML(true)}</div><div class="bar"><i style="width:${Math.round((cc + fc) / (LIVE.length + FOE_KEYS.length) * 100)}%"></i></div>
-      <p class="meta">판에서 처음 만난 동료와 도깨비가 도감에 올라가요. 못 만난 동료는 ???로 가려져 있어요. 새 동료는 은전 100, 새 도깨비는 은전 50을 줘요</p>
-      <p class="meta">판이 끝나면 만난 동료의 조각과 향을 받아요. 동료는 레벨마다 공격력 15%, 3·6·9·12레벨에 새 능력. 신화는 레벨마다 12%, 5레벨 각성 10레벨 신물. 15레벨 승천은 곧 열려요</p>
-      <div class="chips"><button class="chipbtn" type="button" data-filter="all" aria-pressed="${codexFilter === 'all'}">동료</button><button class="chipbtn" type="button" data-filter="lv" aria-pressed="${codexFilter === 'lv'}">올릴 수 있는 동료 ${nl}</button><button class="chipbtn" type="button" data-filter="foe" aria-pressed="${codexFilter === 'foe'}">도깨비</button><button class="chipbtn" type="button" data-filter="story" aria-pressed="${codexFilter === 'story'}">이야기 ${storyN()}/${storyKeys().length}</button>${Object.keys(SAVE.combos || {}).length ? `<button class="chipbtn" type="button" data-filter="combo" aria-pressed="${codexFilter === 'combo'}">합동기 ${Object.keys(SAVE.combos).length}/${COMBOS.length}</button>` : ''}</div></div>
-      ${codexFilter === 'story' ? `<p class="meta">보스를 처음 물리치거나 신화를 처음 만들면 그 이야기가 열려요. 새 이야기마다 옥 ${STORY_JADE}</p>${storyHTML()}` : codexFilter === 'combo' ? comboHTML() : codexFilter === 'foe' ? foeHTML() : (codexHTML(true).replace(/^\s*$/, '') || '<p class="meta">지금 올릴 수 있는 동료가 없어요. 판을 더 돌거나 장터에서 조각을 모아 보세요</p>')}`;
+      <details class="cxhelp"><summary>도감은 어떻게 채워요?</summary><p class="meta">판에서 처음 만난 동료와 도깨비가 도감에 올라가요. 새 동료는 은전 100, 새 도깨비는 은전 50을 줘요. 판이 끝나면 만난 동료의 조각과 향을 받아요. 동료는 레벨마다 공격력 15%, 3·6·9·12레벨에 새 능력이 생기고, 신화는 레벨마다 12%, 5레벨 각성, 10레벨 신물이에요. 그림을 누르면 자세히 나오고, 거기서 레벨을 올려요</p></details>
+      <div class="chips"><button class="chipbtn" type="button" data-filter="all" aria-pressed="${codexFilter === 'all'}">동료</button><button class="chipbtn" type="button" data-filter="lv" aria-pressed="${codexFilter === 'lv'}">레벨업 ${nl}</button><button class="chipbtn" type="button" data-filter="foe" aria-pressed="${codexFilter === 'foe'}">도깨비</button><button class="chipbtn" type="button" data-filter="story" aria-pressed="${codexFilter === 'story'}">이야기 ${storyN()}/${storyKeys().length}</button>${Object.keys(SAVE.combos || {}).length ? `<button class="chipbtn" type="button" data-filter="combo" aria-pressed="${codexFilter === 'combo'}">합동기 ${Object.keys(SAVE.combos).length}/${COMBOS.length}</button>` : ''}</div></div>
+      ${codexFilter === 'story' ? storyHTML() : codexFilter === 'combo' ? comboHTML() : codexFilter === 'foe' ? foeHTML() : (codexHTML(true).replace(/^\s*$/, '') || '<p class="meta">지금 올릴 수 있는 동료가 없어요. 판을 더 돌거나 장터에서 조각을 모아 보세요</p>')}`;
   } else if (curTab === 'quest') {
     const all = SAVE.quests.list.every(q => q.claimed), got = SAVE.qbonus === SAVE.quests.day;
     b.innerHTML = `<div class="qhead"><h3 class="sect" style="--g:var(--dan-gold)"><i></i>오늘의 퀘스트</h3>${curHTML()}</div><p class="meta">${untilMidnight()} 뒤 새 퀘스트로 바뀌어요. 진행은 판이 끝날 때 쌓여요</p>${questRows(SAVE.quests.list, questDef, 'd')}
@@ -940,7 +960,9 @@ el.lobby.addEventListener('click', e => {
   const a = e.target.closest('[data-a]');
   if (a) { const r = claimAch(a.dataset.a); if (r) { renderTab(); showReward('업적 보상', r.silver, null, { jade: r.jade }); } return; }
   const l = e.target.closest('[data-lv]');
-  if (l) { const id = l.dataset.lv; if (levelUp(id)) { const T = TYPES[TYPE_IX[id]], lv = lvOf(id), pk = lvPerks(T).find(([at]) => at === lv); toast(`${T.name} ${lv}레벨! 공격력 +${Math.round((lvMulOf(T) - 1) * 100)}%${pk ? ` · ${pk[1]}` : ''}`); sfx('merge', pk ? 3 : 2); const sc = $('body-codex').scrollTop; renderTab(); $('body-codex').scrollTop = sc; tweenSilver(false); } }
+  if (l) { doLevelUp(l.dataset.lv); return; }
+  const cx = e.target.closest('[data-cx]'); if (cx) { openCx('unit', cx.dataset.cx); return; }
+  const cf = e.target.closest('[data-cf]'); if (cf) { openCx('foe', cf.dataset.cf); return; }
 });
 
 /* ---------- end of game ---------- */
@@ -1198,7 +1220,7 @@ el.pauseBtn.addEventListener('click', () => { if (netCoop()) { toast('같이 할
 /* ---------- settings: one gear, top right, in the lobby and in a run ---------- */
 const setPanel = $('setPanel'), gearBtn = $('gearBtn');
 R.cutin = true; try { R.cutin = localStorage.getItem('talnori-cutin') !== '0'; } catch (err) { /* ignore */ }
-R.names = false; try { R.names = localStorage.getItem('talnori-names') === '1'; } catch (err) { /* ignore */ }
+R.names = false;
 R.mapText = false; try { R.mapText = localStorage.getItem('talnori-maptext') === '1'; } catch (err) { /* ignore */ }
 R.fxLite = false; try { R.fxLite = localStorage.getItem('talnori-fx') === '0'; } catch (err) { /* ignore */ }
 function setFxLite(v) {
@@ -1214,7 +1236,6 @@ function renderSettings() {
   setPanel.innerHTML = `<div class="sp-h"><b>설정</b><button class="ib" type="button" id="spClose" aria-label="닫기">✕</button></div>
     ${row('소리 전체', 'on', on)}${row('배경음악', 'mus', C.mus, 'musV')}${row('효과음', 'fx', C.fx, 'fxV')}
     <div class="sp-row"><span>맵 위 글자<small class="sp-sub">피해 숫자, 엽전, 마당 안내 글씨</small></span><button class="tog${R.mapText ? ' on' : ''}" type="button" data-sp="maptext">${R.mapText ? '켜짐' : '꺼짐'}</button></div>
-    <div class="sp-row"><span>유닛 이름 보기</span><button class="tog${R.names ? ' on' : ''}" type="button" data-sp="names">${R.names ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>화려한 효과<small class="sp-sub">빛, 고리, 파편, 흔들림</small></span><button class="tog${R.fxLite ? '' : ' on'}" type="button" data-sp="fxl">${R.fxLite ? '꺼짐' : '켜짐'}</button></div>
     <div class="sp-row"><span>궁극기 연출</span><button class="tog${R.cutin ? ' on' : ''}" type="button" data-sp="cut">${R.cutin ? '켜짐' : '꺼짐'}</button></div>
     <div class="sp-row"><span>화질</span><button class="tog on" type="button" data-sp="q">${QUALITY[R.q].name}</button></div>
@@ -1244,7 +1265,6 @@ setPanel.addEventListener('click', e => {
   else if (k === 'pix') setPixel(!PIXEL);
   else if (k === 'fxl') setFxLite(!R.fxLite);
   else if (k === 'maptext') { R.mapText = !R.mapText; try { localStorage.setItem('talnori-maptext', R.mapText ? '1' : '0'); } catch (err) { /* ignore */ } if (!R.mapText) TEXT.length = 0; }
-  else if (k === 'names') { R.names = !R.names; try { localStorage.setItem('talnori-names', R.names ? '1' : '0'); } catch (err) { /* ignore */ } }
   else if (k === 'cut') { R.cutin = !R.cutin; try { localStorage.setItem('talnori-cutin', R.cutin ? '1' : '0'); } catch (err) { /* ignore */ } }
   renderSettings();
 });
