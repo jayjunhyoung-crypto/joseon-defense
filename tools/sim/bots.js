@@ -46,7 +46,7 @@ function think(G, mode, memo) {
   /* 3. 굿 with 혼 */
   if (mode !== 'summon') {
     let guard = 0;
-    while (G.hon >= 1 && C.emptyCells().length && guard++ < 6) {
+    while (G.hon >= 1 && C.emptyCells().length && !C.popFull() && guard++ < 6) {
       const sure = (G.pity || 0) >= C.PITY_MAX;
       const k = sure && G.hon >= 2 ? 2 : G.wave < 6 ? 0 : 1;
       if (G.hon < C.GUTS[k].cost) break;

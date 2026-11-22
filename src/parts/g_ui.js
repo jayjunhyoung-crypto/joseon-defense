@@ -1113,10 +1113,15 @@ function uiTick(dt) {
   }
   setText(el.summonCost, 'sc', fmtC(summonCost()));
   renderMissions();
-  setClass(el.summonBtn, 'sb', 'is-short', G.coins < summonCost());
+  const pop = popOf(), full = pop >= BAL.unitCap;
+  setText($('pop'), 'pop', `${pop}/${BAL.unitCap}`);
+  setClass($('popChip'), 'pf', 'is-full', full);
+  setClass(el.summonBtn, 'sb', 'is-short', G.coins < summonCost() || full);
+  /* the first time the yard fills up in a run, say once what to do about it */
+  if (full && !G.fullTold) { G.fullTold = true; toast(FULL_MSG()); }
   setText(el.gutCost, 'gc', G.charmT > 0 ? `부적 ${Math.ceil(G.charmT)}초` : (G.pity || 0) >= PITY_MAX ? `${G.hon} 감천` : String(G.hon));
   renderGut(false);
-  setClass(el.gutBtn, 'gb', 'is-short', G.hon < 1);
+  setClass(el.gutBtn, 'gb', 'is-short', G.hon < 1 || full);
   cache.mt = (cache.mt || 0) + dt;
   if (cache.mt > 0.25) {
     cache.mt = 0;
@@ -1165,7 +1170,7 @@ const SHOWCASE = ['seonbi', 'gaksi', 'sangmo', 'mudang', 'gwakjaewoo', 'halmi', 
 function setupTitle() {
   G = makeState('title', G ? G.speed : 1); G.stage = SAVE.stageSel || 0;
   SHOWCASE.slice(0, NCELL).forEach((id, i) => { G.units[i] = newUnit(TYPE_IX[id]); });
-  for (let k = 0; k < 7; k++) { const f = newFoe(k % 4, 1, 0.45 + Math.random() * 0.2, 0.28, { d: k * PERIM / 7, lane: rand(-0.15, 0.15) }); placeFoe(f); G.foes.push(f); }
+  for (let k = 0; k < 7; k++) { const f = newFoe(k % 4, 1, 0.45 + Math.random() * 0.2, 0.28, { d: k * PERIM / 7, lane: 0 }); placeFoe(f); G.foes.push(f); }
   UVIS.clear();
 }
 function titleTick(dt) {

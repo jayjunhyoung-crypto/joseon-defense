@@ -212,7 +212,7 @@ let PIXEL = false;
 const PIX = { cache: new Map(), fit: new Map(), px: 1, snap: 1, ol: true, art: 32 };
 const PIX_MAXH = 128;
 /* companions drawn a little smaller than the pixel set, so a full yard still reads at a glance */
-const PIX_UNIT = 0.74, UNIT_S = 0.62, PIX_BOX = [-170, -240, 170, 30];
+const PIX_UNIT = 0.74, UNIT_S = 0.7, PIX_BOX = [-170, -240, 170, 30];
 function pixBake(key, sA, box, render, noOl) {
   const ck = key + '@' + Math.round(sA * 500);
   let e = PIX.cache.get(ck); if (e) return e;
@@ -392,15 +392,15 @@ function layout() {
   buildBG();
   try { if (el.coopBox && !el.coopBox.hidden) placeCoopBox(); } catch (err) { /* not ready yet */ }
 }
+const YARD_M = 0.1;
 function seeded(s) { return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
-let MAT_PAT = null;
 const THEMES = {
-  village: { ground: '#7d9a55', g1: 'rgba(40,70,20,.35)', g2: 'rgba(190,220,120,.25)', yard: '#dcc394', path: '#c29a63', grass: true },
-  market: { ground: '#a8916c', g1: 'rgba(90,60,30,.22)', g2: 'rgba(240,220,180,.2)', yard: '#dfcaa2', path: '#b98f5c' },
-  fortress: { ground: '#617b4c', g1: 'rgba(30,50,20,.35)', g2: 'rgba(170,200,120,.2)', yard: '#cfc19c', path: '#a8916a', grass: true },
-  sea: { ground: '#e0cb94', g1: 'rgba(150,120,70,.22)', g2: 'rgba(255,250,220,.3)', yard: '#d9c18c', path: '#bf9f68' },
-  underworld: { ground: '#3b3549', g1: 'rgba(10,8,20,.35)', g2: 'rgba(140,120,180,.16)', yard: '#b0a3a0', path: '#8c7d79' },
+  village: { ground: '#7d9a55', g1: 'rgba(40,70,20,.28)', g2: 'rgba(190,220,120,.2)', walk: '#dcc497', edge: '#8f6f45', isle: '#b48d5c', lip: '#7f5f39', grass: true },
+  market: { ground: '#a8916c', g1: 'rgba(90,60,30,.18)', g2: 'rgba(240,220,180,.16)', walk: '#e0cca4', edge: '#8a6c48', isle: '#b28f66', lip: '#7c5f3e' },
+  fortress: { ground: '#617b4c', g1: 'rgba(30,50,20,.28)', g2: 'rgba(170,200,120,.16)', walk: '#d2c5a0', edge: '#6f6248', isle: '#9e8b67', lip: '#6c5e44', grass: true },
+  sea: { ground: '#e0cb94', g1: 'rgba(150,120,70,.18)', g2: 'rgba(255,250,220,.24)', walk: '#e3cd98', edge: '#9a7e50', isle: '#bd9c66', lip: '#8a6f45' },
+  underworld: { ground: '#3b3549', g1: 'rgba(10,8,20,.3)', g2: 'rgba(140,120,180,.12)', walk: '#aa9d99', edge: '#3a3140', isle: '#716474', lip: '#4a3f4d' },
 };
 function buildBG() {
   BG.width = cv.width; BG.height = cv.height;
@@ -412,7 +412,7 @@ function buildBG() {
   const ty0 = R.duo && !R.lobby ? wy(-3 * HY - LANE / 2 - 0.42) : my0;
   g.fillStyle = TH.ground; g.fillRect(0, 0, W, H);
   if (R.theme === 'sea') seaBase(g, rnd, mx0, my0, mx1, my1);
-  for (let i = 0; i < W * H / 260; i++) {
+  for (let i = 0; i < W * H / 420; i++) {
     const x = rnd() * W, y = rnd() * H;
     if (TH.grass) { g.strokeStyle = rnd() < 0.5 ? TH.g1 : TH.g2; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + rnd() * 3 - 1.5, y - 3 - rnd() * 4); g.stroke(); }
     else if (i % 2 === 0 && (R.theme !== 'sea' || seaLand(x, y))) { g.fillStyle = rnd() < 0.5 ? TH.g1 : TH.g2; g.fillRect(x, y, 1.6, 1.6); }
@@ -420,62 +420,43 @@ function buildBG() {
   if (R.theme === 'underworld') for (let i = 0; i < 10; i++) { const x = rnd() * W, y = rnd() * H, r = 60 + rnd() * 120; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(160,150,200,.16)'); gr.addColorStop(1, 'rgba(160,150,200,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
   (DECOR[R.theme] || decorOutside)(g, rnd, mx0, ty0, mx1, my1);
   const yards = R.duo && !R.lobby ? [false, true] : [false];
-  /* one yard, or two stacked into an 8: the half above the shared road is the partner's, a shade darker */
-  const yr = (RC + LANE / 2 + 0.42) * CS, yh = my1 - ty0, mid = wy(-HY);
-  const yardPath = () => {
+  /* the road: a plain band just wider than where the 도깨비 walk, one dark line around it, no stones.
+     one yard, or two stacked into an 8 that share the middle road */
+  const YM = YARD_M, ox0 = wx(-HX - LANE / 2 - YM), ox1 = wx(HX + LANE / 2 + YM), oy1 = wy(HY + LANE / 2 + YM);
+  const oy0 = yards.length > 1 ? wy(-3 * HY - LANE / 2 - YM) : wy(-HY - LANE / 2 - YM), mid = wy(-HY);
+  const walk = e => {
+    const yr = (RC + LANE / 2 + YM) * CS + e;
     g.beginPath();
-    if (yards.length < 2) { RR(g, mx0, my0, mx1 - mx0, my1 - my0, yr); return; }
-    RR(g, mx0, ty0, mx1 - mx0, mid - ty0, yr); RR(g, mx0, mid, mx1 - mx0, my1 - mid, yr);
-    g.rect(mx0, mid - yr, mx1 - mx0, yr * 2);
+    if (yards.length < 2) { RR(g, ox0 - e, oy0 - e, ox1 - ox0 + 2 * e, oy1 - oy0 + 2 * e, yr); return; }
+    RR(g, ox0 - e, oy0 - e, ox1 - ox0 + 2 * e, mid - oy0 + e, yr); RR(g, ox0 - e, mid, ox1 - ox0 + 2 * e, oy1 - mid + e, yr);
+    g.rect(ox0 - e, mid - yr, ox1 - ox0 + 2 * e, yr * 2);
   };
-  g.save();
-  g.shadowColor = 'rgba(40,30,10,.35)'; g.shadowBlur = 12; g.shadowOffsetY = 4;
-  yardPath(); g.fillStyle = TH.yard; g.fill('nonzero');
-  g.restore();
-  g.save(); yardPath(); g.clip('nonzero');
-  if (yards.length > 1) { g.fillStyle = 'rgba(30,20,40,.12)'; g.fillRect(mx0, ty0, mx1 - mx0, mid - ty0); }
-  for (let i = 0; i < (mx1 - mx0) * yh / 30; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(120,90,50,.13)' : 'rgba(255,245,220,.18)'; g.fillRect(mx0 + rnd() * (mx1 - mx0), ty0 + rnd() * yh, 1.6, 1.6); }
-  g.restore();
-  R.flip = false;
+  const ew = Math.max(1.5, CS * 0.04);
+  g.save(); g.shadowColor = 'rgba(40,30,10,.3)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
+  walk(ew); g.fillStyle = TH.edge; g.fill('nonzero'); g.restore();
+  walk(0); g.fillStyle = TH.walk; g.fill('nonzero');
+  /* where feet have worn the road a little darker, so the line the 도깨비 take reads at a glance */
   const pr = (o) => { g.beginPath(); RR(g, wx(-HX - o), wy(-HY - o), (2 * (HX + o)) * CS, (2 * (HY + o)) * CS, (RC + o) * CS); if (yards.length > 1) RR(g, wx(-HX - o), wy(-3 * HY - o), (2 * (HX + o)) * CS, (2 * (HY + o)) * CS, (RC + o) * CS); };
   g.lineJoin = 'round';
-  pr(0); g.strokeStyle = TH.path; g.lineWidth = LANE * CS; g.stroke();
-  pr(0); g.strokeStyle = 'rgba(255,235,200,.16)'; g.lineWidth = LANE * CS * 0.5; g.stroke();
-  for (let i = 0; i < 700 * yards.length; i++) { R.flip = yards.length > 1 && i % 2 === 1; const d = rnd() * PERIM, p = pathAt(d), o = (rnd() - 0.5) * LANE * 0.9; g.fillStyle = rnd() < 0.5 ? 'rgba(90,60,30,.22)' : 'rgba(255,240,210,.2)'; g.beginPath(); g.arc(wx(p.x - p.dy * o), wy(p.y + p.dx * o), 0.7 + rnd() * 1.2, 0, TAU); g.fill(); }
-  R.flip = false;
-  const P0 = { x: 0, y: 0, dx: 0, dy: 0 };
-  for (const fl of yards) for (const off of [-LANE / 2 - 0.03, LANE / 2 + 0.03]) {
-    R.flip = fl;
-    for (let d = 0; d < PERIM; d += 0.17 + rnd() * 0.06) {
-      pathAt(d, P0);
-      const x = wx(P0.x - P0.dy * off), y = wy(P0.y + P0.dx * off), s = CS * (0.045 + rnd() * 0.03), v = 150 + rnd() * 40 | 0;
-      g.fillStyle = `rgb(${v},${v - 4},${v - 14})`; g.strokeStyle = 'rgba(60,45,30,.55)'; g.lineWidth = 1;
-      g.beginPath(); g.ellipse(x, y, s * 1.3, s, rnd() * PI, 0, TAU); g.fill(); g.stroke();
-    }
-  }
-  R.flip = false;
+  pr(0); g.strokeStyle = 'rgba(120,85,45,.13)'; g.lineWidth = LANE * CS * 0.62; g.stroke();
+  g.save(); walk(0); g.clip('nonzero');
+  for (let i = 0; i < (ox1 - ox0) * (oy1 - oy0) / 120; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(110,80,40,.09)' : 'rgba(255,245,220,.14)'; g.fillRect(ox0 + rnd() * (ox1 - ox0), oy0 + rnd() * (oy1 - oy0), 1.5, 1.5); }
+  g.restore();
+  /* the ground inside each loop is raised a step, like a low platform. no cells drawn on it */
+  const ix = HX - LANE / 2 - 0.08, iy = HY - LANE / 2 - 0.08, ir = 0.2 * CS, lip = 0.1 * CS;
   for (const fl of yards) {
-    R.flip = fl;
-    const gx0 = Math.min(wx(-COLS / 2 - 0.08), wx(COLS / 2 + 0.08)), gy0 = Math.min(wy(-ROWS / 2 - 0.08), wy(ROWS / 2 + 0.08));
-    g.fillStyle = 'rgba(90,60,30,.28)'; g.beginPath(); RR(g, gx0, gy0, (COLS + 0.16) * CS, (ROWS + 0.16) * CS, 0.18 * CS); g.fill();
+    const cy = fl ? -2 * HY : 0, x0 = wx(-ix), y0 = wy(cy - iy), w = 2 * ix * CS, h = 2 * iy * CS;
+    g.fillStyle = 'rgba(40,25,10,.22)'; g.beginPath(); RR(g, x0 - 1, y0 + lip + 2, w + 2, h, ir); g.fill();
+    g.fillStyle = TH.lip; g.beginPath(); RR(g, x0, y0 + lip, w, h, ir); g.fill();
+    g.fillStyle = TH.isle; g.beginPath(); RR(g, x0, y0, w, h, ir); g.fill();
+    g.save(); g.beginPath(); RR(g, x0, y0, w, h, ir); g.clip();
+    for (let i = 0; i < w * h / 140; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(90,60,30,.1)' : 'rgba(255,240,210,.12)'; g.fillRect(x0 + rnd() * w, y0 + rnd() * h, 1.6, 1.6); }
+    g.restore();
+    g.strokeStyle = 'rgba(255,240,210,.3)'; g.lineWidth = Math.max(1, CS * 0.03); g.beginPath(); RR(g, x0 + 1.5, y0 + 1.5, w - 3, h - 3, ir * 0.9); g.stroke();
+    /* the partner's side sits a shade darker so your own stands out */
+    if (fl) { g.fillStyle = 'rgba(30,20,40,.14)'; g.beginPath(); RR(g, x0, y0, w, h + lip, ir); g.fill(); }
   }
   R.flip = false;
-  if (!MAT_PAT) {
-    const pc = document.createElement('canvas'); pc.width = pc.height = 16; const q = pc.getContext('2d');
-    q.fillStyle = '#b8935a'; q.fillRect(0, 0, 16, 16);
-    q.fillStyle = '#a7834d'; q.fillRect(0, 0, 8, 8); q.fillRect(8, 8, 8, 8);
-    q.fillStyle = 'rgba(255,235,190,.25)'; q.fillRect(0, 0, 8, 1.5); q.fillRect(8, 8, 8, 1.5);
-    MAT_PAT = pc;
-  }
-  const pat = g.createPattern(MAT_PAT, 'repeat');
-  for (let i = 0; i < NCELL * yards.length; i++) {
-    const j = i % NCELL, oy = i >= NCELL ? -2 * HY : 0;
-    const x = wx(cellX(j) - 0.45), y = wy(cellY(j) - 0.45 + oy), s = 0.9 * CS;
-    g.save(); g.beginPath(); RR(g, x, y, s, s, 0.1 * CS); g.fillStyle = pat; g.fill();
-    g.strokeStyle = '#6b4c28'; g.lineWidth = Math.max(1.5, CS * 0.04); g.stroke();
-    g.strokeStyle = 'rgba(255,235,190,.35)'; g.lineWidth = 1; g.beginPath(); RR(g, x + 3, y + 3, s - 6, s - 6, 0.08 * CS); g.stroke();
-    g.restore();
-  }
 }
 function decorOutside(g, rnd, mx0, my0, mx1, my1) {
   const CS = R.CS, W = R.W, H = R.H;
@@ -501,16 +482,6 @@ function decorOutside(g, rnd, mx0, my0, mx1, my1) {
     const r = rnd();
     if (r < 0.28) house(x, y, s * 0.9); else if (r < 0.62) tree(x, y, s * (0.8 + rnd() * 0.4)); else if (r < 0.75) { jar(x - 10 * s, y, s); jar(x + 12 * s, y + 2 * s, s * 1.15); }
     else { g.fillStyle = pick(['#f2c94a', '#f07aa0', '#ffffff', '#c58ae0']); for (let k = 0; k < 6; k++) { g.beginPath(); g.arc(x + rnd() * 30 * s, y + rnd() * 20 * s, 2.4 * s, 0, TAU); g.fill(); } }
-  }
-  // stone wall along the top of the yard when there is room
-  if (my0 > 30) {
-    for (let x = mx0 - 20; x < mx1 + 20; x += 18 * s) {
-      for (let row = 0; row < 3; row++) {
-        const yy = my0 - 10 - row * 11 * s, xx = x + (row % 2) * 9 * s, v = 120 + rnd() * 40 | 0;
-        g.fillStyle = `rgb(${v},${v - 4},${v - 12})`; g.strokeStyle = 'rgba(40,30,20,.6)'; g.lineWidth = 1;
-        g.beginPath(); g.ellipse(xx, yy, 9 * s, 6 * s, rnd() * 0.4 - 0.2, 0, TAU); g.fill(); g.stroke();
-      }
-    }
   }
 }
 
@@ -767,15 +738,14 @@ function famBadge(g, fam, x, y, r) {
   g.restore();
 }
 function drawUnitBase(g, v, T) {
-  if (v.u && canMergeAt(v.cell)) {
-    const a = 0.5 + 0.5 * Math.sin(R.time * 3), cx = wx(cellX(v.cell) - 0.46), cy = wy(cellY(v.cell) - 0.46), s = 0.92 * R.CS;
-    g.save(); g.shadowColor = `rgba(255,255,255,${0.45 * a})`; g.shadowBlur = R.CS * 0.12;
-    g.strokeStyle = `rgba(255,255,255,${0.35 + 0.25 * a})`; g.lineWidth = Math.max(1.6, R.CS * 0.04);
-    g.beginPath(); RR(g, cx, cy, s, s, 0.14 * R.CS); g.stroke(); g.restore();
-  }
   const x = wx(cellX(v.cell)), y = wy(cellY(v.cell) + 0.12), rx = R.CS * 0.38, ry = R.CS * 0.2, tr = TIERS[T.tier];
-  g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.5 : 0.36); g.strokeStyle = tr.color; g.lineWidth = Math.max(1.5, R.CS * 0.045);
-  g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill(); g.stroke();
+  if (v.u && canMergeAt(v.cell)) {
+    const a = 0.5 + 0.5 * Math.sin(R.time * 3), k = 1.18 + 0.06 * a;
+    g.save(); g.shadowColor = `rgba(255,255,255,${0.5 * a})`; g.shadowBlur = R.CS * 0.12;
+    g.strokeStyle = `rgba(255,255,255,${0.45 + 0.35 * a})`; g.lineWidth = Math.max(1.8, R.CS * 0.045);
+    g.beginPath(); g.ellipse(x, y, rx * k, ry * k, 0, 0, TAU); g.stroke(); g.restore();
+  }
+  if (T.tier > 0) { g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.5 : 0.36); g.strokeStyle = tr.color; g.lineWidth = Math.max(1.5, R.CS * 0.045); g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill(); g.stroke(); }
   if (T.grp === 'beast') {
     const cols = ['#2f6ad8', '#e2402e', '#f4f0e6', '#1f1a17', '#f2c43a'], sp = R.time * 1.2;
     g.strokeStyle = rgba(tr.light, 0.85); g.lineWidth = Math.max(2, R.CS * 0.05); g.beginPath(); g.ellipse(x, y, rx * 1.16, ry * 1.16, 0, 0, TAU); g.stroke();
@@ -1048,6 +1018,8 @@ function drawHelpers(g) {
   let rx = null, ry = 0, rr = 0;
   if (dragU) {
     const T = TYPES[dragU.t];
+    g.fillStyle = 'rgba(255,250,235,.08)'; g.strokeStyle = 'rgba(255,250,235,.22)'; g.lineWidth = 1.2;
+    for (let i = 0; i < NCELL; i++) { g.beginPath(); RR(g, wx(cellX(i) - 0.44), wy(cellY(i) - 0.44), 0.88 * CS, 0.88 * CS, 0.12 * CS); g.fill(); g.stroke(); }
     if (drag.hover >= 0) roundSq(drag.hover, '#ffffff', 3, 0.9);
     if (T.tier < 3) G.units.forEach((u, i) => { if (u && i !== drag.from && u.t === dragU.t && u.c < capOf(u.t)) roundSq(i, TIERS[T.tier].light, 3.5, 0.55 + 0.45 * Math.sin(R.time * 9)); });
     if (T.range < 50) { rx = drag.x; ry = drag.y; rr = rngOf(T, drag.hover); }
@@ -1114,8 +1086,8 @@ function drawPartnerUnit(g, v) {
   const dur = (KEYS[D.atk] && KEYS[D.atk].dur) || 0.36, ap = Math.min(1, (R.time - v.last) / dur);
   const mo = unitMotion(v, u, T, ap, cellX(v.cell), cellY(v.cell) + 0.3), face = mo.face;
   const x = wx(cellX(v.cell)), y = wy(cellY(v.cell) - 0.12), tr = TIERS[T.tier];
-  g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.45 : 0.3); g.strokeStyle = rgba(tr.color, 0.8); g.lineWidth = Math.max(1.2, R.CS * 0.035);
-  g.beginPath(); g.ellipse(x, y, R.CS * 0.36, R.CS * 0.18, 0, 0, TAU); g.fill(); g.stroke();
+  if (T.tier > 0) { g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.45 : 0.3); g.strokeStyle = rgba(tr.color, 0.8); g.lineWidth = Math.max(1.2, R.CS * 0.035); g.beginPath(); g.ellipse(x, y, R.CS * 0.36, R.CS * 0.18, 0, 0, TAU); g.fill(); g.stroke(); }
+  else { g.fillStyle = 'rgba(40,25,10,.22)'; g.beginPath(); g.ellipse(x, y + R.CS * 0.1, R.CS * 0.26, R.CS * 0.09, 0, 0, TAU); g.fill(); }
   const sx = wx(cellX(v.cell) + mo.dx), sy = wy(cellY(v.cell) - 0.3 + mo.dy) - mo.lift * R.CS;
   const k = R.CS * UNIT_S * D.size / 100 * unitFit(T.id) * 0.94;
   const cnt = u.c || 1;
@@ -1166,7 +1138,7 @@ function drawPartnerTag(g, P) {
   const CS = R.CS;
   if (P.out) {
     g.fillStyle = 'rgba(12,10,20,.45)';
-    g.beginPath(); RR(g, wx(-HX - LANE / 2 - 0.42), wy(-3 * HY - LANE / 2 - 0.42), (2 * (HX + LANE / 2 + 0.42)) * CS, (2 * HY + 0.1) * CS, (RC + LANE / 2 + 0.42) * CS); g.fill();
+    g.beginPath(); RR(g, wx(-HX - LANE / 2 - YARD_M), wy(-3 * HY - LANE / 2 - YARD_M), (2 * (HX + LANE / 2 + YARD_M)) * CS, (2 * HY + YARD_M) * CS, (RC + LANE / 2 + YARD_M) * CS); g.fill();
     return;
   }
   const k = Math.min(1, P.n / BAL.cap), w = (2 * HX - 1.2) * CS, h = Math.max(4, CS * 0.07), x = wx(0) - w / 2, y = wy(-3 * HY - LANE / 2 - 0.3);

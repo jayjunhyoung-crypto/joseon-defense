@@ -443,7 +443,7 @@ const BAL = {
   hpBase: 40, hpGrowth: 1.205, hpGrowth2: 1.10, bossMul: { 10: 16, 20: 18, 30: 13, 40: 7, 50: 7, 60: 6.5, 70: 6, 80: 5.5 },
   startCoins: 400, summonBase: 100, summonStep: 20, coinsDiv: 8, coinsPer: 1, coinUnit: 10,
   upBonus: 0.2, upBase: [100, 200, 300, 400], upStep: [100, 150, 220, 300], luckCost: [600, 1200, 2000, 3200, 4800],
-  perWave: 24, waveExtra: 0.5, cap: 100, spawnGap: 0.45, honPerWave: 1, lvBonus: 0.15, mythLvBonus: 0.12,
+  perWave: 24, waveExtra: 0.5, cap: 100, unitCap: 26, spawnGap: 0.45, honPerWave: 1, lvBonus: 0.15, mythLvBonus: 0.12,
 };
 const SUMMON_BASE = [0.87, 0.11, 0.02, 0];
 const SUMMON_LUCK = [-0.03, 0.02, 0.008, 0.002], SUMMON_LUCK2 = [-0.025, 0.015, 0.008, 0.002];
@@ -676,7 +676,8 @@ function isAway(i) { const r = G.exp && G.exp.run; return !!r && !!r.cells && r.
 function emptyCells() { const out = []; G.units.forEach((u, i) => { if (!u && !isAway(i)) out.push(i); }); return out; }
 function newUnit(t) { G.stats.seen[TYPES[t].id] = 1; return { id: G.nextId++, t, c: 1, cd: rand(0.1, 0.5), dir: 0, sil: 0, n: 0, busy: 0, cmd: 0 }; }
 /* same companions stack in one cell, up to 3 for 일반·희귀·영웅. a new one joins a stack with room, else takes an empty cell */
-function addUnit(t, prefer = -1) {
+function addUnit(t, prefer = -1, force = false) {
+  if (!force && popFull()) return -1;
   const cap = capOf(t); let i = -1;
   for (let k = 0; k < NCELL; k++) { const u = G.units[k]; if (u && u.t === t && u.c < cap) { i = k; break; } }
   if (i < 0) { if (prefer >= 0 && !G.units[prefer]) i = prefer; else { const e = emptyCells(); if (!e.length) return -1; i = pick(e); } }
@@ -684,13 +685,21 @@ function addUnit(t, prefer = -1) {
   G.stats.seen[TYPES[t].id] = 1; G.auraDirty = true;
   return i;
 }
-function hasRoom() { if (emptyCells().length) return true; return G.units.some(u => u && u.c < capOf(u.t)); }
+/* 총 인원: like the original, at most 26 companions in all. a stack of three counts three, and the ones away on 출정 still count */
+function popOf() {
+  let n = 0; for (const u of G.units) if (u) n += u.c || 1;
+  const r = G.exp && G.exp.run; if (r && r.units) for (const u of r.units) if (u) n += u.c || 1;
+  return n;
+}
+const popFull = () => popOf() >= BAL.unitCap;
+const FULL_MSG = () => `동료가 ${BAL.unitCap}명으로 꽉 찼어요. 합치거나 팔면 자리가 나요`;
+function hasRoom() { if (popFull()) return false; if (emptyCells().length) return true; return G.units.some(u => u && u.c < capOf(u.t)); }
 function canMergeAt(i) { const u = G.units[i]; return !!u && TYPES[u.t].tier <= 2 && u.c >= capOf(u.t); }
 function mergeAt(i) {
   if (G.phase !== 'play' || !canMergeAt(i)) return false;
   const u = G.units[i], nt = TYPES[u.t].tier + 1, t = pick(poolOf(nt));
   u.c -= capOf(u.t); if (u.c <= 0) G.units[i] = null;
-  const to = addUnit(t, i);
+  const to = addUnit(t, i, true);
   G.stats.merges++; G.auraDirty = true;
   emit({ k: 'merge', from: i, to, tier: nt });
   if (G.sel === i) G.sel = to;
@@ -702,7 +711,8 @@ function summon() {
   if (G.phase !== 'play') return false;
   const cost = summonCost();
   if (G.coins < cost) { toast('엽전이 모자라요'); return false; }
-  if (!hasRoom()) { toast('멍석이 꽉 찼어요. 하얗게 빛나는 칸을 합성하거나 팔아 주세요'); return false; }
+  if (popFull()) { toast(FULL_MSG()); return false; }
+  if (!hasRoom()) { toast('칸이 꽉 찼어요. 빛나는 동료를 합치거나 팔아 주세요'); return false; }
   const tier = rollTier(summonOdds()), t = pick(poolOf(tier)), i = addUnit(t);
   if (i < 0) { toast(`${TYPES[t].name} 자리가 없어서 돌려보냈어요. 엽전은 그대로예요`); return false; }
   G.coins -= cost; G.summons++; G.stats.summons++;
@@ -715,6 +725,7 @@ function gamble(k) {
   if (G.phase !== 'play') return false;
   const Gd = GUTS[k | 0] || GUTS[0];
   if (G.hon < Gd.cost) { toast('혼이 모자라요. 마당을 넘기거나 보스를 잡으면 모여요'); return false; }
+  if (popFull()) { toast(FULL_MSG()); return false; }
   const empty = emptyCells();
   if (!empty.length) { toast('굿은 빈 칸이 하나 있어야 벌일 수 있어요'); return false; }
   G.hon -= Gd.cost; G.stats.guts++;
@@ -826,7 +837,7 @@ function jointRoll(T) { const [, h, l] = jointOdds(T), x = Math.random(); return
 function jointReset() { Object.assign(JOINT, { n: 1, a: 0, b: 0, t: JOINT.WAIT, ka: 0, kb: 0 }); }
 /* the roll lands in whichever yard G is right now */
 function jointAward(tier, stake) {
-  if (!emptyCells().length) { G.hon += stake; return -1; }
+  if (!emptyCells().length || popFull()) { G.hon += stake; return -1; }
   const t = pick(poolOf(tier)), i = addUnit(t);
   G.stats.guts++; G.stats.joint = (G.stats.joint || 0) + 1; G.stats.gutFailRun = 0;
   if (tier >= 3) G.stats.gutLeg = (G.stats.gutLeg || 0) + 1;
@@ -1317,7 +1328,7 @@ function kill(f, final) {
     if (ku && TYPES[ku.t].killCoin && !f.mini) { const c = TYPES[ku.t].killCoin * (1 + Math.floor(G.wave / 10)); G.coins += c; G.stats.income = (G.stats.income || 0) + c; earnFor(ku.id, c); emit({ k: 'coin', x: f.x, y: f.y, v: c }); }
   }
   emit({ k: 'kill', x: f.x, y: f.y, boss: f.boss, kind: f.kind, reward: f.reward, chal: f.chal, mini: f.mini });
-  if (f.split && !(f.curseT > 0)) for (let k = 0; k < 2; k++) G.addQ.push(newFoe(7, f.max * 0.3, f.speed * 1.15, 0.22, { d: Math.max(0, f.d + (k ? 0.18 : -0.12)), lane: clamp(f.lane + (k ? 0.12 : -0.12), -0.25, 0.25), reward: 0, mini: true, stunT: 0.3 }));
+  if (f.split && !(f.curseT > 0)) for (let k = 0; k < 2; k++) G.addQ.push(newFoe(7, f.max * 0.3, f.speed * 1.15, 0.22, { d: Math.max(0, f.d + (k ? 0.18 : -0.12)), lane: clamp(f.lane + (k ? 0.06 : -0.06), -0.08, 0.08), reward: 0, mini: true, stunT: 0.3 }));
   if (f.chal) {
     const C = CHALS.find(c => c.id === f.chal), ci = CHALS.indexOf(C), coins = C.coins;
     G.coins += coins; G.hon += C.hon; G.stats.chalWins++; G.stats.silverBonus += C.silver;
@@ -1340,7 +1351,7 @@ function slowFoe(f, amt, dur) { if (f.big) amt *= 0.5; f.slowAmt = f.slowT > 0 ?
 function stunFoe(f, dur) { if (f.big) dur *= 0.25; f.stunT = Math.max(f.stunT, dur); }
 /* how fast a 도깨비 walks right now, for the partner's picture of it */
 /* each new 도깨비 takes the next lane across the road, so a crowd fans out instead of stacking on one line */
-function nextLane() { G.laneK = ((G.laneK || 0) + 0.618034) % 1; return (G.laneK - 0.5) * 0.5; }
+function nextLane() { G.laneK = ((G.laneK || 0) + 0.618034) % 1; return (G.laneK - 0.5) * 0.06; }
 function foeSpeedNow(f) { let v = f.speed; if (f.slowT > 0) v *= 1 - f.slowAmt; if (f.revT > 0) v = -0.6 * Math.abs(v); if (f.stunT > 0) v = 0; if (f.hidden > 0) v *= 1.6; return v; }
 function knock(f, d) { if (f.dead) return; f.d = Math.max(0, f.d - (f.big ? d * 0.25 : d)); placeFoe(f); }
 /* coins a companion earns are counted for it, like kills, so its card can say how much it brought in */
@@ -1709,7 +1720,7 @@ function bossTick(dt) {
   } else if (b.boss === 'yeomra') {
     if (b.skT <= 0) {
       b.skT = 8;
-      for (let k = 0; k < 4; k++) { const f = newFoe(7, hpAt(G.wave) * 0.4, 1.05, 0.24, { d: Math.max(0, b.d - 0.3 - k * 0.25), lane: rand(-0.18, 0.18), reward: 0, mini: true }); placeFoe(f); G.foes.push(f); }
+      for (let k = 0; k < 4; k++) { const f = newFoe(7, hpAt(G.wave) * 0.4, 1.05, 0.24, { d: Math.max(0, b.d - 0.3 - k * 0.25), lane: rand(-0.05, 0.05), reward: 0, mini: true }); placeFoe(f); G.foes.push(f); }
       emit({ k: 'summonGhosts', x: b.x, y: b.y });
     }
     b.skT2 -= dt;
@@ -1961,14 +1972,14 @@ function aiThink() {
   }
   /* 합동 굿: match what you put on the 굿상, a hon at a time, and now and then set one up itself */
   AI.jgT = (AI.jgT || 0) - AI_THINK;
-  if (JOINT.a > JOINT.b && JOINT.b < JOINT.MAX && G.hon >= 1 && emptyCells().length) {
+  if (JOINT.a > JOINT.b && JOINT.b < JOINT.MAX && G.hon >= 1 && emptyCells().length && !popFull()) {
     if (AI.jgT <= 0) { G.hon -= 1; JOINT.b++; AI.jgT = rand(0.6, 1.6); AI.jgAge = 0; }
   } else if (!JOINT.a && !JOINT.b && G.hon >= 5 && G.wave >= 5 && AI.jgT <= -20 && Math.random() < 0.03) {
     G.hon -= 2; JOINT.b = 2; AI.jgAge = 0; AI.jgT = 0;
   } else if (JOINT.b && !JOINT.a && (AI.jgAge = (AI.jgAge || 0) + AI_THINK) > 40) { G.hon += JOINT.b; JOINT.b = 0; AI.jgT = 0; }
   /* with a partner it keeps two 혼 aside, so it can answer when you open a table */
   const keep = Math.max(JOINT.a - JOINT.b, COOP.on && G.wave >= 3 ? 2 : 0, 0);
-  for (let n = 0; n < 4 && G.hon - keep >= 1 && emptyCells().length; n++) {
+  for (let n = 0; n < 4 && G.hon - keep >= 1 && emptyCells().length && !popFull(); n++) {
     const k = (G.pity || 0) >= PITY_MAX && G.hon - keep >= 2 ? 2 : G.wave < 6 ? 0 : 1;
     if (G.hon - keep < GUTS[k].cost) break;
     gamble(k);

@@ -412,6 +412,11 @@ body.in-lobby .hud,body.in-lobby .deck{opacity:0;visibility:hidden;pointer-event
 .tools .purse{font-size:16px}
 .tools .pcol{flex-direction:row;align-items:center;gap:5px}
 .tools .mgun{margin-top:0}
+/* 총 인원: how many companions out of 26, red when full */
+.tools .pop{font-size:15px;padding:2px 8px 2px 6px;border-radius:999px;background:rgba(255,255,255,.07)}
+.pop-ico{width:13px;height:13px;fill:#d8cfc0;flex:none}
+.tools .pop.is-full{background:rgba(226,86,60,.22);color:#ffb4a4}
+.tools .pop.is-full .pop-ico{fill:#ffb4a4}
 .tb{position:relative;flex:none;width:32px;height:32px;border-radius:50%;background:rgba(22,19,31,.62);color:var(--hanji);display:grid;place-items:center;font-size:16px;box-shadow:inset 0 0 0 1px var(--line)}
 .tb svg{width:16px;height:16px;fill:currentColor}
 .tb .scroll-ico{width:18px;height:18px;border-radius:4px}
@@ -766,6 +771,7 @@ body.wide .rsheet-in{max-height:min(74vh,680px)}
     <div class="tools">
       <span class="purse" title="엽전"><i class="coin-ico"></i><span class="pcol"><span class="num" id="coins">0</span><span class="mgun" id="mgun" hidden></span></span></span>
       <span class="purse" title="혼"><i class="hon-ico"></i><span class="num" id="hon">0</span></span>
+      <span class="purse pop" id="popChip" title="동료 수"><svg class="pop-ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5" r="3"/><path d="M2.5 15c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5z"/></svg><span class="num" id="pop">0/26</span></span>
       <span class="spacer"></span>
       <button class="tb" id="missBtn" type="button" aria-label="임무 장부"><span class="scroll-ico" aria-hidden="true"></span><i class="tdot" id="missDot" hidden></i></button>
       <button class="tb" id="helpBtn" type="button" aria-label="도움말">?</button>
@@ -1350,7 +1356,7 @@ const BAL = {
   hpBase: 40, hpGrowth: 1.205, hpGrowth2: 1.10, bossMul: { 10: 16, 20: 18, 30: 13, 40: 7, 50: 7, 60: 6.5, 70: 6, 80: 5.5 },
   startCoins: 400, summonBase: 100, summonStep: 20, coinsDiv: 8, coinsPer: 1, coinUnit: 10,
   upBonus: 0.2, upBase: [100, 200, 300, 400], upStep: [100, 150, 220, 300], luckCost: [600, 1200, 2000, 3200, 4800],
-  perWave: 24, waveExtra: 0.5, cap: 100, spawnGap: 0.45, honPerWave: 1, lvBonus: 0.15, mythLvBonus: 0.12,
+  perWave: 24, waveExtra: 0.5, cap: 100, unitCap: 26, spawnGap: 0.45, honPerWave: 1, lvBonus: 0.15, mythLvBonus: 0.12,
 };
 const SUMMON_BASE = [0.87, 0.11, 0.02, 0];
 const SUMMON_LUCK = [-0.03, 0.02, 0.008, 0.002], SUMMON_LUCK2 = [-0.025, 0.015, 0.008, 0.002];
@@ -1583,7 +1589,8 @@ function isAway(i) { const r = G.exp && G.exp.run; return !!r && !!r.cells && r.
 function emptyCells() { const out = []; G.units.forEach((u, i) => { if (!u && !isAway(i)) out.push(i); }); return out; }
 function newUnit(t) { G.stats.seen[TYPES[t].id] = 1; return { id: G.nextId++, t, c: 1, cd: rand(0.1, 0.5), dir: 0, sil: 0, n: 0, busy: 0, cmd: 0 }; }
 /* same companions stack in one cell, up to 3 for 일반·희귀·영웅. a new one joins a stack with room, else takes an empty cell */
-function addUnit(t, prefer = -1) {
+function addUnit(t, prefer = -1, force = false) {
+  if (!force && popFull()) return -1;
   const cap = capOf(t); let i = -1;
   for (let k = 0; k < NCELL; k++) { const u = G.units[k]; if (u && u.t === t && u.c < cap) { i = k; break; } }
   if (i < 0) { if (prefer >= 0 && !G.units[prefer]) i = prefer; else { const e = emptyCells(); if (!e.length) return -1; i = pick(e); } }
@@ -1591,13 +1598,21 @@ function addUnit(t, prefer = -1) {
   G.stats.seen[TYPES[t].id] = 1; G.auraDirty = true;
   return i;
 }
-function hasRoom() { if (emptyCells().length) return true; return G.units.some(u => u && u.c < capOf(u.t)); }
+/* 총 인원: like the original, at most 26 companions in all. a stack of three counts three, and the ones away on 출정 still count */
+function popOf() {
+  let n = 0; for (const u of G.units) if (u) n += u.c || 1;
+  const r = G.exp && G.exp.run; if (r && r.units) for (const u of r.units) if (u) n += u.c || 1;
+  return n;
+}
+const popFull = () => popOf() >= BAL.unitCap;
+const FULL_MSG = () => `동료가 ${BAL.unitCap}명으로 꽉 찼어요. 합치거나 팔면 자리가 나요`;
+function hasRoom() { if (popFull()) return false; if (emptyCells().length) return true; return G.units.some(u => u && u.c < capOf(u.t)); }
 function canMergeAt(i) { const u = G.units[i]; return !!u && TYPES[u.t].tier <= 2 && u.c >= capOf(u.t); }
 function mergeAt(i) {
   if (G.phase !== 'play' || !canMergeAt(i)) return false;
   const u = G.units[i], nt = TYPES[u.t].tier + 1, t = pick(poolOf(nt));
   u.c -= capOf(u.t); if (u.c <= 0) G.units[i] = null;
-  const to = addUnit(t, i);
+  const to = addUnit(t, i, true);
   G.stats.merges++; G.auraDirty = true;
   emit({ k: 'merge', from: i, to, tier: nt });
   if (G.sel === i) G.sel = to;
@@ -1609,7 +1624,8 @@ function summon() {
   if (G.phase !== 'play') return false;
   const cost = summonCost();
   if (G.coins < cost) { toast('엽전이 모자라요'); return false; }
-  if (!hasRoom()) { toast('멍석이 꽉 찼어요. 하얗게 빛나는 칸을 합성하거나 팔아 주세요'); return false; }
+  if (popFull()) { toast(FULL_MSG()); return false; }
+  if (!hasRoom()) { toast('칸이 꽉 찼어요. 빛나는 동료를 합치거나 팔아 주세요'); return false; }
   const tier = rollTier(summonOdds()), t = pick(poolOf(tier)), i = addUnit(t);
   if (i < 0) { toast(`${TYPES[t].name} 자리가 없어서 돌려보냈어요. 엽전은 그대로예요`); return false; }
   G.coins -= cost; G.summons++; G.stats.summons++;
@@ -1622,6 +1638,7 @@ function gamble(k) {
   if (G.phase !== 'play') return false;
   const Gd = GUTS[k | 0] || GUTS[0];
   if (G.hon < Gd.cost) { toast('혼이 모자라요. 마당을 넘기거나 보스를 잡으면 모여요'); return false; }
+  if (popFull()) { toast(FULL_MSG()); return false; }
   const empty = emptyCells();
   if (!empty.length) { toast('굿은 빈 칸이 하나 있어야 벌일 수 있어요'); return false; }
   G.hon -= Gd.cost; G.stats.guts++;
@@ -1733,7 +1750,7 @@ function jointRoll(T) { const [, h, l] = jointOdds(T), x = Math.random(); return
 function jointReset() { Object.assign(JOINT, { n: 1, a: 0, b: 0, t: JOINT.WAIT, ka: 0, kb: 0 }); }
 /* the roll lands in whichever yard G is right now */
 function jointAward(tier, stake) {
-  if (!emptyCells().length) { G.hon += stake; return -1; }
+  if (!emptyCells().length || popFull()) { G.hon += stake; return -1; }
   const t = pick(poolOf(tier)), i = addUnit(t);
   G.stats.guts++; G.stats.joint = (G.stats.joint || 0) + 1; G.stats.gutFailRun = 0;
   if (tier >= 3) G.stats.gutLeg = (G.stats.gutLeg || 0) + 1;
@@ -2224,7 +2241,7 @@ function kill(f, final) {
     if (ku && TYPES[ku.t].killCoin && !f.mini) { const c = TYPES[ku.t].killCoin * (1 + Math.floor(G.wave / 10)); G.coins += c; G.stats.income = (G.stats.income || 0) + c; earnFor(ku.id, c); emit({ k: 'coin', x: f.x, y: f.y, v: c }); }
   }
   emit({ k: 'kill', x: f.x, y: f.y, boss: f.boss, kind: f.kind, reward: f.reward, chal: f.chal, mini: f.mini });
-  if (f.split && !(f.curseT > 0)) for (let k = 0; k < 2; k++) G.addQ.push(newFoe(7, f.max * 0.3, f.speed * 1.15, 0.22, { d: Math.max(0, f.d + (k ? 0.18 : -0.12)), lane: clamp(f.lane + (k ? 0.12 : -0.12), -0.25, 0.25), reward: 0, mini: true, stunT: 0.3 }));
+  if (f.split && !(f.curseT > 0)) for (let k = 0; k < 2; k++) G.addQ.push(newFoe(7, f.max * 0.3, f.speed * 1.15, 0.22, { d: Math.max(0, f.d + (k ? 0.18 : -0.12)), lane: clamp(f.lane + (k ? 0.06 : -0.06), -0.08, 0.08), reward: 0, mini: true, stunT: 0.3 }));
   if (f.chal) {
     const C = CHALS.find(c => c.id === f.chal), ci = CHALS.indexOf(C), coins = C.coins;
     G.coins += coins; G.hon += C.hon; G.stats.chalWins++; G.stats.silverBonus += C.silver;
@@ -2247,7 +2264,7 @@ function slowFoe(f, amt, dur) { if (f.big) amt *= 0.5; f.slowAmt = f.slowT > 0 ?
 function stunFoe(f, dur) { if (f.big) dur *= 0.25; f.stunT = Math.max(f.stunT, dur); }
 /* how fast a 도깨비 walks right now, for the partner's picture of it */
 /* each new 도깨비 takes the next lane across the road, so a crowd fans out instead of stacking on one line */
-function nextLane() { G.laneK = ((G.laneK || 0) + 0.618034) % 1; return (G.laneK - 0.5) * 0.5; }
+function nextLane() { G.laneK = ((G.laneK || 0) + 0.618034) % 1; return (G.laneK - 0.5) * 0.06; }
 function foeSpeedNow(f) { let v = f.speed; if (f.slowT > 0) v *= 1 - f.slowAmt; if (f.revT > 0) v = -0.6 * Math.abs(v); if (f.stunT > 0) v = 0; if (f.hidden > 0) v *= 1.6; return v; }
 function knock(f, d) { if (f.dead) return; f.d = Math.max(0, f.d - (f.big ? d * 0.25 : d)); placeFoe(f); }
 /* coins a companion earns are counted for it, like kills, so its card can say how much it brought in */
@@ -2616,7 +2633,7 @@ function bossTick(dt) {
   } else if (b.boss === 'yeomra') {
     if (b.skT <= 0) {
       b.skT = 8;
-      for (let k = 0; k < 4; k++) { const f = newFoe(7, hpAt(G.wave) * 0.4, 1.05, 0.24, { d: Math.max(0, b.d - 0.3 - k * 0.25), lane: rand(-0.18, 0.18), reward: 0, mini: true }); placeFoe(f); G.foes.push(f); }
+      for (let k = 0; k < 4; k++) { const f = newFoe(7, hpAt(G.wave) * 0.4, 1.05, 0.24, { d: Math.max(0, b.d - 0.3 - k * 0.25), lane: rand(-0.05, 0.05), reward: 0, mini: true }); placeFoe(f); G.foes.push(f); }
       emit({ k: 'summonGhosts', x: b.x, y: b.y });
     }
     b.skT2 -= dt;
@@ -2868,14 +2885,14 @@ function aiThink() {
   }
   /* 합동 굿: match what you put on the 굿상, a hon at a time, and now and then set one up itself */
   AI.jgT = (AI.jgT || 0) - AI_THINK;
-  if (JOINT.a > JOINT.b && JOINT.b < JOINT.MAX && G.hon >= 1 && emptyCells().length) {
+  if (JOINT.a > JOINT.b && JOINT.b < JOINT.MAX && G.hon >= 1 && emptyCells().length && !popFull()) {
     if (AI.jgT <= 0) { G.hon -= 1; JOINT.b++; AI.jgT = rand(0.6, 1.6); AI.jgAge = 0; }
   } else if (!JOINT.a && !JOINT.b && G.hon >= 5 && G.wave >= 5 && AI.jgT <= -20 && Math.random() < 0.03) {
     G.hon -= 2; JOINT.b = 2; AI.jgAge = 0; AI.jgT = 0;
   } else if (JOINT.b && !JOINT.a && (AI.jgAge = (AI.jgAge || 0) + AI_THINK) > 40) { G.hon += JOINT.b; JOINT.b = 0; AI.jgT = 0; }
   /* with a partner it keeps two 혼 aside, so it can answer when you open a table */
   const keep = Math.max(JOINT.a - JOINT.b, COOP.on && G.wave >= 3 ? 2 : 0, 0);
-  for (let n = 0; n < 4 && G.hon - keep >= 1 && emptyCells().length; n++) {
+  for (let n = 0; n < 4 && G.hon - keep >= 1 && emptyCells().length && !popFull(); n++) {
     const k = (G.pity || 0) >= PITY_MAX && G.hon - keep >= 2 ? 2 : G.wave < 6 ? 0 : 1;
     if (G.hon - keep < GUTS[k].cost) break;
     gamble(k);
@@ -4914,7 +4931,7 @@ let PIXEL = false;
 const PIX = { cache: new Map(), fit: new Map(), px: 1, snap: 1, ol: true, art: 32 };
 const PIX_MAXH = 128;
 /* companions drawn a little smaller than the pixel set, so a full yard still reads at a glance */
-const PIX_UNIT = 0.74, UNIT_S = 0.62, PIX_BOX = [-170, -240, 170, 30];
+const PIX_UNIT = 0.74, UNIT_S = 0.7, PIX_BOX = [-170, -240, 170, 30];
 function pixBake(key, sA, box, render, noOl) {
   const ck = key + '@' + Math.round(sA * 500);
   let e = PIX.cache.get(ck); if (e) return e;
@@ -5094,15 +5111,15 @@ function layout() {
   buildBG();
   try { if (el.coopBox && !el.coopBox.hidden) placeCoopBox(); } catch (err) { /* not ready yet */ }
 }
+const YARD_M = 0.1;
 function seeded(s) { return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
-let MAT_PAT = null;
 const THEMES = {
-  village: { ground: '#7d9a55', g1: 'rgba(40,70,20,.35)', g2: 'rgba(190,220,120,.25)', yard: '#dcc394', path: '#c29a63', grass: true },
-  market: { ground: '#a8916c', g1: 'rgba(90,60,30,.22)', g2: 'rgba(240,220,180,.2)', yard: '#dfcaa2', path: '#b98f5c' },
-  fortress: { ground: '#617b4c', g1: 'rgba(30,50,20,.35)', g2: 'rgba(170,200,120,.2)', yard: '#cfc19c', path: '#a8916a', grass: true },
-  sea: { ground: '#e0cb94', g1: 'rgba(150,120,70,.22)', g2: 'rgba(255,250,220,.3)', yard: '#d9c18c', path: '#bf9f68' },
-  underworld: { ground: '#3b3549', g1: 'rgba(10,8,20,.35)', g2: 'rgba(140,120,180,.16)', yard: '#b0a3a0', path: '#8c7d79' },
+  village: { ground: '#7d9a55', g1: 'rgba(40,70,20,.28)', g2: 'rgba(190,220,120,.2)', walk: '#dcc497', edge: '#8f6f45', isle: '#b48d5c', lip: '#7f5f39', grass: true },
+  market: { ground: '#a8916c', g1: 'rgba(90,60,30,.18)', g2: 'rgba(240,220,180,.16)', walk: '#e0cca4', edge: '#8a6c48', isle: '#b28f66', lip: '#7c5f3e' },
+  fortress: { ground: '#617b4c', g1: 'rgba(30,50,20,.28)', g2: 'rgba(170,200,120,.16)', walk: '#d2c5a0', edge: '#6f6248', isle: '#9e8b67', lip: '#6c5e44', grass: true },
+  sea: { ground: '#e0cb94', g1: 'rgba(150,120,70,.18)', g2: 'rgba(255,250,220,.24)', walk: '#e3cd98', edge: '#9a7e50', isle: '#bd9c66', lip: '#8a6f45' },
+  underworld: { ground: '#3b3549', g1: 'rgba(10,8,20,.3)', g2: 'rgba(140,120,180,.12)', walk: '#aa9d99', edge: '#3a3140', isle: '#716474', lip: '#4a3f4d' },
 };
 function buildBG() {
   BG.width = cv.width; BG.height = cv.height;
@@ -5114,7 +5131,7 @@ function buildBG() {
   const ty0 = R.duo && !R.lobby ? wy(-3 * HY - LANE / 2 - 0.42) : my0;
   g.fillStyle = TH.ground; g.fillRect(0, 0, W, H);
   if (R.theme === 'sea') seaBase(g, rnd, mx0, my0, mx1, my1);
-  for (let i = 0; i < W * H / 260; i++) {
+  for (let i = 0; i < W * H / 420; i++) {
     const x = rnd() * W, y = rnd() * H;
     if (TH.grass) { g.strokeStyle = rnd() < 0.5 ? TH.g1 : TH.g2; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + rnd() * 3 - 1.5, y - 3 - rnd() * 4); g.stroke(); }
     else if (i % 2 === 0 && (R.theme !== 'sea' || seaLand(x, y))) { g.fillStyle = rnd() < 0.5 ? TH.g1 : TH.g2; g.fillRect(x, y, 1.6, 1.6); }
@@ -5122,62 +5139,43 @@ function buildBG() {
   if (R.theme === 'underworld') for (let i = 0; i < 10; i++) { const x = rnd() * W, y = rnd() * H, r = 60 + rnd() * 120; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(160,150,200,.16)'); gr.addColorStop(1, 'rgba(160,150,200,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
   (DECOR[R.theme] || decorOutside)(g, rnd, mx0, ty0, mx1, my1);
   const yards = R.duo && !R.lobby ? [false, true] : [false];
-  /* one yard, or two stacked into an 8: the half above the shared road is the partner's, a shade darker */
-  const yr = (RC + LANE / 2 + 0.42) * CS, yh = my1 - ty0, mid = wy(-HY);
-  const yardPath = () => {
+  /* the road: a plain band just wider than where the 도깨비 walk, one dark line around it, no stones.
+     one yard, or two stacked into an 8 that share the middle road */
+  const YM = YARD_M, ox0 = wx(-HX - LANE / 2 - YM), ox1 = wx(HX + LANE / 2 + YM), oy1 = wy(HY + LANE / 2 + YM);
+  const oy0 = yards.length > 1 ? wy(-3 * HY - LANE / 2 - YM) : wy(-HY - LANE / 2 - YM), mid = wy(-HY);
+  const walk = e => {
+    const yr = (RC + LANE / 2 + YM) * CS + e;
     g.beginPath();
-    if (yards.length < 2) { RR(g, mx0, my0, mx1 - mx0, my1 - my0, yr); return; }
-    RR(g, mx0, ty0, mx1 - mx0, mid - ty0, yr); RR(g, mx0, mid, mx1 - mx0, my1 - mid, yr);
-    g.rect(mx0, mid - yr, mx1 - mx0, yr * 2);
+    if (yards.length < 2) { RR(g, ox0 - e, oy0 - e, ox1 - ox0 + 2 * e, oy1 - oy0 + 2 * e, yr); return; }
+    RR(g, ox0 - e, oy0 - e, ox1 - ox0 + 2 * e, mid - oy0 + e, yr); RR(g, ox0 - e, mid, ox1 - ox0 + 2 * e, oy1 - mid + e, yr);
+    g.rect(ox0 - e, mid - yr, ox1 - ox0 + 2 * e, yr * 2);
   };
-  g.save();
-  g.shadowColor = 'rgba(40,30,10,.35)'; g.shadowBlur = 12; g.shadowOffsetY = 4;
-  yardPath(); g.fillStyle = TH.yard; g.fill('nonzero');
-  g.restore();
-  g.save(); yardPath(); g.clip('nonzero');
-  if (yards.length > 1) { g.fillStyle = 'rgba(30,20,40,.12)'; g.fillRect(mx0, ty0, mx1 - mx0, mid - ty0); }
-  for (let i = 0; i < (mx1 - mx0) * yh / 30; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(120,90,50,.13)' : 'rgba(255,245,220,.18)'; g.fillRect(mx0 + rnd() * (mx1 - mx0), ty0 + rnd() * yh, 1.6, 1.6); }
-  g.restore();
-  R.flip = false;
+  const ew = Math.max(1.5, CS * 0.04);
+  g.save(); g.shadowColor = 'rgba(40,30,10,.3)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
+  walk(ew); g.fillStyle = TH.edge; g.fill('nonzero'); g.restore();
+  walk(0); g.fillStyle = TH.walk; g.fill('nonzero');
+  /* where feet have worn the road a little darker, so the line the 도깨비 take reads at a glance */
   const pr = (o) => { g.beginPath(); RR(g, wx(-HX - o), wy(-HY - o), (2 * (HX + o)) * CS, (2 * (HY + o)) * CS, (RC + o) * CS); if (yards.length > 1) RR(g, wx(-HX - o), wy(-3 * HY - o), (2 * (HX + o)) * CS, (2 * (HY + o)) * CS, (RC + o) * CS); };
   g.lineJoin = 'round';
-  pr(0); g.strokeStyle = TH.path; g.lineWidth = LANE * CS; g.stroke();
-  pr(0); g.strokeStyle = 'rgba(255,235,200,.16)'; g.lineWidth = LANE * CS * 0.5; g.stroke();
-  for (let i = 0; i < 700 * yards.length; i++) { R.flip = yards.length > 1 && i % 2 === 1; const d = rnd() * PERIM, p = pathAt(d), o = (rnd() - 0.5) * LANE * 0.9; g.fillStyle = rnd() < 0.5 ? 'rgba(90,60,30,.22)' : 'rgba(255,240,210,.2)'; g.beginPath(); g.arc(wx(p.x - p.dy * o), wy(p.y + p.dx * o), 0.7 + rnd() * 1.2, 0, TAU); g.fill(); }
-  R.flip = false;
-  const P0 = { x: 0, y: 0, dx: 0, dy: 0 };
-  for (const fl of yards) for (const off of [-LANE / 2 - 0.03, LANE / 2 + 0.03]) {
-    R.flip = fl;
-    for (let d = 0; d < PERIM; d += 0.17 + rnd() * 0.06) {
-      pathAt(d, P0);
-      const x = wx(P0.x - P0.dy * off), y = wy(P0.y + P0.dx * off), s = CS * (0.045 + rnd() * 0.03), v = 150 + rnd() * 40 | 0;
-      g.fillStyle = `rgb(${v},${v - 4},${v - 14})`; g.strokeStyle = 'rgba(60,45,30,.55)'; g.lineWidth = 1;
-      g.beginPath(); g.ellipse(x, y, s * 1.3, s, rnd() * PI, 0, TAU); g.fill(); g.stroke();
-    }
-  }
-  R.flip = false;
+  pr(0); g.strokeStyle = 'rgba(120,85,45,.13)'; g.lineWidth = LANE * CS * 0.62; g.stroke();
+  g.save(); walk(0); g.clip('nonzero');
+  for (let i = 0; i < (ox1 - ox0) * (oy1 - oy0) / 120; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(110,80,40,.09)' : 'rgba(255,245,220,.14)'; g.fillRect(ox0 + rnd() * (ox1 - ox0), oy0 + rnd() * (oy1 - oy0), 1.5, 1.5); }
+  g.restore();
+  /* the ground inside each loop is raised a step, like a low platform. no cells drawn on it */
+  const ix = HX - LANE / 2 - 0.08, iy = HY - LANE / 2 - 0.08, ir = 0.2 * CS, lip = 0.1 * CS;
   for (const fl of yards) {
-    R.flip = fl;
-    const gx0 = Math.min(wx(-COLS / 2 - 0.08), wx(COLS / 2 + 0.08)), gy0 = Math.min(wy(-ROWS / 2 - 0.08), wy(ROWS / 2 + 0.08));
-    g.fillStyle = 'rgba(90,60,30,.28)'; g.beginPath(); RR(g, gx0, gy0, (COLS + 0.16) * CS, (ROWS + 0.16) * CS, 0.18 * CS); g.fill();
+    const cy = fl ? -2 * HY : 0, x0 = wx(-ix), y0 = wy(cy - iy), w = 2 * ix * CS, h = 2 * iy * CS;
+    g.fillStyle = 'rgba(40,25,10,.22)'; g.beginPath(); RR(g, x0 - 1, y0 + lip + 2, w + 2, h, ir); g.fill();
+    g.fillStyle = TH.lip; g.beginPath(); RR(g, x0, y0 + lip, w, h, ir); g.fill();
+    g.fillStyle = TH.isle; g.beginPath(); RR(g, x0, y0, w, h, ir); g.fill();
+    g.save(); g.beginPath(); RR(g, x0, y0, w, h, ir); g.clip();
+    for (let i = 0; i < w * h / 140; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(90,60,30,.1)' : 'rgba(255,240,210,.12)'; g.fillRect(x0 + rnd() * w, y0 + rnd() * h, 1.6, 1.6); }
+    g.restore();
+    g.strokeStyle = 'rgba(255,240,210,.3)'; g.lineWidth = Math.max(1, CS * 0.03); g.beginPath(); RR(g, x0 + 1.5, y0 + 1.5, w - 3, h - 3, ir * 0.9); g.stroke();
+    /* the partner's side sits a shade darker so your own stands out */
+    if (fl) { g.fillStyle = 'rgba(30,20,40,.14)'; g.beginPath(); RR(g, x0, y0, w, h + lip, ir); g.fill(); }
   }
   R.flip = false;
-  if (!MAT_PAT) {
-    const pc = document.createElement('canvas'); pc.width = pc.height = 16; const q = pc.getContext('2d');
-    q.fillStyle = '#b8935a'; q.fillRect(0, 0, 16, 16);
-    q.fillStyle = '#a7834d'; q.fillRect(0, 0, 8, 8); q.fillRect(8, 8, 8, 8);
-    q.fillStyle = 'rgba(255,235,190,.25)'; q.fillRect(0, 0, 8, 1.5); q.fillRect(8, 8, 8, 1.5);
-    MAT_PAT = pc;
-  }
-  const pat = g.createPattern(MAT_PAT, 'repeat');
-  for (let i = 0; i < NCELL * yards.length; i++) {
-    const j = i % NCELL, oy = i >= NCELL ? -2 * HY : 0;
-    const x = wx(cellX(j) - 0.45), y = wy(cellY(j) - 0.45 + oy), s = 0.9 * CS;
-    g.save(); g.beginPath(); RR(g, x, y, s, s, 0.1 * CS); g.fillStyle = pat; g.fill();
-    g.strokeStyle = '#6b4c28'; g.lineWidth = Math.max(1.5, CS * 0.04); g.stroke();
-    g.strokeStyle = 'rgba(255,235,190,.35)'; g.lineWidth = 1; g.beginPath(); RR(g, x + 3, y + 3, s - 6, s - 6, 0.08 * CS); g.stroke();
-    g.restore();
-  }
 }
 function decorOutside(g, rnd, mx0, my0, mx1, my1) {
   const CS = R.CS, W = R.W, H = R.H;
@@ -5203,16 +5201,6 @@ function decorOutside(g, rnd, mx0, my0, mx1, my1) {
     const r = rnd();
     if (r < 0.28) house(x, y, s * 0.9); else if (r < 0.62) tree(x, y, s * (0.8 + rnd() * 0.4)); else if (r < 0.75) { jar(x - 10 * s, y, s); jar(x + 12 * s, y + 2 * s, s * 1.15); }
     else { g.fillStyle = pick(['#f2c94a', '#f07aa0', '#ffffff', '#c58ae0']); for (let k = 0; k < 6; k++) { g.beginPath(); g.arc(x + rnd() * 30 * s, y + rnd() * 20 * s, 2.4 * s, 0, TAU); g.fill(); } }
-  }
-  // stone wall along the top of the yard when there is room
-  if (my0 > 30) {
-    for (let x = mx0 - 20; x < mx1 + 20; x += 18 * s) {
-      for (let row = 0; row < 3; row++) {
-        const yy = my0 - 10 - row * 11 * s, xx = x + (row % 2) * 9 * s, v = 120 + rnd() * 40 | 0;
-        g.fillStyle = `rgb(${v},${v - 4},${v - 12})`; g.strokeStyle = 'rgba(40,30,20,.6)'; g.lineWidth = 1;
-        g.beginPath(); g.ellipse(xx, yy, 9 * s, 6 * s, rnd() * 0.4 - 0.2, 0, TAU); g.fill(); g.stroke();
-      }
-    }
   }
 }
 
@@ -5469,15 +5457,14 @@ function famBadge(g, fam, x, y, r) {
   g.restore();
 }
 function drawUnitBase(g, v, T) {
-  if (v.u && canMergeAt(v.cell)) {
-    const a = 0.5 + 0.5 * Math.sin(R.time * 3), cx = wx(cellX(v.cell) - 0.46), cy = wy(cellY(v.cell) - 0.46), s = 0.92 * R.CS;
-    g.save(); g.shadowColor = `rgba(255,255,255,${0.45 * a})`; g.shadowBlur = R.CS * 0.12;
-    g.strokeStyle = `rgba(255,255,255,${0.35 + 0.25 * a})`; g.lineWidth = Math.max(1.6, R.CS * 0.04);
-    g.beginPath(); RR(g, cx, cy, s, s, 0.14 * R.CS); g.stroke(); g.restore();
-  }
   const x = wx(cellX(v.cell)), y = wy(cellY(v.cell) + 0.12), rx = R.CS * 0.38, ry = R.CS * 0.2, tr = TIERS[T.tier];
-  g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.5 : 0.36); g.strokeStyle = tr.color; g.lineWidth = Math.max(1.5, R.CS * 0.045);
-  g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill(); g.stroke();
+  if (v.u && canMergeAt(v.cell)) {
+    const a = 0.5 + 0.5 * Math.sin(R.time * 3), k = 1.18 + 0.06 * a;
+    g.save(); g.shadowColor = `rgba(255,255,255,${0.5 * a})`; g.shadowBlur = R.CS * 0.12;
+    g.strokeStyle = `rgba(255,255,255,${0.45 + 0.35 * a})`; g.lineWidth = Math.max(1.8, R.CS * 0.045);
+    g.beginPath(); g.ellipse(x, y, rx * k, ry * k, 0, 0, TAU); g.stroke(); g.restore();
+  }
+  if (T.tier > 0) { g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.5 : 0.36); g.strokeStyle = tr.color; g.lineWidth = Math.max(1.5, R.CS * 0.045); g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill(); g.stroke(); }
   if (T.grp === 'beast') {
     const cols = ['#2f6ad8', '#e2402e', '#f4f0e6', '#1f1a17', '#f2c43a'], sp = R.time * 1.2;
     g.strokeStyle = rgba(tr.light, 0.85); g.lineWidth = Math.max(2, R.CS * 0.05); g.beginPath(); g.ellipse(x, y, rx * 1.16, ry * 1.16, 0, 0, TAU); g.stroke();
@@ -5750,6 +5737,8 @@ function drawHelpers(g) {
   let rx = null, ry = 0, rr = 0;
   if (dragU) {
     const T = TYPES[dragU.t];
+    g.fillStyle = 'rgba(255,250,235,.08)'; g.strokeStyle = 'rgba(255,250,235,.22)'; g.lineWidth = 1.2;
+    for (let i = 0; i < NCELL; i++) { g.beginPath(); RR(g, wx(cellX(i) - 0.44), wy(cellY(i) - 0.44), 0.88 * CS, 0.88 * CS, 0.12 * CS); g.fill(); g.stroke(); }
     if (drag.hover >= 0) roundSq(drag.hover, '#ffffff', 3, 0.9);
     if (T.tier < 3) G.units.forEach((u, i) => { if (u && i !== drag.from && u.t === dragU.t && u.c < capOf(u.t)) roundSq(i, TIERS[T.tier].light, 3.5, 0.55 + 0.45 * Math.sin(R.time * 9)); });
     if (T.range < 50) { rx = drag.x; ry = drag.y; rr = rngOf(T, drag.hover); }
@@ -5816,8 +5805,8 @@ function drawPartnerUnit(g, v) {
   const dur = (KEYS[D.atk] && KEYS[D.atk].dur) || 0.36, ap = Math.min(1, (R.time - v.last) / dur);
   const mo = unitMotion(v, u, T, ap, cellX(v.cell), cellY(v.cell) + 0.3), face = mo.face;
   const x = wx(cellX(v.cell)), y = wy(cellY(v.cell) - 0.12), tr = TIERS[T.tier];
-  g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.45 : 0.3); g.strokeStyle = rgba(tr.color, 0.8); g.lineWidth = Math.max(1.2, R.CS * 0.035);
-  g.beginPath(); g.ellipse(x, y, R.CS * 0.36, R.CS * 0.18, 0, 0, TAU); g.fill(); g.stroke();
+  if (T.tier > 0) { g.fillStyle = rgba(tr.color, T.tier >= 4 ? 0.45 : 0.3); g.strokeStyle = rgba(tr.color, 0.8); g.lineWidth = Math.max(1.2, R.CS * 0.035); g.beginPath(); g.ellipse(x, y, R.CS * 0.36, R.CS * 0.18, 0, 0, TAU); g.fill(); g.stroke(); }
+  else { g.fillStyle = 'rgba(40,25,10,.22)'; g.beginPath(); g.ellipse(x, y + R.CS * 0.1, R.CS * 0.26, R.CS * 0.09, 0, 0, TAU); g.fill(); }
   const sx = wx(cellX(v.cell) + mo.dx), sy = wy(cellY(v.cell) - 0.3 + mo.dy) - mo.lift * R.CS;
   const k = R.CS * UNIT_S * D.size / 100 * unitFit(T.id) * 0.94;
   const cnt = u.c || 1;
@@ -5868,7 +5857,7 @@ function drawPartnerTag(g, P) {
   const CS = R.CS;
   if (P.out) {
     g.fillStyle = 'rgba(12,10,20,.45)';
-    g.beginPath(); RR(g, wx(-HX - LANE / 2 - 0.42), wy(-3 * HY - LANE / 2 - 0.42), (2 * (HX + LANE / 2 + 0.42)) * CS, (2 * HY + 0.1) * CS, (RC + LANE / 2 + 0.42) * CS); g.fill();
+    g.beginPath(); RR(g, wx(-HX - LANE / 2 - YARD_M), wy(-3 * HY - LANE / 2 - YARD_M), (2 * (HX + LANE / 2 + YARD_M)) * CS, (2 * HY + YARD_M) * CS, (RC + LANE / 2 + YARD_M) * CS); g.fill();
     return;
   }
   const k = Math.min(1, P.n / BAL.cap), w = (2 * HX - 1.2) * CS, h = Math.max(4, CS * 0.07), x = wx(0) - w / 2, y = wy(-3 * HY - LANE / 2 - 0.3);
@@ -8889,10 +8878,15 @@ function uiTick(dt) {
   }
   setText(el.summonCost, 'sc', fmtC(summonCost()));
   renderMissions();
-  setClass(el.summonBtn, 'sb', 'is-short', G.coins < summonCost());
+  const pop = popOf(), full = pop >= BAL.unitCap;
+  setText($('pop'), 'pop', `${pop}/${BAL.unitCap}`);
+  setClass($('popChip'), 'pf', 'is-full', full);
+  setClass(el.summonBtn, 'sb', 'is-short', G.coins < summonCost() || full);
+  /* the first time the yard fills up in a run, say once what to do about it */
+  if (full && !G.fullTold) { G.fullTold = true; toast(FULL_MSG()); }
   setText(el.gutCost, 'gc', G.charmT > 0 ? `부적 ${Math.ceil(G.charmT)}초` : (G.pity || 0) >= PITY_MAX ? `${G.hon} 감천` : String(G.hon));
   renderGut(false);
-  setClass(el.gutBtn, 'gb', 'is-short', G.hon < 1);
+  setClass(el.gutBtn, 'gb', 'is-short', G.hon < 1 || full);
   cache.mt = (cache.mt || 0) + dt;
   if (cache.mt > 0.25) {
     cache.mt = 0;
@@ -8941,7 +8935,7 @@ const SHOWCASE = ['seonbi', 'gaksi', 'sangmo', 'mudang', 'gwakjaewoo', 'halmi', 
 function setupTitle() {
   G = makeState('title', G ? G.speed : 1); G.stage = SAVE.stageSel || 0;
   SHOWCASE.slice(0, NCELL).forEach((id, i) => { G.units[i] = newUnit(TYPE_IX[id]); });
-  for (let k = 0; k < 7; k++) { const f = newFoe(k % 4, 1, 0.45 + Math.random() * 0.2, 0.28, { d: k * PERIM / 7, lane: rand(-0.15, 0.15) }); placeFoe(f); G.foes.push(f); }
+  for (let k = 0; k < 7; k++) { const f = newFoe(k % 4, 1, 0.45 + Math.random() * 0.2, 0.28, { d: k * PERIM / 7, lane: 0 }); placeFoe(f); G.foes.push(f); }
   UVIS.clear();
 }
 function titleTick(dt) {
@@ -9965,7 +9959,7 @@ function joinFromLink() {
 }
 
 /* ---------- 폰 앱: install to the home screen, play offline, keep the screen on ---------- */
-const APP_BUILD = '52806494bc';
+const APP_BUILD = 'b45b9571ab';
 const APP = (() => {
   const ua = navigator.userAgent || '', mq = q => { try { return matchMedia(q).matches; } catch (err) { return false; } };
   const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -10065,7 +10059,7 @@ if ('serviceWorker' in navigator && !window.claude && (location.protocol === 'ht
 window.claude?.hot?.snapshot?.(() => ({ state: serialize() }));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 joinFromLink();
-window.__tal = { AU, grantRelics, moneyMul, destOf, JOINT, jointPut, COMBOS, SEASONS, seasonOf, storyN, unlockStory, comboTick, netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
+window.__tal = { AU, popOf, popFull, grantRelics, moneyMul, destOf, JOINT, jointPut, COMBOS, SEASONS, seasonOf, storyN, unlockStory, comboTick, netFoes, partnerView, PVIS, AI, aiBegin, aiStep, aiSnap, aiSave, aiResume, aiStop, mmStart, mmStop, MM, mmId, APP, appInstall, openAppGuide, appHello, checkUpdate, keepAwake, mythOpen, mythOpenSelf, unlockMyth, MYTH_FREE, openMythCard, claimRoad, roadReward, COOP, NET, CO, coopBegin, coopEnter, netClose, coopInvite, joinURL, saveCode, readCode, importSave, mergeSaves, BAL, get G() { return G; }, grantRelics, relicLv, relicCopies, relicUp, relicNeed, migrate, needFor, canLevel, levelUp, newGame, newFoe, placeFoe, BOSS_DEF, FOES, spawnBoss, update, summon, gamble, upgrade, sell, drop, craft, recipeState, summonCost, upCost, TYPES, TIERS, TIER_POOL, MYTHS, setFx(v) { FX_ON = v; }, endGame, R, startGame, goLobby, get SAVE() { return SAVE; }, cellX, cellY, finishGame, AU, playStep, MODES, canMergeAt, mergeAt, hasRoom, capOf, TIER_MUL, STAGES, openPouch, buyPouch, claimAtt, tweenSilver, selectTab, FAM_KEYS, CHALS, chalReady, callChallenge, saveRun, savedRun, resumeRun, serialize, restore, startExp, expRatio, caveFloor, expReady, CAVE, endExp, chalPortraitURL, foePortraitURL, portraitURL, partyRatio, buildArt, PORTRAIT_CACHE, charm, GUTS, gutP, PITY_MAX, applyLevels, lvPerks, ROSTER, PARTS_OF, LIVE, openRecipes, openCodex, renderTab, unitLvHTML, lvOf, payInterest, addField, legNeed, poolOf, summonOdds, partyBuffs, partyDps, openGut, setPixel(v, o) { if (o) Object.assign(PIX, o); setPixel(v); }, PIX };
 
 })();
 </script>
